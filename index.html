@@ -109,15 +109,10 @@
       background-color: #555;
       text-align: center;
     }
-    /* Uniform "baseball card" style images */
     .tool-card img, .resource-card img {
-      width: 200px;
-      height: 130px;         /* Adjust height as desired */
-      object-fit: cover;     /* Crops to fill the area while maintaining aspect ratio */
-      border: 2px solid #999;
-      border-radius: 5px;
-      display: block;
-      margin: 0 auto 10px auto;
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 10px;
     }
     .tool-card h2, .resource-card h3 {
       margin: 10px 0;
@@ -231,9 +226,7 @@
           <div class="resource-card">
             <h3>Project Break-Even and ROI Calculator</h3>
             <p>Uses Learning Curve, fixed, and hourly costs to determine Project Break-Even, ROI, Cost, Revenue, and more...</p>
-            <a href="https://laznier.github.io/test/Forms/Form_1.xlsx" download class="tool-button">
-              Download Excel Sheet
-            </a>
+            <a href="https://laznier.github.io/test/Forms/Form_1.xlsx" download>Download Excel Sheet</a>
           </div>
         </div>
       </div>
