@@ -1,0 +1,114 @@
+﻿/* General Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f7f7f7;
+  color: #333;
+}
+
+/* Hero Section */
+.hero {
+  background: #333 url('images/hero-bg.jpg') center/cover no-repeat; 
+  /* Replace with your own hero image or remove url(...) if not needed */
+  color: #fff;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.hero-content h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.hero-content p {
+  font-size: 1.2rem;
+}
+
+/* Top Navigation (Optional) */
+.topnav {
+  background: #444;
+  padding: 0.5rem;
+  text-align: center;
+}
+.topnav a {
+  color: #fff;
+  margin: 0 1rem;
+  text-decoration: none;
+}
+.topnav a:hover {
+  text-decoration: underline;
+}
+
+/* Main Tool Grid */
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+}
+
+/* Tool Cards */
+.tool-card {
+  background: #fff;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  text-align: center;
+  padding-bottom: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.tool-card:hover {
+  transform: translateY(-2px);
+}
+
+.tool-card img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.tool-card h2 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.tool-card p {
+  margin: 0 1rem 1rem;
+  color: #666;
+}
+
+/* Buttons */
+.tool-button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background: #0078d4;
+  color: #fff;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.tool-button:hover {
+  background: #005fa3;
+}
+
+.tool-button.disabled {
+  background: #ccc;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  padding: 1rem;
+  background: #fff;
+  border-top: 1px solid #ddd;
+}
