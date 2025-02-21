@@ -31,30 +31,30 @@
   <!-- External stylesheet -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Internal styles for toggle sections and minimal design -->
+  <!-- Internal styles for dark theme and toggle sections -->
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #fff;
-      color: #333;
+      background-color: #222;
+      color: #eee;
       margin: 0;
       padding: 0;
     }
     header.hero {
       text-align: center;
       padding: 40px 20px;
-      background-color: #fff;
-      border-bottom: 1px solid #ddd;
+      background-color: #333;
+      border-bottom: 1px solid #444;
     }
     header.hero h1 {
       margin: 0;
       font-size: 2.5em;
-      color: #333;
+      color: #fff;
     }
     header.hero p {
       margin: 10px 0 0;
       font-size: 1.2em;
-      color: #555;
+      color: #ccc;
     }
     main {
       max-width: 1200px;
@@ -71,15 +71,15 @@
     }
     .toggle-section {
       flex: 1 1 400px;
-      border: 1px solid #ddd;
+      border: 1px solid #444;
       border-radius: 5px;
       overflow: hidden;
-      background-color: #fff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      background-color: #333;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
     }
     .toggle-button {
       width: 100%;
-      background-color: #4285f4;
+      background-color: #0d47a1;
       color: #fff;
       border: none;
       padding: 15px;
@@ -89,11 +89,12 @@
       outline: none;
     }
     .toggle-button:hover {
-      background-color: #3367d6;
+      background-color: #08306b;
     }
     .toggle-content {
       display: none;
       padding: 20px;
+      background-color: #444;
     }
     /* Tool and resource card styling */
     .tool-grid {
@@ -102,10 +103,10 @@
       gap: 20px;
     }
     .tool-card, .resource-card {
-      border: 1px solid #ddd;
+      border: 1px solid #555;
       border-radius: 5px;
       padding: 15px;
-      background-color: #fafafa;
+      background-color: #555;
       text-align: center;
     }
     .tool-card img, .resource-card img {
@@ -115,15 +116,15 @@
     }
     .tool-card h2, .resource-card h3 {
       margin: 10px 0;
-      color: #333;
+      color: #fff;
     }
     .tool-card p, .resource-card p {
-      color: #555;
+      color: #ccc;
       font-size: 0.95em;
     }
     .tool-button {
       display: inline-block;
-      background-color: #4285f4;
+      background-color: #0d47a1;
       color: #fff;
       padding: 10px 15px;
       text-decoration: none;
@@ -131,7 +132,7 @@
       margin-top: 10px;
     }
     .tool-button:hover {
-      background-color: #3367d6;
+      background-color: #08306b;
     }
     /* Feedback section */
     #feedback-section {
@@ -140,17 +141,19 @@
     }
     #feedback-section h2 {
       margin-bottom: 0.5em;
+      color: #fff;
     }
     #feedback-section p {
       margin-bottom: 1em;
+      color: #ccc;
     }
     footer {
       text-align: center;
       padding: 20px;
-      background-color: #f8f8f8;
-      border-top: 1px solid #ddd;
+      background-color: #333;
+      border-top: 1px solid #444;
       font-size: 0.9em;
-      color: #777;
+      color: #aaa;
     }
   </style>
 </head>
