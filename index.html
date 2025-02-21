@@ -19,42 +19,42 @@
   <meta property="og:title" content="Project Manager Helper" />
   <meta property="og:description" content="Free PM tools for network diagrams, WBS, risk assessment, Monte Carlo, earned value, and more—streamline your project workflows." />
   <meta property="og:url" content="https://projectmanagerhelper.com/" />
-  <meta property="og:image" content="https://projectmanagerhelper.com/images/monte_carlo.PNG" />
+  <meta property="og:image" content="https://projectmanagerhelper.com/images/monte_carlo.png" />
   <meta property="og:type" content="website" />
 
   <!-- Twitter Cards (optional) -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Project Manager Helper" />
   <meta name="twitter:description" content="Free, user-friendly PM tools—network diagrams, WBS, risk, Monte Carlo, earned value, and more." />
-  <meta name="twitter:image" content="https://projectmanagerhelper.com/images/monte_carlo.PNG" />
+  <meta name="twitter:image" content="https://projectmanagerhelper.com/images/monte_carlo.png" />
 
   <!-- External stylesheet -->
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Internal styles for dark theme and toggle sections -->
+  <!-- Internal styles for toggle sections and minimal design -->
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #222;
-      color: #eee;
+      background-color: #fff;
+      color: #333;
       margin: 0;
       padding: 0;
     }
     header.hero {
       text-align: center;
       padding: 40px 20px;
-      background-color: #333;
-      border-bottom: 1px solid #444;
+      background-color: #fff;
+      border-bottom: 1px solid #ddd;
     }
     header.hero h1 {
       margin: 0;
       font-size: 2.5em;
-      color: #fff;
+      color: #333;
     }
     header.hero p {
       margin: 10px 0 0;
       font-size: 1.2em;
-      color: #ccc;
+      color: #555;
     }
     main {
       max-width: 1200px;
@@ -71,15 +71,15 @@
     }
     .toggle-section {
       flex: 1 1 400px;
-      border: 1px solid #444;
+      border: 1px solid #ddd;
       border-radius: 5px;
       overflow: hidden;
-      background-color: #333;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+      background-color: #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
     .toggle-button {
       width: 100%;
-      background-color: #0d47a1;
+      background-color: #4285f4;
       color: #fff;
       border: none;
       padding: 15px;
@@ -89,12 +89,11 @@
       outline: none;
     }
     .toggle-button:hover {
-      background-color: #08306b;
+      background-color: #3367d6;
     }
     .toggle-content {
       display: none;
       padding: 20px;
-      background-color: #444;
     }
     /* Tool and resource card styling */
     .tool-grid {
@@ -103,10 +102,10 @@
       gap: 20px;
     }
     .tool-card, .resource-card {
-      border: 1px solid #555;
+      border: 1px solid #ddd;
       border-radius: 5px;
       padding: 15px;
-      background-color: #555;
+      background-color: #fafafa;
       text-align: center;
     }
     .tool-card img, .resource-card img {
@@ -116,15 +115,15 @@
     }
     .tool-card h2, .resource-card h3 {
       margin: 10px 0;
-      color: #fff;
+      color: #333;
     }
     .tool-card p, .resource-card p {
-      color: #ccc;
+      color: #555;
       font-size: 0.95em;
     }
     .tool-button {
       display: inline-block;
-      background-color: #0d47a1;
+      background-color: #4285f4;
       color: #fff;
       padding: 10px 15px;
       text-decoration: none;
@@ -132,7 +131,7 @@
       margin-top: 10px;
     }
     .tool-button:hover {
-      background-color: #08306b;
+      background-color: #3367d6;
     }
     /* Feedback section */
     #feedback-section {
@@ -141,19 +140,17 @@
     }
     #feedback-section h2 {
       margin-bottom: 0.5em;
-      color: #fff;
     }
     #feedback-section p {
       margin-bottom: 1em;
-      color: #ccc;
     }
     footer {
       text-align: center;
       padding: 20px;
-      background-color: #333;
-      border-top: 1px solid #444;
+      background-color: #f8f8f8;
+      border-top: 1px solid #ddd;
       font-size: 0.9em;
-      color: #aaa;
+      color: #777;
     }
   </style>
 </head>
@@ -176,42 +173,42 @@
           <div class="tool-grid">
             <!-- CARD 1: Network Diagram -->
             <div class="tool-card">
-              <img src="images/network.PNG" alt="Network Diagram" />
+              <img src="images/network.png" alt="Network Diagram" />
               <h2>Network Diagram Tool</h2>
               <p>Analyze your project's critical path and schedule.</p>
               <a href="network-diagram/" class="tool-button">Open Tool</a>
             </div>
             <!-- CARD 2: WBS Generator -->
             <div class="tool-card">
-              <img src="images/WSB.PNG" alt="WBS Generator" />
+              <img src="images/WSB.png" alt="WBS Generator" />
               <h2>WBS Generator</h2>
               <p>Create a work breakdown structure for your project.</p>
-              <a href="WSB-Generator/" class="tool-button">Open Tool</a>
+              <a href="WSB-generator/" class="tool-button">Open Tool</a>
             </div>
             <!-- CARD 3: Earned Value Calculator -->
             <div class="tool-card">
-              <img src="images/evc.PNG" alt="Earned Value Calculator" />
+              <img src="images/evc.png" alt="Earned Value Calculator" />
               <h2>Earned Value Calculator</h2>
               <p>Calculate CPI, SPI, EAC, and more to track project performance.</p>
               <a href="evc/" class="tool-button">Open Tool</a>
             </div>
             <!-- CARD 4: Risk Register & Assessment -->
             <div class="tool-card">
-              <img src="images/risk_assessment.PNG" alt="Risk Register & Assessment" />
+              <img src="images/risk_assessment.png" alt="Risk Register & Assessment" />
               <h2>Risk Register &amp; Assessment</h2>
               <p>List risks, set probability &amp; impact, and generate a heat map.</p>
               <a href="risk-register/" class="tool-button">Open Tool</a>
             </div>
             <!-- CARD 5: Probability & Simulations -->
             <div class="tool-card">
-              <img src="images/monte_carlo.PNG" alt="Probability &amp; Simulations" />
+              <img src="images/monte_carlo.png" alt="Probability &amp; Simulations" />
               <h2>Probability &amp; Simulations</h2>
               <p>Model uncertainties using Monte Carlo for deeper insights.</p>
               <a href="monte-carlo/" class="tool-button">Open Tool</a>
             </div>
             <!-- CARD 6: Calculator Tool -->
             <div class="tool-card">
-              <img src="images/calculator.PNG" alt="Calculator Tool" />
+              <img src="images/calculator.png" alt="Calculator Tool" />
               <h2>Calculator Tool</h2>
               <p>Select the best project and perform additional PM calculations.</p>
               <a href="calculators/" class="tool-button">Open Tool</a>
@@ -226,7 +223,10 @@
           <div class="resource-card">
             <h3>Project Break-Even and ROI Calculator</h3>
             <p>Uses Learning Curve, fixed, and hourly costs to determine Project Break-Even, ROI, Cost, Revenue, and more...</p>
-            <a href="https://laznier.github.io/test/Forms/Form_1.xlsx" download>Download Excel Sheet</a>
+            <!-- Keep the working Excel link here -->
+            <a href="https://laznier.github.io/test/Forms/Form_1.xlsx" download class="tool-button">
+              Download Excel Sheet
+            </a>
           </div>
         </div>
       </div>
