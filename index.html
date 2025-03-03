@@ -1,106 +1,438 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-
-  <meta name="google-site-verification" content="..." />
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Project Manager Helper | Free PM Tools</title>
-  <meta name="description" content="Project Manager Helper offers free, easy-to-use tools..." />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Link to external stylesheet -->
-  <link rel="stylesheet" href="style.css" />
+  <meta name="description" content="Project Manager Helper offers free, easy-to-use tools...">
+  <!-- Import Google Font for a modern look -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet">
+  <!-- External stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Base Styles */
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: #f4f4f4;
+      color: #333;
+    }
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+    header, nav, main, footer {
+      width: 100%;
+    }
+    
+    /* Hero Section */
+    .hero {
+      position: relative;
+      background: url('images/hero-background.jpg') center/cover no-repeat;
+      color: #fff;
+      padding: 3rem 1rem;
+      text-align: center;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 0;
+    }
+    .hero-content {
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* Navigation Styles */
+    nav {
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 1rem;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 500;
+      color: #333;
+    }
+    /* Desktop Menu */
+    .menu {
+      display: flex;
+      gap: 1rem;
+    }
+    .menu li {
+      list-style: none;
+      position: relative;
+    }
+    .menu li a {
+      padding: 0.75rem 1rem;
+      color: #333;
+      font-weight: 500;
+      transition: background 0.3s;
+    }
+    .menu li a:hover {
+      background: #f0f0f0;
+      border-radius: 4px;
+    }
+    /* Dropdown Menu for Desktop */
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #fff;
+      border: 1px solid #ddd;
+      display: none;
+      min-width: 180px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .dropdown-menu li a {
+      padding: 0.75rem 1rem;
+      display: block;
+    }
+    .menu li:hover .dropdown-menu {
+      display: block;
+    }
+    
+    /* Hamburger Icon (hidden on desktop) */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      cursor: pointer;
+      width: 30px;
+      height: 24px;
+      justify-content: space-between;
+    }
+    .hamburger span {
+      display: block;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+    }
+    
+    /* Mobile Menu Styles */
+    @media (max-width: 768px) {
+      .menu {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        height: 100vh;
+        width: 250px;
+        background: #fff;
+        flex-direction: column;
+        padding-top: 3rem;
+        gap: 0;
+        transition: right 0.3s ease;
+        box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+      }
+      .menu.open {
+        right: 0;
+      }
+      .menu li {
+        width: 100%;
+      }
+      .menu li a {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+      }
+      /* Remove desktop hover behavior for dropdowns */
+      .dropdown-menu {
+        position: static;
+        border: none;
+        box-shadow: none;
+        display: none;
+      }
+      .dropdown.open .dropdown-menu {
+        display: block;
+      }
+      /* Add an arrow indicator to dropdown toggles */
+      .dropdown-toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+      .dropdown-toggle::after {
+        content: "\25BC";
+        font-size: 0.8rem;
+        transition: transform 0.3s;
+      }
+      .hamburger {
+        display: flex;
+      }
+    }
+    
+    /* Feature Slider, Tools Grid, Feedback Section, Footer, etc.
+       (Existing styles can remain or be further modernized as needed) */
+       
+  </style>
 </head>
-
 <body>
+  <!-- Hero Section -->
+  <header class="hero">
+    <div class="hero-content">
+      <h1>Project Manager Helper</h1>
+      <p>Streamline your projects with easy-to-use tools.</p>
+    </div>
+  </header>
 
-<!-- Menu Button -->
-<button class="menu-btn" onclick="openMenu()">☰</button>
+  <!-- Navigation with Hamburger Menu -->
+  <nav>
+    <div class="nav-container">
+      <div class="logo"><a href="/">PM Helper</a></div>
+      <div class="hamburger" id="hamburger">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <ul class="menu" id="menu">
+        <li><a href="/">Home</a></li>
+        <li class="dropdown">
+          <a href="#tools" class="dropdown-toggle">Tools</a>
+          <ul class="dropdown-menu">
+            <li><a href="network-diagram/">Network Diagram Tool</a></li>
+            <li><a href="WSB-generator/">WBS Generator</a></li>
+            <li><a href="statistics/">Data Distribution Analysis</a></li>
+            <li><a href="evc/">Earned Value Calculator</a></li>
+            <li><a href="risk-register/">Risk Register &amp; Assessment</a></li>
+            <li><a href="statistics/">Simple Regression</a></li>
+            <li><a href="multi-regression/">Multivariable Regression</a></li>
+            <li><a href="monte-carlo/">Monte Carlo Simulation</a></li>
+            <li><a href="advanced-network-diagram/">Advanced Network Diagram</a></li>
+            <li><a href="advanced-scheduling/">Advanced Schedule Predictor</a></li>
+            <li><a href="calculators/">PM Financial Calculator</a></li>
+          </ul>
+        </li>
+        <li class="dropdown">
+          <a href="/templates/" class="dropdown-toggle">Templates</a>
+          <ul class="dropdown-menu">
+            <li><a href="/templates/">Go to Templates</a></li>
+            <li><a href="/templates/learning_curve.xlsx">Learning Curve</a></li>
+            <li><a href="/templates/linear_and_polynomial_regression.xlsx">Regression Models</a></li>
+          </ul>
+        </li>
+        <li class="dropdown">
+          <a href="/tutorials/" class="dropdown-toggle">Tutorials</a>
+          <ul class="dropdown-menu">
+            <li><a href="/tutorials/">Go to Tutorials</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </nav>
 
-<!-- Sidebar Menu -->
-<div class="sidebar">
-  <span class="close-btn" onclick="closeMenu()">✖</span>
-  <a href="/">Home</a>
-  <a href="#tools">Tools</a>
-  <a href="/templates/">Templates</a>
-  <a href="/tutorials/">Tutorials</a>
-  <a href="feedback.html">Feedback</a>
-</div>
-
-<!-- Hero Section -->
-<header class="hero">
-  <div class="hero-content">
-    <h1>Project Manager Helper</h1>
-    <p>Streamline your projects with easy-to-use tools.</p>
-  </div>
-</header>
-
-<!-- Feature Slider -->
-<section class="feature-slider">
-  <button class="slider-arrow prev" onclick="moveSlide(-1)">&#10094;</button>
-  <div class="slider-wrapper" id="slider">
-    <div class="slide">
-      <video autoplay loop muted playsinline class="slide-video">
-        <source src="videos/monte_carlo.mp4" type="video/mp4">
-      </video>
-      <div class="slide-content">
-        <h2>Will my project be completed on time and within budget?</h2>
-        <p>Find out using the Monte Carlo Simulation Tool.</p>
+  <!-- Feature Slider -->
+  <section class="feature-slider">
+    <button class="slider-arrow prev" onclick="moveSlide(-1)">&#10094;</button>
+    <div class="slider-wrapper" id="slider">
+      <!-- Slide 1 -->
+      <div class="slide">
+        <video autoplay loop muted playsinline class="slide-video">
+          <source src="videos/monte_carlo.mp4" type="video/mp4">
+        </video>
+        <div class="slide-content">
+          <h2>Will my project be completed on time and within budget?</h2>
+          <p>Find out the probability of completing your project on schedule and within budget using the Monte Carlo Simulation Tool.</p>
+        </div>
+      </div>
+      <!-- Slide 2 -->
+      <div class="slide">
+        <video autoplay loop muted playsinline class="slide-video">
+          <source src="videos/network.mp4" type="video/mp4">
+        </video>
+        <div class="slide-content">
+          <h2>Where can resources be allocated most effectively to expedite project completion?</h2>
+          <p>Identify float, crashable activities, and the critical path with the Network Diagram Tool.</p>
+        </div>
+      </div>
+      <!-- Slide 3 -->
+      <div class="slide">
+        <video autoplay loop muted playsinline class="slide-video">
+          <source src="videos/weighted_average.mp4" type="video/mp4">
+        </video>
+        <div class="slide-content">
+          <h2>Which project should I choose?</h2>
+          <p>Compare project options and calculate future value with the Weighted Average Calculator.</p>
+        </div>
+      </div>
+      <!-- Slide 4 -->
+      <div class="slide">
+        <video autoplay loop muted playsinline class="slide-video">
+          <source src="videos/risk_assessment.mp4" type="video/mp4">
+        </video>
+        <div class="slide-content">
+          <h2>How do I manage project risk?</h2>
+          <p>Predict, model, and mitigate risks by combining the Risk Register, Monte Carlo Simulation, and Linear Regression Template.</p>
+        </div>
+      </div>
+      <!-- Final Slide: Scrolling Credits -->
+      <div class="slide final-slide">
+        <div class="credits-scroll-wrapper">
+          <ul class="credits-list" id="creditsList">
+            <li>...</li>
+            <li>Use Project Manager Helper to answer questions like</li>
+            <li>...</li>
+            <li>When will the project break even based on learning curve analysis?</li>
+            <li>What is the probability our final project cost will exceed the budget?</li>
+            <li>How can we estimate staffing levels using regression?</li>
+            <li>When will the project break even using learning curves?</li>
+            <li>How do we forecast cash flow trends with polynomial regression?</li>
+            <li>Which tasks carry the highest risk exposure?</li>
+            <li>How do we calculate cost variance using earned value?</li>
+            <li>Which tasks can be fast-tracked or crashed?</li>
+            <li>What’s the expected schedule slip if resources are reduced?</li>
+            <li>How do we compare project alternatives using NPV?</li>
+            <li>Which project has the higher return on investment?</li>
+            <li>What is the optimal way to allocate our finite resources?</li>
+            <li>...and many more...</li>
+            <li>Check out our tutorials!</li>
+          </ul>
+        </div>
       </div>
     </div>
-  </div>
-  <button class="slider-arrow next" onclick="moveSlide(1)">&#10095;</button>
-</section>
-
-<!-- Tools Section -->
-<main>
-  <section id="tools" class="tool-grid">
-    <div class="tool-card">
-      <img src="images/network.png" alt="Network Diagram" />
-      <h2>Network Diagram Tool</h2>
-      <p>Analyze your project's critical path and schedule.</p>
-      <a href="network-diagram/" class="tool-button">Open Tool</a>
-    </div>
+    <button class="slider-arrow next" onclick="moveSlide(1)">&#10095;</button>
   </section>
-</main>
 
-<!-- Feedback Section -->
-<section id="feedback-section">
-  <h2>Your Feedback</h2>
-  <p>Help us improve our tools. Share your ideas or user stories.</p>
-  <a href="feedback.html">Leave Feedback</a>
-</section>
+  <!-- Tools Section -->
+  <main>
+    <section id="tools" class="tool-grid">
+      <!-- Tool Cards (remain unchanged) -->
+      <div class="tool-card">
+        <img src="images/network.png" alt="Network Diagram">
+        <h2>Network Diagram Tool</h2>
+        <p>Analyze your project's critical path and schedule.</p>
+        <a href="network-diagram/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/WSB.png" alt="WBS Generator">
+        <h2>WBS Generator</h2>
+        <p>Create a work breakdown structure for your project.</p>
+        <a href="WSB-generator/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/statistics.PNG" alt="Simple Regression & Distribution">
+        <h2>Simple Regression & Distribution</h2>
+        <p>Analyze data distribution and predict using simple linear and polynomial regression models.</p>
+        <a href="statistics/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/advanced-network-diagram.PNG" alt="Advanced Network Diagram">
+        <h2>Advanced Network Diagram</h2>
+        <p>Calculates complex activity dependencies.</p>
+        <a href="advanced-network-diagram/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/advanced-scheduling.PNG" alt="Advanced Scheduling">
+        <h2>Advanced Scheduling</h2>
+        <p>Uses output from Advanced Network Diagram to simulate complex interdependencies using Monte Carlo.</p>
+        <a href="advanced-scheduling/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/multi-regression.PNG" alt="Multiple Regression">
+        <h2>Multiple Regression</h2>
+        <p>Predict using multivariable linear regression.</p>
+        <a href="multi-regression/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/evc.png" alt="Earned Value Calculator">
+        <h2>Earned Value Calculator</h2>
+        <p>Calculate CPI, SPI, and EAC to track project performance.</p>
+        <a href="evc/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/risk_assessment.png" alt="Risk Register">
+        <h2>Risk Register &amp; Assessment</h2>
+        <p>Identify, prioritize, and manage project risks efficiently.</p>
+        <a href="risk-register/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/monte_carlo.png" alt="Monte Carlo Simulations">
+        <h2>Monte Carlo Simulation</h2>
+        <p>Predict project outcomes based on uncertainty and risks.</p>
+        <a href="monte-carlo/" class="tool-button">Open Tool</a>
+      </div>
+      <div class="tool-card">
+        <img src="images/calculator.png" alt="PM Financial Calculator">
+        <h2>PM Financial Calculator</h2>
+        <p>Evaluate projects using PV, FV, IRR, and Weighted Averages.</p>
+        <a href="calculators/" class="tool-button">Open Tool</a>
+      </div>
+    </section>
+  </main>
 
-<!-- Footer -->
-<footer>
-  <p>&copy; 2025 Laznier Mederos Santos. All rights reserved.</p>
-</footer>
+  <!-- Feedback Section -->
+  <section id="feedback-section">
+    <h2>Your Feedback</h2>
+    <p>Help us improve our tools. Share your ideas or user stories.</p>
+    <a href="feedback.html">Leave Feedback</a>
+  </section>
 
-<!-- JavaScript for Sidebar Menu -->
-<script>
-  function openMenu() {
-    document.querySelector(".sidebar").style.left = "0";
-  }
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2025 Laznier Mederos Santos. All rights reserved.</p>
+  </footer>
 
-  function closeMenu() {
-    document.querySelector(".sidebar").style.left = "-250px";
-  }
-</script>
+  <!-- JavaScript -->
+  <script>
+    // Slide Navigation Script
+    let currentSlide = 0;
+    const slides = document.querySelectorAll(".slide");
+    const totalSlides = slides.length;
+    const creditsList = document.getElementById("creditsList");
 
-<!-- JavaScript for Feature Slider -->
-<script>
-  let currentSlide = 0;
-  const slides = document.querySelectorAll(".slide");
-  const totalSlides = slides.length;
+    function moveSlide(direction) {
+      currentSlide += direction;
+      if (currentSlide < 0) currentSlide = 0;
+      if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
+      document.getElementById("slider").style.transform = `translateX(-${currentSlide * 100}%)`;
 
-  function moveSlide(direction) {
-    currentSlide += direction;
-    if (currentSlide < 0) currentSlide = 0;
-    if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
-    document.getElementById("slider").style.transform = `translateX(-${currentSlide * 100}%)`;
-  }
-</script>
+      if (slides[currentSlide].classList.contains("final-slide")) {
+        startScrollingCredits();
+      } else {
+        stopScrollingCredits();
+      }
+    }
 
+    function startScrollingCredits() {
+      creditsList.style.visibility = "visible";
+      creditsList.style.animation = "none";
+      requestAnimationFrame(() => {
+        creditsList.style.animation = "creditsScroll 30s linear infinite";
+        creditsList.style.animationDelay = "0s";
+      });
+    }
+
+    function stopScrollingCredits() {
+      creditsList.style.animation = "none";
+      creditsList.style.visibility = "hidden";
+    }
+
+    // Hamburger Menu Toggle for Mobile
+    const hamburger = document.getElementById('hamburger');
+    const menu = document.getElementById('menu');
+    hamburger.addEventListener('click', () => {
+      menu.classList.toggle('open');
+    });
+
+    // Mobile Dropdown Toggle
+    document.querySelectorAll('.dropdown > .dropdown-toggle').forEach(toggle => {
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        const parent = toggle.parentElement;
+        parent.classList.toggle('open');
+      });
+    });
+  </script>
 </body>
 </html>
