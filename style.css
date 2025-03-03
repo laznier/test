@@ -5,9 +5,9 @@
   box-sizing: border-box;
 }
 
-/* Base Body Style */
+/* Base Styles */
 body {
-  font-family: 'Roboto', sans-serif; /* Updated to match new index */
+  font-family: 'Roboto', sans-serif; /* Updated to match the new index */
   background: #f7f7f7;
   color: #333;
 }
@@ -15,7 +15,7 @@ body {
 /* Hero Section */
 .hero {
   position: relative;
-  background: url('images/hero-background.jpg') center/cover no-repeat; /* Updated image to match new index */
+  background: url('images/hero-background.jpg') center/cover no-repeat; /* Ensure the filename matches */
   color: #fff;
   padding: 3rem 1rem;
   text-align: center;
@@ -72,6 +72,7 @@ nav {
 .menu {
   display: flex;
   gap: 1rem;
+  align-items: center;
 }
 .menu li {
   list-style: none;
@@ -87,6 +88,8 @@ nav {
   background: #f0f0f0;
   border-radius: 4px;
 }
+
+/* Dropdown Menu for Desktop */
 .dropdown-menu {
   position: absolute;
   top: 100%;
@@ -103,7 +106,7 @@ nav {
   display: block;
 }
 
-/* Hamburger Menu Styles */
+/* Hamburger Menu Styles (Desktop hidden) */
 .hamburger {
   display: none;
   flex-direction: column;
@@ -121,12 +124,15 @@ nav {
 
 /* Mobile Navigation */
 @media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
   .menu {
     position: fixed;
     top: 0;
-    right: -100%;
-    height: 100vh;
+    right: -250px; /* Hidden offscreen */
     width: 250px;
+    height: 100vh;
     background: #fff;
     flex-direction: column;
     padding-top: 3rem;
@@ -144,6 +150,7 @@ nav {
     padding: 1rem;
     border-bottom: 1px solid #eee;
   }
+  /* Disable hover dropdowns; use click instead */
   .dropdown-menu {
     position: static;
     border: none;
@@ -162,14 +169,61 @@ nav {
   .dropdown-toggle::after {
     content: "\25BC";
     font-size: 0.8rem;
-    transition: transform 0.3s;
-  }
-  .hamburger {
-    display: flex;
+    margin-left: 0.5rem;
   }
 }
 
-/* Layout & Responsiveness */
+/* Tools Grid */
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: auto;
+}
+
+/* Tool Cards */
+.tool-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.tool-card:hover {
+  transform: translateY(-5px);
+}
+.tool-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.tool-card h2 {
+  font-size: 1.2rem;
+  margin: 1rem;
+}
+.tool-card p {
+  font-size: 0.9rem;
+  margin: 0 1rem 1rem;
+}
+.tool-button {
+  display: block;
+  text-align: center;
+  background: #007bff;
+  color: #fff;
+  padding: 0.75rem;
+  text-decoration: none;
+  margin: 0 1rem 1rem;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+.tool-button:hover {
+  background: #0056b3;
+}
+
+/* Container for centered layout (if needed) */
 .container {
   width: 90%;
   max-width: 1200px;
