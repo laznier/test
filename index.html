@@ -5,24 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Project Manager Helper | Free PM Tools</title>
   <meta name="description" content="Project Manager Helper offers free, easy-to-use tools...">
-  <!-- Import Google Font for a modern look -->
+  <!-- Google Font for modern typography -->
   <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet">
-  <!-- External stylesheet -->
-  <link rel="stylesheet" href="style.css">
   <style>
+    /* General Reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
     /* Base Styles */
     body {
-      margin: 0;
       font-family: 'Roboto', sans-serif;
-      background: #f4f4f4;
+      background: #f7f7f7;
       color: #333;
-    }
-    a {
-      text-decoration: none;
-      color: inherit;
-    }
-    header, nav, main, footer {
-      width: 100%;
     }
     
     /* Hero Section */
@@ -45,13 +42,30 @@
       z-index: 1;
     }
     
-    /* Navigation Styles */
+    /* Buttons */
+    button, .cta-button {
+      background: #007bff;
+      color: #fff;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      transition: 0.3s;
+      box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+    }
+    button:hover, .cta-button:hover {
+      background: #0056b3;
+      transform: scale(1.05);
+    }
+    
+    /* Navigation */
     nav {
       background: #fff;
       border-bottom: 1px solid #ddd;
       position: sticky;
       top: 0;
       z-index: 100;
+      padding: 0.5rem 1rem;
     }
     .nav-container {
       max-width: 1200px;
@@ -59,17 +73,16 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.5rem 1rem;
     }
-    .logo {
+    .logo a {
       font-size: 1.5rem;
       font-weight: 500;
       color: #333;
     }
-    /* Desktop Menu */
     .menu {
       display: flex;
       gap: 1rem;
+      align-items: center;
     }
     .menu li {
       list-style: none;
@@ -85,6 +98,7 @@
       background: #f0f0f0;
       border-radius: 4px;
     }
+    
     /* Dropdown Menu for Desktop */
     .dropdown-menu {
       position: absolute;
@@ -96,16 +110,13 @@
       min-width: 180px;
       border-radius: 4px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .dropdown-menu li a {
-      padding: 0.75rem 1rem;
-      display: block;
+      z-index: 1000;
     }
     .menu li:hover .dropdown-menu {
       display: block;
     }
     
-    /* Hamburger Icon (hidden on desktop) */
+    /* Hamburger Menu Styles (Desktop hidden) */
     .hamburger {
       display: none;
       flex-direction: column;
@@ -121,14 +132,17 @@
       border-radius: 2px;
     }
     
-    /* Mobile Menu Styles */
+    /* Mobile Navigation */
     @media (max-width: 768px) {
+      .hamburger {
+        display: flex;
+      }
       .menu {
         position: fixed;
         top: 0;
-        right: -100%;
-        height: 100vh;
+        right: -250px;
         width: 250px;
+        height: 100vh;
         background: #fff;
         flex-direction: column;
         padding-top: 3rem;
@@ -146,7 +160,7 @@
         padding: 1rem;
         border-bottom: 1px solid #eee;
       }
-      /* Remove desktop hover behavior for dropdowns */
+      /* Disable hover dropdowns; use click instead */
       .dropdown-menu {
         position: static;
         border: none;
@@ -156,7 +170,6 @@
       .dropdown.open .dropdown-menu {
         display: block;
       }
-      /* Add an arrow indicator to dropdown toggles */
       .dropdown-toggle {
         display: flex;
         justify-content: space-between;
@@ -166,16 +179,175 @@
       .dropdown-toggle::after {
         content: "\25BC";
         font-size: 0.8rem;
-        transition: transform 0.3s;
-      }
-      .hamburger {
-        display: flex;
+        margin-left: 0.5rem;
       }
     }
     
-    /* Feature Slider, Tools Grid, Feedback Section, Footer, etc.
-       (Existing styles can remain or be further modernized as needed) */
-       
+    /* Feature Slider */
+    .feature-slider {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background-color: #222;
+      color: #fff;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .slider-wrapper {
+      display: flex;
+      transition: transform 0.5s ease;
+    }
+    .slide {
+      min-width: 100%;
+      height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      position: relative;
+    }
+    .slide-video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+    }
+    .slide-content {
+      position: relative;
+      z-index: 1;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2rem;
+      border-radius: 10px;
+    }
+    .slider-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background-color: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      border: none;
+      padding: 10px 15px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      z-index: 10;
+      border-radius: 50%;
+    }
+    .slider-arrow:hover {
+      background-color: rgba(255, 255, 255, 0.7);
+      color: #222;
+    }
+    .prev {
+      left: 10px;
+    }
+    .next {
+      right: 10px;
+    }
+    
+    /* Tools Grid */
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      padding: 2rem;
+      max-width: 1200px;
+      margin: auto;
+    }
+    
+    /* Tool Cards */
+    .tool-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: transform 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .tool-card:hover {
+      transform: translateY(-5px);
+    }
+    .tool-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .tool-card h2 {
+      font-size: 1.2rem;
+      margin: 1rem;
+    }
+    .tool-card p {
+      font-size: 0.9rem;
+      margin: 0 1rem 1rem;
+    }
+    .tool-button {
+      display: block;
+      text-align: center;
+      background: #007bff;
+      color: #fff;
+      padding: 0.75rem;
+      text-decoration: none;
+      margin: 0 1rem 1rem;
+      border-radius: 4px;
+      transition: background 0.3s;
+    }
+    .tool-button:hover {
+      background: #0056b3;
+    }
+    
+    /* Feedback Section */
+    #feedback-section {
+      text-align: center;
+      padding: 3rem 1rem;
+      background-color: #f8f8f8;
+      margin-top: 2rem;
+    }
+    #feedback-section h2 {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+    }
+    #feedback-section p {
+      font-size: 1.1rem;
+      margin-bottom: 1.5rem;
+      color: #555;
+    }
+    #feedback-section a {
+      display: inline-block;
+      padding: 0.75rem 1.5rem;
+      background-color: #007bff;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+    #feedback-section a:hover {
+      background-color: #0056b3;
+    }
+    
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 1rem;
+      background-color: #eee;
+      margin-top: 2rem;
+    }
+    
+    /* Credits Animation (for final slide) */
+    @keyframes creditsScroll {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-100%); }
+    }
+    
+    /* Container for centered layouts */
+    .container {
+      width: 90%;
+      max-width: 1200px;
+      margin: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
   </style>
 </head>
 <body>
@@ -186,7 +358,7 @@
       <p>Streamline your projects with easy-to-use tools.</p>
     </div>
   </header>
-
+  
   <!-- Navigation with Hamburger Menu -->
   <nav>
     <div class="nav-container">
@@ -231,7 +403,7 @@
       </ul>
     </div>
   </nav>
-
+  
   <!-- Feature Slider -->
   <section class="feature-slider">
     <button class="slider-arrow prev" onclick="moveSlide(-1)">&#10094;</button>
@@ -303,11 +475,11 @@
     </div>
     <button class="slider-arrow next" onclick="moveSlide(1)">&#10095;</button>
   </section>
-
+  
   <!-- Tools Section -->
   <main>
     <section id="tools" class="tool-grid">
-      <!-- Tool Cards (remain unchanged) -->
+      <!-- Tool Cards -->
       <div class="tool-card">
         <img src="images/network.png" alt="Network Diagram">
         <h2>Network Diagram Tool</h2>
@@ -321,8 +493,8 @@
         <a href="WSB-generator/" class="tool-button">Open Tool</a>
       </div>
       <div class="tool-card">
-        <img src="images/statistics.PNG" alt="Simple Regression & Distribution">
-        <h2>Simple Regression & Distribution</h2>
+        <img src="images/statistics.PNG" alt="Simple Regression &amp; Distribution">
+        <h2>Simple Regression &amp; Distribution</h2>
         <p>Analyze data distribution and predict using simple linear and polynomial regression models.</p>
         <a href="statistics/" class="tool-button">Open Tool</a>
       </div>
@@ -357,7 +529,7 @@
         <a href="risk-register/" class="tool-button">Open Tool</a>
       </div>
       <div class="tool-card">
-        <img src="images/monte_carlo.png" alt="Monte Carlo Simulations">
+        <img src="images/monte_carlo.png" alt="Monte Carlo Simulation">
         <h2>Monte Carlo Simulation</h2>
         <p>Predict project outcomes based on uncertainty and risks.</p>
         <a href="monte-carlo/" class="tool-button">Open Tool</a>
@@ -370,40 +542,40 @@
       </div>
     </section>
   </main>
-
+  
   <!-- Feedback Section -->
   <section id="feedback-section">
     <h2>Your Feedback</h2>
     <p>Help us improve our tools. Share your ideas or user stories.</p>
     <a href="feedback.html">Leave Feedback</a>
   </section>
-
+  
   <!-- Footer -->
   <footer>
     <p>&copy; 2025 Laznier Mederos Santos. All rights reserved.</p>
   </footer>
-
+  
   <!-- JavaScript -->
   <script>
-    // Slide Navigation Script
+    // Slide Navigation
     let currentSlide = 0;
     const slides = document.querySelectorAll(".slide");
     const totalSlides = slides.length;
     const creditsList = document.getElementById("creditsList");
-
+    
     function moveSlide(direction) {
       currentSlide += direction;
       if (currentSlide < 0) currentSlide = 0;
       if (currentSlide >= totalSlides) currentSlide = totalSlides - 1;
       document.getElementById("slider").style.transform = `translateX(-${currentSlide * 100}%)`;
-
+    
       if (slides[currentSlide].classList.contains("final-slide")) {
         startScrollingCredits();
       } else {
         stopScrollingCredits();
       }
     }
-
+    
     function startScrollingCredits() {
       creditsList.style.visibility = "visible";
       creditsList.style.animation = "none";
@@ -412,19 +584,19 @@
         creditsList.style.animationDelay = "0s";
       });
     }
-
+    
     function stopScrollingCredits() {
       creditsList.style.animation = "none";
       creditsList.style.visibility = "hidden";
     }
-
+    
     // Hamburger Menu Toggle for Mobile
     const hamburger = document.getElementById('hamburger');
     const menu = document.getElementById('menu');
     hamburger.addEventListener('click', () => {
       menu.classList.toggle('open');
     });
-
+    
     // Mobile Dropdown Toggle
     document.querySelectorAll('.dropdown > .dropdown-toggle').forEach(toggle => {
       toggle.addEventListener('click', (e) => {
