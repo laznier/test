@@ -1,467 +1,367 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Project Management Financial Calculators</title>
+  <title>Advanced Stock Price Prediction Tool</title>
+  <!-- Include Plotly for interactive charts -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial, sans-serif; 
       margin: 20px;
     }
     .container {
-      width: 80%;
-      margin: 0 auto;
-      padding: 20px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-    }
-    h2 {
-      text-align: center;
-    }
-    .input-group {
-      margin-bottom: 15px;
+      max-width: 900px;
+      margin: auto;
     }
     label {
       display: block;
-      margin-bottom: 5px;
+      margin-top: 10px;
     }
-    input, textarea {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 5px;
+    input, select, button {
+      padding: 5px;
+      margin-top: 5px;
+    }
+    #result {
+      margin-top: 20px;
+    }
+    #explanation {
+      margin-top: 20px; 
+      padding: 10px; 
       border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-bottom: 1em;
-    }
-    table th, table td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: center;
-      vertical-align: middle;
-    }
-    button {
-      padding: 10px;
-      width: 100%;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      margin-bottom: 1em;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    .result {
-      margin-top: 15px;
-      font-weight: bold;
-    }
-    hr {
-      margin: 2em 0;
-      border: 0;
-      border-top: 1px solid #ccc;
-    }
-    .section-title {
-      margin-top: 2em;
-      margin-bottom: 0.5em;
-      font-size: 1.2em;
-      font-weight: bold;
-      text-decoration: underline;
-    }
-    .small-input {
-      width: 50px;
-    }
-    .remove-btn {
-      background: #ff4444;
-      color: #fff;
-      border-radius: 4px;
-      padding: 4px 8px;
-      margin: 0;
-      border: none;
-      cursor: pointer;
-    }
-    .remove-btn:hover {
-      background: #cc0000;
-    }
-    .tiny-btn {
-      background: #666;
-      color: #fff;
-      border-radius: 3px;
-      padding: 2px 6px;
-      margin-left: 5px;
-      cursor: pointer;
-      font-size: 0.8em;
-      border: none;
-    }
-    .tiny-btn:hover {
-      background: #444;
+      background-color: #f9f9f9;
     }
   </style>
 </head>
 <body>
-
-  <button id="backButton" onclick="window.location.href='https://projectmanagerhelper.com'">Back to Main Page</button>
-
-<div class="container">
-  <h2>Project Management Financial Calculators</h2>
-
-  <!-- Future Value Calculator -->
-  <div class="section-title">Future Value Calculator</div>
-  <div class="input-group">
-      <label for="pv">Present Value (PV):</label>
-      <input type="number" id="pv" placeholder="Enter Present Value" value="1000">
+  <div class="container">
+    <h1>Advanced Stock Price Prediction Tool</h1>
+    <p>
+      Enter a ticker symbol (e.g., AAPL), the historical period (in months) to consider, select a future date, and choose a forecasting method.
+      The tool uses advanced techniques to predict the future stock price and then generates an explanation of the methods and math used.
+    </p>
+    
+    <label for="ticker">Ticker Symbol (e.g., AAPL):</label>
+    <input type="text" id="ticker" value="AAPL">
+    
+    <label for="period">Historical Period (in months):</label>
+    <input type="number" id="period" value="12" min="1">
+    
+    <label for="futureDate">Future Date:</label>
+    <input type="date" id="futureDate">
+    
+    <label for="forecastMethod">Forecast Method:</label>
+    <select id="forecastMethod">
+      <option value="mc">Monte Carlo Simulation (GBM)</option>
+      <option value="lr">Linear Trend Forecast</option>
+      <option value="ensemble">Ensemble Forecast (Average of MC &amp; LR)</option>
+    </select>
+    
+    <button id="simulateButton">Run Simulation</button>
+    <div id="loading" style="display:none;">Loading data and running simulation...</div>
+    
+    <div id="result">
+      <div id="chart" style="width:100%;height:400px;"></div>
+      <!-- Slider for Monte Carlo histogram (if applicable) -->
+      <div id="sliderDiv" style="display:none;">
+        <label for="priceSlider">Select Price Threshold:</label>
+        <input type="range" id="priceSlider" min="0" max="1000" step="1" value="0">
+        <span id="thresholdValue">0</span>
+        <p>Probability of final price above threshold: <span id="probability">0%</span></p>
+      </div>
+    </div>
+    
+    <div id="explanation"></div>
   </div>
-  <div class="input-group">
-      <label for="rateFV">Interest Rate (%):</label>
-      <input type="number" id="rateFV" placeholder="Enter Interest Rate" value="2">
-  </div>
-  <div class="input-group">
-      <label for="yearsFV">Number of Years:</label>
-      <input type="number" id="yearsFV" placeholder="Enter Number of Years" value="4">
-  </div>
-  <button onclick="calculateFV()">Calculate Future Value (FV)</button>
-  <div class="result" id="fvResult"></div>
-
-  <hr>
-
-  <!-- Present Value Calculator -->
-  <div class="section-title">Present Value Calculator</div>
-  <div class="input-group">
-      <label for="fvPV">Future Value (FV):</label>
-      <input type="number" id="fvPV" placeholder="Enter Future Value" value="3000">
-  </div>
-  <div class="input-group">
-      <label for="ratePV">Interest Rate (%):</label>
-      <input type="number" id="ratePV" placeholder="Enter Interest Rate" value="2">
-  </div>
-  <div class="input-group">
-      <label for="yearsPV">Number of Years:</label>
-      <input type="number" id="yearsPV" placeholder="Enter Number of Years" value="4">
-  </div>
-  <button onclick="calculatePV()">Calculate Present Value (PV)</button>
-  <div class="result" id="pvResult"></div>
-
-  <hr>
-
-  <!-- NPV Calculator -->
-  <div class="section-title">Net Present Value (<span title="Sum of discounted cash flows">NPV</span>)</div>
-  <div class="input-group">
-      <label for="cashFlowNPV">Net Cash Flow ($):</label>
-      <input type="number" id="cashFlowNPV" placeholder="Enter Net Cash Flow" value="20000">
-  </div>
-  <div class="input-group">
-      <label for="rateNPV">Discount Rate (%):</label>
-      <input type="number" id="rateNPV" placeholder="Enter Discount Rate" value="5">
-  </div>
-  <div class="input-group">
-      <label for="yearsNPV">Number of Years:</label>
-      <input type="number" id="yearsNPV" placeholder="Enter Number of Years" value="5">
-  </div>
-  <button onclick="calculateNPV()">Calculate NPV</button>
-  <div class="result" id="npvResult"></div>
-
-  <hr>
-
-  <!-- ROI Calculator -->
-  <div class="section-title">Return on Investment (<span title="(Gain - Investment) / Investment * 100%">ROI</span>)</div>
-  <div class="input-group">
-      <label for="investmentROI">Investment ($):</label>
-      <input type="number" id="investmentROI" placeholder="Enter Investment Amount" value="200">
-  </div>
-  <div class="input-group">
-      <label for="gainROI">Gain from Investment ($):</label>
-      <input type="number" id="gainROI" placeholder="Enter Gain from Investment" value="210">
-  </div>
-  <button onclick="calculateROI()">Calculate ROI (%)</button>
-  <div class="result" id="roiResult"></div>
-
-  <hr>
-
-  <!-- Payback Period Calculator -->
-  <div class="section-title">Payback Period</div>
-  <div class="input-group">
-      <label for="initialInvestmentPP">Initial Investment ($):</label>
-      <input type="number" id="initialInvestmentPP" placeholder="Enter Initial Investment" value="100000">
-  </div>
-  <div class="input-group">
-      <label for="annualCashFlowPP">Annual Cash Flow ($):</label>
-      <input type="number" id="annualCashFlowPP" placeholder="Enter Annual Cash Flow" value="25000">
-  </div>
-  <button onclick="calculatePaybackPeriod()">Calculate Payback Period</button>
-  <div class="result" id="paybackResult"></div>
-
-  <hr>
-
-  <!-- Breakeven Point Calculator -->
-  <div class="section-title">Breakeven Point (Units)</div>
-  <div class="input-group">
-      <label for="fixedCostsBE">Fixed Costs ($):</label>
-      <input type="number" id="fixedCostsBE" placeholder="Enter Fixed Costs" value="1000">
-  </div>
-  <div class="input-group">
-      <label for="pricePerUnitBE">Price per Unit ($):</label>
-      <input type="number" id="pricePerUnitBE" placeholder="Enter Price per Unit" value="11">
-  </div>
-  <div class="input-group">
-      <label for="variableCostBE">Variable Cost per Unit ($):</label>
-      <input type="number" id="variableCostBE" placeholder="Enter Variable Cost per Unit" value="7">
-  </div>
-  <button onclick="calculateBreakevenPoint()">Calculate Breakeven Point (Units)</button>
-  <div class="result" id="breakevenResult"></div>
-
-  <hr>
-
-  <!-- Weighted Score Table (dynamic) -->
-  <div class="section-title">Weighted Score Table</div>
-  <p>Enter <span title="Examples: NPV, IRR, ESG, etc.">criteria</span>, <span title="(1–5) importance factor">weights</span>, and <span title="Score each project from 1–10">project scores</span>. Add or remove rows (criteria) and columns (projects). Then press "Calculate Scores".</p>
-
-  <div style="margin-bottom:1em;">
-    <button onclick="addCriterion()">Add Criterion</button>
-    <button onclick="removeCriterion()">Remove Criterion</button>
-    <button onclick="addProject()">Add Project</button>
-    <button onclick="removeProject()">Remove Project</button>
-  </div>
-
-  <table id="weightedScoreTable">
-    <thead>
-      <tr id="wstHeader">
-        <th>Criteria</th>
-        <th>Weight<br>(1–5)</th>
-        <th contenteditable="true">Project 1</th>
-        <th contenteditable="true">Project 2</th>
-        <th contenteditable="true">Project 3</th>
-        <th contenteditable="true">Project 4</th>
-      </tr>
-    </thead>
-    <tbody id="wstBody">
-      <!-- 4 sample rows -->
-      <tr>
-        <td contenteditable="true">NPV</td>
-        <td><input type="number" class="small-input" value="3"></td>
-        <td><input type="number" class="small-input" value="9"></td>
-        <td><input type="number" class="small-input" value="6"></td>
-        <td><input type="number" class="small-input" value="7"></td>
-        <td><input type="number" class="small-input" value="10"></td>
-      </tr>
-      <tr>
-        <td contenteditable="true" title="Internal Rate of Return">IRR</td>
-        <td><input type="number" class="small-input" value="3"></td>
-        <td><input type="number" class="small-input" value="4"></td>
-        <td><input type="number" class="small-input" value="8"></td>
-        <td><input type="number" class="small-input" value="9"></td>
-        <td><input type="number" class="small-input" value="6"></td>
-      </tr>
-      <tr>
-        <td contenteditable="true" title="Environmental, Social, Governance">ESG</td>
-        <td><input type="number" class="small-input" value="4"></td>
-        <td><input type="number" class="small-input" value="6"></td>
-        <td><input type="number" class="small-input" value="8"></td>
-        <td><input type="number" class="small-input" value="9"></td>
-        <td><input type="number" class="small-input" value="8"></td>
-      </tr>
-      <tr>
-        <td contenteditable="true">Payback</td>
-        <td><input type="number" class="small-input" value="2"></td>
-        <td><input type="number" class="small-input" value="3"></td>
-        <td><input type="number" class="small-input" value="6"></td>
-        <td><input type="number" class="small-input" value="5"></td>
-        <td><input type="number" class="small-input" value="4"></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <button onclick="calculateWeightedScores()">Calculate Scores</button>
-  <div class="result" id="weightedScoreResult"></div>
-</div>
-
-<script>
-// Future Value (FV)
-function calculateFV() {
-    let pv = parseFloat(document.getElementById("pv").value);
-    let rate = parseFloat(document.getElementById("rateFV").value) / 100;
-    let years = parseFloat(document.getElementById("yearsFV").value);
-    let fv = pv * Math.pow((1 + rate), years);
-    document.getElementById("fvResult").innerText = "Future Value (FV): $" + fv.toFixed(2);
-}
-
-// Present Value (PV)
-function calculatePV() {
-    let fv = parseFloat(document.getElementById("fvPV").value);
-    let rate = parseFloat(document.getElementById("ratePV").value) / 100;
-    let years = parseFloat(document.getElementById("yearsPV").value);
-    let pv = fv / Math.pow((1 + rate), years);
-    document.getElementById("pvResult").innerText = "Present Value (PV): $" + pv.toFixed(2);
-}
-
-// Net Present Value (NPV)
-function calculateNPV() {
-    let cashFlow = parseFloat(document.getElementById("cashFlowNPV").value);
-    let rate = parseFloat(document.getElementById("rateNPV").value) / 100;
-    let years = parseFloat(document.getElementById("yearsNPV").value);
-    let npv = 0;
-    for (let n = 1; n <= years; n++) {
-        npv += cashFlow / Math.pow((1 + rate), n);
+  
+  <script>
+    // Utility: Generate a standard normal random variable (Box-Muller Transform)
+    function randn_bm() {
+      let u = 0, v = 0;
+      while(u === 0) u = Math.random();
+      while(v === 0) v = Math.random();
+      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
     }
-    document.getElementById("npvResult").innerText = "Net Present Value (NPV): $" + npv.toFixed(2);
-}
 
-// ROI
-function calculateROI() {
-    let investment = parseFloat(document.getElementById("investmentROI").value);
-    let gain = parseFloat(document.getElementById("gainROI").value);
-    let roi = ((gain - investment) / investment) * 100;
-    document.getElementById("roiResult").innerText = "ROI: " + roi.toFixed(2) + "%";
-}
-
-// Payback
-function calculatePaybackPeriod() {
-    let initialInvestment = parseFloat(document.getElementById("initialInvestmentPP").value);
-    let annualCashFlow = parseFloat(document.getElementById("annualCashFlowPP").value);
-    let paybackPeriod = initialInvestment / annualCashFlow;
-    document.getElementById("paybackResult").innerText = "Payback Period: " + paybackPeriod.toFixed(2) + " years";
-}
-
-// Breakeven
-function calculateBreakevenPoint() {
-    let fixedCosts = parseFloat(document.getElementById("fixedCostsBE").value);
-    let pricePerUnit = parseFloat(document.getElementById("pricePerUnitBE").value);
-    let variableCost = parseFloat(document.getElementById("variableCostBE").value);
-    let breakevenPoint = fixedCosts / (pricePerUnit - variableCost);
-    document.getElementById("breakevenResult").innerText = "Breakeven Point: " + breakevenPoint.toFixed(2) + " units";
-}
-
-// Weighted Score Table
-function calculateWeightedScores() {
-    const headerRow = document.getElementById("wstHeader");
-    const projectCount = headerRow.cells.length - 2; // subtract "Criteria" & "Weight"
-
-    const body = document.getElementById("wstBody");
-    const rows = body.querySelectorAll("tr");
-
-    // Initialize scores
-    let projectScores = new Array(projectCount).fill(0);
-
-    rows.forEach(row => {
-      const cells = row.querySelectorAll("td");
-      if (cells.length < (2 + projectCount)) return;
-
-      // Weight is in cells[1] -> <input>
-      const weightInput = cells[1].querySelector("input");
-      let weight = parseFloat(weightInput.value) || 0;
-
-      // For each project column
-      for (let p = 0; p < projectCount; p++) {
-        let scoreCell = cells[p+2].querySelector("input");
-        let scoreVal = parseFloat(scoreCell.value) || 0;
-        projectScores[p] += scoreVal * weight;
+    // Fetch historical stock data from Alpha Vantage
+    async function fetchHistoricalData(ticker) {
+      const apiKey = 'A90O2RABGD56MHE6';
+      const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${apiKey}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if(data["Error Message"] || !data["Time Series (Daily)"]) {
+        throw new Error("Error fetching data. Check ticker symbol or API key.");
       }
+      return data["Time Series (Daily)"];
+    }
+
+    // Process historical data to extract prices within the desired period
+    function processHistoricalData(timeSeries, periodMonths) {
+      const dates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b));
+      const endDate = new Date(dates[dates.length - 1]);
+      const startDate = new Date(endDate);
+      startDate.setMonth(startDate.getMonth() - periodMonths);
+      
+      let prices = [];
+      for(let date of dates) {
+        const currentDate = new Date(date);
+        if(currentDate >= startDate && currentDate <= endDate) {
+          prices.push({
+            date: currentDate,
+            close: parseFloat(timeSeries[date]["4. close"])
+          });
+        }
+      }
+      // Ensure ascending order
+      prices.sort((a, b) => a.date - b.date);
+      return prices;
+    }
+
+    // Compute log returns and derive parameters for Monte Carlo simulation
+    function computeStats(prices) {
+      let logReturns = [];
+      for(let i = 1; i < prices.length; i++) {
+        const prev = prices[i-1].close;
+        const curr = prices[i].close;
+        logReturns.push(Math.log(curr / prev));
+      }
+      const mean = logReturns.reduce((a, b) => a + b, 0) / logReturns.length;
+      const variance = logReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (logReturns.length - 1);
+      const stdDev = Math.sqrt(variance);
+      return { mean, stdDev, lastPrice: prices[prices.length-1].close };
+    }
+
+    // Run Monte Carlo simulation using GBM
+    function runSimulation(lastPrice, mean, stdDev, T, numSimulations = 10000) {
+      let finalPrices = [];
+      for(let i = 0; i < numSimulations; i++){
+        const Z = randn_bm();
+        const ST = lastPrice * Math.exp((mean - 0.5 * stdDev * stdDev) * T + stdDev * Math.sqrt(T) * Z);
+        finalPrices.push(ST);
+      }
+      return finalPrices;
+    }
+
+    // Linear regression forecast using least squares method
+    function linearRegressionForecast(prices, futureDate) {
+      // x = days since first date
+      const firstDate = prices[0].date;
+      let xs = prices.map(p => (p.date - firstDate) / (1000 * 60 * 60 * 24)); // in days
+      let ys = prices.map(p => p.close);
+      const n = xs.length;
+      const sumX = xs.reduce((a, b) => a + b, 0);
+      const sumY = ys.reduce((a, b) => a + b, 0);
+      const sumXY = xs.reduce((sum, x, i) => sum + x * ys[i], 0);
+      const sumX2 = xs.reduce((sum, x) => sum + x * x, 0);
+      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+      const intercept = (sumY - slope * sumX) / n;
+      const futureX = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
+      const forecastPrice = intercept + slope * futureX;
+      return { forecastPrice, slope, intercept };
+    }
+
+    // Update chart for Monte Carlo simulation (histogram with slider)
+    function updateChartMC(finalPrices) {
+      const trace = {
+        x: finalPrices,
+        type: 'histogram',
+        marker: { color: '#7f7f7f' }
+      };
+
+      const layout = {
+        title: 'Simulated Final Stock Prices Distribution (Monte Carlo - GBM)',
+        xaxis: { title: 'Price' },
+        yaxis: { title: 'Frequency' }
+      };
+
+      Plotly.newPlot('chart', [trace], layout);
+
+      // Show slider section
+      document.getElementById('sliderDiv').style.display = 'block';
+      const minPrice = Math.floor(Math.min(...finalPrices));
+      const maxPrice = Math.ceil(Math.max(...finalPrices));
+      const slider = document.getElementById('priceSlider');
+      slider.min = minPrice;
+      slider.max = maxPrice;
+      slider.value = minPrice;
+      document.getElementById('thresholdValue').innerText = minPrice;
+      updateProbability(finalPrices, minPrice);
+      slider.oninput = function() {
+        const threshold = parseFloat(this.value);
+        document.getElementById('thresholdValue').innerText = threshold;
+        updateProbability(finalPrices, threshold);
+      };
+    }
+
+    function updateProbability(finalPrices, threshold) {
+      const count = finalPrices.filter(price => price >= threshold).length;
+      const probability = (count / finalPrices.length * 100).toFixed(2);
+      document.getElementById('probability').innerText = probability + '%';
+    }
+
+    // Update chart for Linear Trend Forecast (line chart)
+    function updateChartLinear(prices, futureDate, forecastPrice) {
+      let trace1 = {
+        x: prices.map(p => p.date),
+        y: prices.map(p => p.close),
+        mode: 'lines+markers',
+        name: 'Historical Prices'
+      };
+      let lastDate = prices[prices.length - 1].date;
+      let trace2 = {
+        x: [lastDate, futureDate],
+        y: [prices[prices.length - 1].close, forecastPrice],
+        mode: 'lines+markers',
+        name: 'Linear Trend Forecast'
+      };
+      let layout = {
+        title: 'Linear Trend Forecast',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Price' }
+      };
+      Plotly.newPlot('chart', [trace1, trace2], layout);
+      // Hide slider for non-histogram methods
+      document.getElementById('sliderDiv').style.display = 'none';
+    }
+
+    // Update chart for Ensemble Forecast: use MC histogram with vertical markers for LR and ensemble values
+    function updateChartEnsemble(finalPrices, lrForecast, ensembleForecast) {
+      const trace = {
+        x: finalPrices,
+        type: 'histogram',
+        marker: { color: '#7f7f7f' },
+        name: 'Monte Carlo Simulation'
+      };
+      const layout = {
+        title: 'Ensemble Forecast (Monte Carlo Histogram with LR & Ensemble Markers)',
+        xaxis: { title: 'Price' },
+        yaxis: { title: 'Frequency' },
+        shapes: [
+          {
+            type: 'line',
+            x0: lrForecast,
+            y0: 0,
+            x1: lrForecast,
+            y1: Math.max(...finalPrices),
+            line: { color: 'red', dash: 'dash' }
+          },
+          {
+            type: 'line',
+            x0: ensembleForecast,
+            y0: 0,
+            x1: ensembleForecast,
+            y1: Math.max(...finalPrices),
+            line: { color: 'blue', dash: 'dot' }
+          }
+        ]
+      };
+      Plotly.newPlot('chart', [trace], layout);
+      // Show slider section
+      document.getElementById('sliderDiv').style.display = 'block';
+      const minPrice = Math.floor(Math.min(...finalPrices));
+      const maxPrice = Math.ceil(Math.max(...finalPrices));
+      const slider = document.getElementById('priceSlider');
+      slider.min = minPrice;
+      slider.max = maxPrice;
+      slider.value = minPrice;
+      document.getElementById('thresholdValue').innerText = minPrice;
+      updateProbability(finalPrices, minPrice);
+      slider.oninput = function() {
+        const threshold = parseFloat(this.value);
+        document.getElementById('thresholdValue').innerText = threshold;
+        updateProbability(finalPrices, threshold);
+      };
+    }
+
+    // Generate explanation text based on the chosen method and computed forecasts
+    function generateExplanation(method, mcStats, lrResult, ensembleForecast) {
+      let explanation = "<h3>Explanation of Results</h3>";
+      explanation += "<p><strong>Data Source:</strong> Historical stock data is sourced from the Alpha Vantage API.</p>";
+      if(method === "mc") {
+        explanation += "<p><strong>Method:</strong> Monte Carlo Simulation using Geometric Brownian Motion (GBM).</p>";
+        explanation += "<p>The simulation uses the formula:</p>";
+        explanation += "<p style='font-style: italic;'>S<sub>T</sub> = S<sub>0</sub> × exp((μ - 0.5σ²)T + σ√T × Z)</p>";
+        explanation += "<p>S<sub>0</sub> is the last observed price, μ is the mean of log returns, σ is the standard deviation, T is the time horizon (in years), and Z is a standard normal random variable.</p>";
+      } else if(method === "lr") {
+        explanation += "<p><strong>Method:</strong> Linear Trend Forecast using least squares regression.</p>";
+        explanation += "<p>This method fits a line to the historical prices using the formula:</p>";
+        explanation += "<p style='font-style: italic;'>Price = intercept + slope × (time in days)</p>";
+        explanation += "<p>The line is then extrapolated to the selected future date.</p>";
+      } else if(method === "ensemble") {
+        explanation += "<p><strong>Method:</strong> Ensemble Forecast combining Monte Carlo Simulation (GBM) and Linear Trend Forecast.</p>";
+        explanation += "<p>The ensemble forecast is computed as the average of the Monte Carlo forecast (using the mean of simulated prices) and the linear regression forecast.</p>";
+      }
+      if(lrResult) {
+        explanation += `<p><strong>Linear Regression Details:</strong> Slope = ${lrResult.slope.toFixed(4)}, Intercept = ${lrResult.intercept.toFixed(4)}, Forecast Price = ${lrResult.forecastPrice.toFixed(2)}</p>`;
+      }
+      if(mcStats) {
+        explanation += `<p><strong>Monte Carlo Simulation Details:</strong> Last Price = ${mcStats.lastPrice.toFixed(2)}, Mean Log Return = ${mcStats.mean.toFixed(4)}, Standard Deviation = ${mcStats.stdDev.toFixed(4)}</p>`;
+      }
+      if(method === "ensemble" && ensembleForecast) {
+        explanation += `<p><strong>Ensemble Forecast Price:</strong> ${ensembleForecast.toFixed(2)}</p>`;
+      }
+      document.getElementById('explanation').innerHTML = explanation;
+    }
+
+    // Main simulation event
+    document.getElementById('simulateButton').addEventListener('click', async () => {
+      document.getElementById('loading').style.display = 'block';
+      const ticker = document.getElementById('ticker').value.trim();
+      const periodMonths = parseInt(document.getElementById('period').value);
+      const futureDateInput = document.getElementById('futureDate').value;
+      const forecastMethod = document.getElementById('forecastMethod').value; // "mc", "lr", or "ensemble"
+      
+      if(!ticker || !futureDateInput) {
+        alert("Please enter both a ticker symbol and a future date.");
+        document.getElementById('loading').style.display = 'none';
+        return;
+      }
+      
+      try {
+        const timeSeries = await fetchHistoricalData(ticker);
+        const prices = processHistoricalData(timeSeries, periodMonths);
+        if(prices.length < 2) {
+          alert("Not enough historical data available for the specified period.");
+          document.getElementById('loading').style.display = 'none';
+          return;
+        }
+        
+        // Convert future date input to a Date object
+        const futureDate = new Date(futureDateInput);
+        // Compute linear regression forecast
+        const lrResult = linearRegressionForecast(prices, futureDate);
+        
+        let mcStats = null;
+        let finalPrices = null;
+        let ensembleForecast = null;
+        
+        if(forecastMethod === "mc" || forecastMethod === "ensemble") {
+          // Compute parameters for Monte Carlo simulation
+          mcStats = computeStats(prices);
+          // Compute time horizon (T in years) from the last historical date to the future date
+          const lastDate = prices[prices.length - 1].date;
+          const diffTime = Math.abs(futureDate - lastDate);
+          const T = diffTime / (365 * 24 * 60 * 60 * 1000);
+          finalPrices = runSimulation(mcStats.lastPrice, mcStats.mean, mcStats.stdDev, T);
+        }
+        
+        if(forecastMethod === "mc") {
+          updateChartMC(finalPrices);
+          generateExplanation("mc", mcStats, lrResult, null);
+        } else if(forecastMethod === "lr") {
+          updateChartLinear(prices, futureDate, lrResult.forecastPrice);
+          generateExplanation("lr", null, lrResult, null);
+        } else if(forecastMethod === "ensemble") {
+          // Ensemble forecast: average of MC mean and linear regression forecast
+          const mcMean = finalPrices.reduce((a, b) => a + b, 0) / finalPrices.length;
+          ensembleForecast = (mcMean + lrResult.forecastPrice) / 2;
+          updateChartEnsemble(finalPrices, lrResult.forecastPrice, ensembleForecast);
+          generateExplanation("ensemble", mcStats, lrResult, ensembleForecast);
+        }
+      } catch (error) {
+        alert("Error: " + error.message);
+      }
+      document.getElementById('loading').style.display = 'none';
     });
-
-    // Build result string
-    let resultStr = "Composite Scores:<br>";
-    for (let p = 0; p < projectCount; p++) {
-      const projectName = headerRow.cells[p+2].textContent.trim() || `Project ${p+1}`;
-      resultStr += `${projectName}: ${projectScores[p].toFixed(2)}<br>`;
-    }
-
-    document.getElementById("weightedScoreResult").innerHTML = resultStr;
-}
-
-// Add Criterion (new row)
-function addCriterion() {
-    const body = document.getElementById("wstBody");
-    const headerRow = document.getElementById("wstHeader");
-    const projectCount = headerRow.cells.length - 2; // excluding "Criteria" & "Weight"
-
-    let newRow = document.createElement("tr");
-
-    // 1) Criteria name (contenteditable)
-    let criteriaCell = document.createElement("td");
-    criteriaCell.contentEditable = "true";
-    criteriaCell.innerText = "New Criterion";
-    newRow.appendChild(criteriaCell);
-
-    // 2) Weight
-    let weightCell = document.createElement("td");
-    let weightInput = document.createElement("input");
-    weightInput.type = "number";
-    weightInput.className = "small-input";
-    weightInput.value = "1";
-    weightCell.appendChild(weightInput);
-    newRow.appendChild(weightCell);
-
-    // 3) Project scores
-    for (let p = 0; p < projectCount; p++) {
-      let scoreCell = document.createElement("td");
-      let scoreInput = document.createElement("input");
-      scoreInput.type = "number";
-      scoreInput.className = "small-input";
-      scoreInput.value = "5";
-      scoreCell.appendChild(scoreInput);
-      newRow.appendChild(scoreCell);
-    }
-
-    body.appendChild(newRow);
-}
-
-// Remove Criterion (remove last row)
-function removeCriterion() {
-    const body = document.getElementById("wstBody");
-    if (body.rows.length > 0) {
-      body.deleteRow(body.rows.length - 1);
-    }
-}
-
-// Add Project (new column)
-function addProject() {
-    const headerRow = document.getElementById("wstHeader");
-    const projectCount = headerRow.cells.length - 2; // current count
-
-    // Insert a new TH for the new project
-    let newTh = document.createElement("th");
-    newTh.contentEditable = "true";
-    newTh.innerText = `Project ${projectCount+1}`;
-    headerRow.appendChild(newTh);
-
-    // For each row in the body, add a new TD with an <input>
-    const body = document.getElementById("wstBody");
-    const rows = body.querySelectorAll("tr");
-
-    rows.forEach(row => {
-      let newTd = document.createElement("td");
-      let newInput = document.createElement("input");
-      newInput.type = "number";
-      newInput.className = "small-input";
-      newInput.value = "5";
-      newTd.appendChild(newInput);
-      row.appendChild(newTd);
-    });
-}
-
-// Remove Project (remove last project column)
-function removeProject() {
-    const headerRow = document.getElementById("wstHeader");
-    let projectCount = headerRow.cells.length - 2;
-    if (projectCount <= 1) {
-      alert("Cannot remove the last project column.");
-      return;
-    }
-
-    // Remove the last project column from the header
-    headerRow.deleteCell(headerRow.cells.length - 1);
-
-    // Remove the corresponding column from each row in the body
-    const body = document.getElementById("wstBody");
-    const rows = body.querySelectorAll("tr");
-    rows.forEach(row => {
-      row.deleteCell(row.cells.length - 1);
-    });
-}
-</script>
-
+  </script>
 </body>
 </html>
