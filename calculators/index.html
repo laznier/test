@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Advanced Stock Price Prediction Tool</title>
-  <!-- Include Plotly for interactive charts -->
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <title>Advanced Stock Price Prediction Tool (Finnhub)</title>
+  <!-- Use a newer version of Plotly (v2.20.0) -->
+  <script src="https://cdn.plot.ly/plotly-2.20.0.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif; 
@@ -34,17 +34,17 @@
 </head>
 <body>
   <div class="container">
-    <h1>Advanced Stock Price Prediction Tool</h1>
+    <h1>Advanced Stock Price Prediction Tool (Using Finnhub.io)</h1>
     <p>
       Enter a ticker symbol (e.g., AAPL), the historical period (in months) to consider, select a future date, and choose a forecasting method.
-      The tool uses advanced techniques to predict the future stock price and then generates an explanation of the methods and math used.
+      This version fetches split/dividend-adjusted data from <strong>Finnhub</strong> via its <code>/stock/candle</code> endpoint.
     </p>
     
     <label for="ticker">Ticker Symbol (e.g., AAPL):</label>
     <input type="text" id="ticker" value="AAPL">
     
     <label for="period">Historical Period (in months):</label>
-    <input type="number" id="period" value="12" min="1">
+    <input type="number" id="period" value="6" min="1">
     
     <label for="futureDate">Future Date:</label>
     <input type="date" id="futureDate">
@@ -74,7 +74,7 @@
   </div>
   
   <script>
-    // Utility: Generate a standard normal random variable (Box-Muller Transform)
+    // 1. Generate a standard normal random variable (Box-Muller Transform)
     function randn_bm() {
       let u = 0, v = 0;
       while(u === 0) u = Math.random();
@@ -82,44 +82,56 @@
       return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
     }
 
-    // Fetch historical stock data from Alpha Vantage
-    async function fetchHistoricalData(ticker) {
-      const apiKey = 'A90O2RABGD56MHE6';
-      const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${apiKey}`;
+    // 2. Fetch historical stock data from Finnhub
+    //    We'll compute the 'from' and 'to' timestamps based on periodMonths.
+    async function fetchFinnhubData(ticker, periodMonths) {
+      // Replace with your valid Finnhub API key
+      const token = 'cvb4t4hr01qgjh3vt88gcvb4t4hr01qgjh3vt890';
+
+      // Current time in seconds
+      const now = Math.floor(Date.now() / 1000);
+      // Approx 30 days per month
+      const fromOffset = periodMonths * 30 * 24 * 60 * 60;
+      const fromTime = now - fromOffset;
+
+      // We'll request daily data (resolution=D)
+      // Docs: https://finnhub.io/docs/api#stock-candles
+      const url = `https://finnhub.io/api/v1/stock/candle?symbol=${ticker}&resolution=D&from=${fromTime}&to=${now}&token=${token}`;
+      
+      console.log("Fetching Finnhub URL:", url);
       const response = await fetch(url);
       const data = await response.json();
-      if(data["Error Message"] || !data["Time Series (Daily)"]) {
-        throw new Error("Error fetching data. Check ticker symbol or API key.");
+      console.log("Finnhub response:", data);
+
+      // data might look like:
+      // { c: [...], h: [...], l: [...], o: [...], s: "ok" or "no_data", t: [...], v: [...] }
+      if (data.s !== "ok" || !data.c || !data.t) {
+        throw new Error("Error fetching data. Check ticker symbol or free plan limits.");
       }
-      return data["Time Series (Daily)"];
+      return data;
     }
 
-    // Process historical data to extract prices within the desired period
-    function processHistoricalData(timeSeries, periodMonths) {
-      const dates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b));
-      const endDate = new Date(dates[dates.length - 1]);
-      const startDate = new Date(endDate);
-      startDate.setMonth(startDate.getMonth() - periodMonths);
-      
+    // 3. Process the Finnhub candle data into an array of { date, close }
+    function processFinnhubData(candleData) {
+      // candleData.c is array of close prices
+      // candleData.t is array of timestamps (in seconds)
+      // We'll convert to a sorted array of { date, close }
       let prices = [];
-      for(let date of dates) {
-        const currentDate = new Date(date);
-        if(currentDate >= startDate && currentDate <= endDate) {
-          prices.push({
-            date: currentDate,
-            close: parseFloat(timeSeries[date]["4. close"])
-          });
-        }
+      for(let i = 0; i < candleData.t.length; i++) {
+        const ts = candleData.t[i];
+        const close = candleData.c[i];
+        const d = new Date(ts * 1000); // convert seconds to ms
+        prices.push({ date: d, close: close });
       }
-      // Ensure ascending order
-      prices.sort((a, b) => a.date - b.date);
+      // Ensure ascending order by date
+      prices.sort((a,b) => a.date - b.date);
       return prices;
     }
 
-    // Compute log returns and derive parameters for Monte Carlo simulation
+    // 4. Compute log returns for Monte Carlo
     function computeStats(prices) {
       let logReturns = [];
-      for(let i = 1; i < prices.length; i++) {
+      for (let i = 1; i < prices.length; i++) {
         const prev = prices[i-1].close;
         const curr = prices[i].close;
         logReturns.push(Math.log(curr / prev));
@@ -127,13 +139,13 @@
       const mean = logReturns.reduce((a, b) => a + b, 0) / logReturns.length;
       const variance = logReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (logReturns.length - 1);
       const stdDev = Math.sqrt(variance);
-      return { mean, stdDev, lastPrice: prices[prices.length-1].close };
+      return { mean, stdDev, lastPrice: prices[prices.length - 1].close };
     }
 
-    // Run Monte Carlo simulation using GBM
+    // 5. Run Monte Carlo simulation using GBM
     function runSimulation(lastPrice, mean, stdDev, T, numSimulations = 10000) {
       let finalPrices = [];
-      for(let i = 0; i < numSimulations; i++){
+      for (let i = 0; i < numSimulations; i++) {
         const Z = randn_bm();
         const ST = lastPrice * Math.exp((mean - 0.5 * stdDev * stdDev) * T + stdDev * Math.sqrt(T) * Z);
         finalPrices.push(ST);
@@ -141,9 +153,11 @@
       return finalPrices;
     }
 
-    // Linear regression forecast using least squares method
+    // 6. Linear regression forecast using least squares
     function linearRegressionForecast(prices, futureDate) {
-      // x = days since first date
+      if(prices.length < 2) {
+        return { forecastPrice: NaN, slope: 0, intercept: 0 };
+      }
       const firstDate = prices[0].date;
       let xs = prices.map(p => (p.date - firstDate) / (1000 * 60 * 60 * 24)); // in days
       let ys = prices.map(p => p.close);
@@ -159,23 +173,21 @@
       return { forecastPrice, slope, intercept };
     }
 
-    // Update chart for Monte Carlo simulation (histogram with slider)
+    // 7. Plotly chart for Monte Carlo
     function updateChartMC(finalPrices) {
       const trace = {
         x: finalPrices,
         type: 'histogram',
         marker: { color: '#7f7f7f' }
       };
-
       const layout = {
         title: 'Simulated Final Stock Prices Distribution (Monte Carlo - GBM)',
         xaxis: { title: 'Price' },
         yaxis: { title: 'Frequency' }
       };
-
       Plotly.newPlot('chart', [trace], layout);
 
-      // Show slider section
+      // Show slider
       document.getElementById('sliderDiv').style.display = 'block';
       const minPrice = Math.floor(Math.min(...finalPrices));
       const maxPrice = Math.ceil(Math.max(...finalPrices));
@@ -198,7 +210,7 @@
       document.getElementById('probability').innerText = probability + '%';
     }
 
-    // Update chart for Linear Trend Forecast (line chart)
+    // 8. Plotly chart for Linear Trend Forecast
     function updateChartLinear(prices, futureDate, forecastPrice) {
       let trace1 = {
         x: prices.map(p => p.date),
@@ -219,11 +231,10 @@
         yaxis: { title: 'Price' }
       };
       Plotly.newPlot('chart', [trace1, trace2], layout);
-      // Hide slider for non-histogram methods
       document.getElementById('sliderDiv').style.display = 'none';
     }
 
-    // Update chart for Ensemble Forecast: use MC histogram with vertical markers for LR and ensemble values
+    // 9. Plotly chart for Ensemble Forecast
     function updateChartEnsemble(finalPrices, lrForecast, ensembleForecast) {
       const trace = {
         x: finalPrices,
@@ -239,23 +250,23 @@
           {
             type: 'line',
             x0: lrForecast,
-            y0: 0,
             x1: lrForecast,
+            y0: 0,
             y1: Math.max(...finalPrices),
             line: { color: 'red', dash: 'dash' }
           },
           {
             type: 'line',
             x0: ensembleForecast,
-            y0: 0,
             x1: ensembleForecast,
+            y0: 0,
             y1: Math.max(...finalPrices),
             line: { color: 'blue', dash: 'dot' }
           }
         ]
       };
       Plotly.newPlot('chart', [trace], layout);
-      // Show slider section
+
       document.getElementById('sliderDiv').style.display = 'block';
       const minPrice = Math.floor(Math.min(...finalPrices));
       const maxPrice = Math.ceil(Math.max(...finalPrices));
@@ -272,43 +283,44 @@
       };
     }
 
-    // Generate explanation text based on the chosen method and computed forecasts
+    // 10. Generate explanation text
     function generateExplanation(method, mcStats, lrResult, ensembleForecast) {
       let explanation = "<h3>Explanation of Results</h3>";
-      explanation += "<p><strong>Data Source:</strong> Historical stock data is sourced from the Alpha Vantage API.</p>";
-      if(method === "mc") {
+      explanation += "<p><strong>Data Source:</strong> Historical stock data is sourced from Finnhub.io (split/dividend-adjusted).</p>";
+      if (method === "mc") {
         explanation += "<p><strong>Method:</strong> Monte Carlo Simulation using Geometric Brownian Motion (GBM).</p>";
         explanation += "<p>The simulation uses the formula:</p>";
         explanation += "<p style='font-style: italic;'>S<sub>T</sub> = S<sub>0</sub> × exp((μ - 0.5σ²)T + σ√T × Z)</p>";
         explanation += "<p>S<sub>0</sub> is the last observed price, μ is the mean of log returns, σ is the standard deviation, T is the time horizon (in years), and Z is a standard normal random variable.</p>";
-      } else if(method === "lr") {
+      } else if (method === "lr") {
         explanation += "<p><strong>Method:</strong> Linear Trend Forecast using least squares regression.</p>";
         explanation += "<p>This method fits a line to the historical prices using the formula:</p>";
         explanation += "<p style='font-style: italic;'>Price = intercept + slope × (time in days)</p>";
         explanation += "<p>The line is then extrapolated to the selected future date.</p>";
-      } else if(method === "ensemble") {
+      } else if (method === "ensemble") {
         explanation += "<p><strong>Method:</strong> Ensemble Forecast combining Monte Carlo Simulation (GBM) and Linear Trend Forecast.</p>";
         explanation += "<p>The ensemble forecast is computed as the average of the Monte Carlo forecast (using the mean of simulated prices) and the linear regression forecast.</p>";
       }
-      if(lrResult) {
+      if (lrResult) {
         explanation += `<p><strong>Linear Regression Details:</strong> Slope = ${lrResult.slope.toFixed(4)}, Intercept = ${lrResult.intercept.toFixed(4)}, Forecast Price = ${lrResult.forecastPrice.toFixed(2)}</p>`;
       }
-      if(mcStats) {
+      if (mcStats) {
         explanation += `<p><strong>Monte Carlo Simulation Details:</strong> Last Price = ${mcStats.lastPrice.toFixed(2)}, Mean Log Return = ${mcStats.mean.toFixed(4)}, Standard Deviation = ${mcStats.stdDev.toFixed(4)}</p>`;
       }
-      if(method === "ensemble" && ensembleForecast) {
+      if (method === "ensemble" && ensembleForecast) {
         explanation += `<p><strong>Ensemble Forecast Price:</strong> ${ensembleForecast.toFixed(2)}</p>`;
       }
       document.getElementById('explanation').innerHTML = explanation;
     }
 
-    // Main simulation event
+    // 11. Main simulation event
     document.getElementById('simulateButton').addEventListener('click', async () => {
       document.getElementById('loading').style.display = 'block';
+
       const ticker = document.getElementById('ticker').value.trim();
       const periodMonths = parseInt(document.getElementById('period').value);
       const futureDateInput = document.getElementById('futureDate').value;
-      const forecastMethod = document.getElementById('forecastMethod').value; // "mc", "lr", or "ensemble"
+      const forecastMethod = document.getElementById('forecastMethod').value;
       
       if(!ticker || !futureDateInput) {
         alert("Please enter both a ticker symbol and a future date.");
@@ -317,41 +329,45 @@
       }
       
       try {
-        const timeSeries = await fetchHistoricalData(ticker);
-        const prices = processHistoricalData(timeSeries, periodMonths);
+        // 11a. Fetch data from Finnhub
+        const candleData = await fetchFinnhubData(ticker, periodMonths);
+
+        // 11b. Process data into { date, close }
+        const prices = processFinnhubData(candleData);
         if(prices.length < 2) {
           alert("Not enough historical data available for the specified period.");
           document.getElementById('loading').style.display = 'none';
           return;
         }
-        
-        // Convert future date input to a Date object
+
+        // 11c. Convert user-input future date to a Date object
         const futureDate = new Date(futureDateInput);
-        // Compute linear regression forecast
+
+        // 11d. Linear regression forecast
         const lrResult = linearRegressionForecast(prices, futureDate);
-        
+
         let mcStats = null;
         let finalPrices = null;
         let ensembleForecast = null;
-        
-        if(forecastMethod === "mc" || forecastMethod === "ensemble") {
-          // Compute parameters for Monte Carlo simulation
+
+        // 11e. If method is MC or Ensemble, run Monte Carlo
+        if (forecastMethod === "mc" || forecastMethod === "ensemble") {
           mcStats = computeStats(prices);
-          // Compute time horizon (T in years) from the last historical date to the future date
+          // Time horizon (in years) from last historical date to the future date
           const lastDate = prices[prices.length - 1].date;
           const diffTime = Math.abs(futureDate - lastDate);
           const T = diffTime / (365 * 24 * 60 * 60 * 1000);
           finalPrices = runSimulation(mcStats.lastPrice, mcStats.mean, mcStats.stdDev, T);
         }
-        
-        if(forecastMethod === "mc") {
+
+        // 11f. Update chart & explanation
+        if (forecastMethod === "mc") {
           updateChartMC(finalPrices);
           generateExplanation("mc", mcStats, lrResult, null);
-        } else if(forecastMethod === "lr") {
+        } else if (forecastMethod === "lr") {
           updateChartLinear(prices, futureDate, lrResult.forecastPrice);
           generateExplanation("lr", null, lrResult, null);
-        } else if(forecastMethod === "ensemble") {
-          // Ensemble forecast: average of MC mean and linear regression forecast
+        } else if (forecastMethod === "ensemble") {
           const mcMean = finalPrices.reduce((a, b) => a + b, 0) / finalPrices.length;
           ensembleForecast = (mcMean + lrResult.forecastPrice) / 2;
           updateChartEnsemble(finalPrices, lrResult.forecastPrice, ensembleForecast);
