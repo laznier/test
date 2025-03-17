@@ -67,7 +67,6 @@
       font-style: italic;
       color: #f97316;
     }
-    /* Plotly chart container */
     #chart {
       width: 800px;
       height: 500px;
@@ -121,8 +120,8 @@
       <ol>
         <li><strong>LR (Price Only)</strong></li>
         <li><strong>MC (Monte Carlo)</strong></li>
-        <li><strong>LR (Sentiment-Based)</strong> — dayIndex + sentiment → price</li>
-        <li><strong>Multivariate LR (Volume, Sentiment, Price)</strong> — dayIndex + volume + sentiment → price</li>
+        <li><strong>LR (Sentiment-Based)</strong></li>
+        <li><strong>Multivariate LR (Volume+Sentiment)</strong></li>
       </ol>
       <strong>NOTE:</strong> This version throws errors if data fails to fetch or if there's insufficient data.
     </p>
@@ -147,7 +146,6 @@
     <button id="simulateButton">Run Forecast</button>
     <div id="loading" style="display:none;">Loading data...</div>
 
-    <!-- Chart container using Plotly -->
     <div id="chart"></div>
 
     <div id="sliderDiv">
@@ -166,10 +164,12 @@
       const apiKey = 'YOUR_API_KEY';
       const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${apiKey}`;
       const response = await fetch(url);
-      if(!response.ok) {
+
+      if (!response.ok) {
         throw new Error("Network error fetching TIME_SERIES_DAILY data (HTTP " + response.status + ")");
       }
       const data = await response.json();
+
       if (data["Error Message"] || !data["Time Series (Daily)"]) {
         throw new Error("TIME_SERIES_DAILY data not found. Check ticker or API key.");
       }
@@ -184,38 +184,60 @@
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
         return `${yyyy}${mm}${dd}T${time}`;
-      }
+      };
       const time_from = formatDate(startDate, "0000");
       const time_to = formatDate(endDate, "2359");
+
       const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&time_from=${time_from}&time_to=${time_to}&limit=200&apikey=${apiKey}`;
+      console.log("Fetching sentiment from:", url);
       const response = await fetch(url);
-      if(!response.ok) {
+
+      if (!response.ok) {
         throw new Error("Network error fetching NEWS_SENTIMENT (HTTP " + response.status + ")");
       }
       const data = await response.json();
+
       if (!data.feed || !Array.isArray(data.feed) || data.feed.length === 0) {
         throw new Error("No sentiment data returned; check subscription level or ticker coverage.");
       }
+
+      // Group articles by date (YYYY-MM-DD) and average their sentiment
       const dailyScores = {};
       for (const article of data.feed) {
-        const published = article.time_published;
+        const published = article.time_published; // e.g., "2023-05-05T14:05:00Z"
         if (!published) continue;
         const dayKey = published.split('T')[0];
+
+        // Log the raw article sentiment for debugging
+        if (article.ticker_sentiment) {
+          for (let ts of article.ticker_sentiment) {
+            if (ts.ticker === ticker.toUpperCase()) {
+              console.log("Article date:", dayKey, "Raw sentiment score:", ts.score);
+            }
+          }
+        }
+
         if (!article.ticker_sentiment) continue;
         const tSent = article.ticker_sentiment.find(ts => ts.ticker === ticker.toUpperCase());
         if (!tSent) continue;
+
         const sVal = parseFloat(tSent.score) || 0;
         if (!dailyScores[dayKey]) {
           dailyScores[dayKey] = [];
         }
         dailyScores[dayKey].push(sVal);
       }
+
+      // Compute average sentiment per day
       const avgPerDay = {};
       for (const dayKey in dailyScores) {
         const arr = dailyScores[dayKey];
         const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
         avgPerDay[dayKey] = avg;
+        // Log the daily average sentiment for debugging
+        console.log("Day:", dayKey, "Avg sentiment:", avg);
       }
+
       return avgPerDay;
     }
 
@@ -225,6 +247,7 @@
       const endDate = new Date(dates[dates.length - 1]);
       const startDate = new Date(endDate);
       startDate.setMonth(startDate.getMonth() - periodMonths);
+
       let data = [];
       for (let date of dates) {
         const d = new Date(date);
@@ -236,7 +259,7 @@
           });
         }
       }
-      data.sort((a,b) => a.date - b.date);
+      data.sort((a, b) => a.date - b.date);
       return data;
     }
 
@@ -246,6 +269,8 @@
         const dayKey = row.date.toISOString().split('T')[0];
         row.sentiment = sentimentData[dayKey] !== undefined ? sentimentData[dayKey] : 0;
       }
+      // Log the final merged data for debugging
+      console.log("Merged priceData with sentiment:", priceData);
       return priceData;
     }
 
@@ -255,12 +280,15 @@
       const xs = prices.map(p => (p.date - firstDate) / (1000 * 60 * 60 * 24));
       const ys = prices.map(p => p.close);
       const n = xs.length;
+
       const sumX = xs.reduce((a, b) => a + b, 0);
       const sumY = ys.reduce((a, b) => a + b, 0);
       const sumXY = xs.reduce((acc, x, i) => acc + x * ys[i], 0);
       const sumX2 = xs.reduce((acc, x) => acc + x * x, 0);
+
       const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
       const intercept = (sumY - slope * sumX) / n;
+
       const futX = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
       const forecast = intercept + slope * futX;
       return { slope, intercept, forecast };
@@ -275,8 +303,8 @@
     }
     function computeStats(prices) {
       const logReturns = [];
-      for (let i = 1; i < prices.length; i++){
-        const prev = prices[i-1].close;
+      for (let i = 1; i < prices.length; i++) {
+        const prev = prices[i - 1].close;
         const curr = prices[i].close;
         logReturns.push(Math.log(curr / prev));
       }
@@ -291,7 +319,7 @@
     }
     function runSimulation(lastPrice, mean, stdDev, T, numSim = 5000) {
       let finalPrices = [];
-      for (let i = 0; i < numSim; i++){
+      for (let i = 0; i < numSim; i++) {
         const Z = randn_bm();
         const ST = lastPrice * Math.exp((mean - 0.5 * stdDev * stdDev) * T + stdDev * Math.sqrt(T) * Z);
         finalPrices.push(ST);
@@ -336,9 +364,9 @@
     function matTranspose(A) {
       const rows = A.length, cols = A[0].length;
       let T = [];
-      for (let c = 0; c < cols; c++){
+      for (let c = 0; c < cols; c++) {
         let row = [];
-        for (let r = 0; r < rows; r++){
+        for (let r = 0; r < rows; r++) {
           row.push(A[r][c]);
         }
         T.push(row);
@@ -348,10 +376,10 @@
     function matMultiply(A, B) {
       const m = A.length, n = A[0].length, p = B[0].length;
       let R = new Array(m).fill(null).map(() => new Array(p).fill(0));
-      for (let i = 0; i < m; i++){
-        for (let j = 0; j < p; j++){
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < p; j++) {
           let sum = 0;
-          for (let k = 0; k < n; k++){
+          for (let k = 0; k < n; k++) {
             sum += A[i][k] * B[k][j];
           }
           R[i][j] = sum;
@@ -362,40 +390,40 @@
     function matInverse(M) {
       const n = M.length;
       let A = [];
-      for (let i = 0; i < n; i++){
+      for (let i = 0; i < n; i++) {
         A[i] = M[i].slice();
-        for (let j = 0; j < n; j++){
+        for (let j = 0; j < n; j++) {
           A[i].push(i === j ? 1 : 0);
         }
       }
-      for (let i = 0; i < n; i++){
+      for (let i = 0; i < n; i++) {
         let pivot = A[i][i];
-        if (Math.abs(pivot) < 1e-12){
-          for (let r = i + 1; r < n; r++){
-            if (Math.abs(A[r][i]) > Math.abs(pivot)){
+        if (Math.abs(pivot) < 1e-12) {
+          for (let r = i + 1; r < n; r++) {
+            if (Math.abs(A[r][i]) > Math.abs(pivot)) {
               [A[i], A[r]] = [A[r], A[i]];
               pivot = A[i][i];
               break;
             }
           }
         }
-        if (Math.abs(pivot) < 1e-12){
+        if (Math.abs(pivot) < 1e-12) {
           throw new Error("Matrix inversion failed (singular X^T X). Possibly not enough variation in data.");
         }
-        for (let c = 0; c < 2 * n; c++){
+        for (let c = 0; c < 2 * n; c++) {
           A[i][c] /= pivot;
         }
-        for (let r = 0; r < n; r++){
-          if (r !== i){
+        for (let r = 0; r < n; r++) {
+          if (r !== i) {
             let factor = A[r][i];
-            for (let c = 0; c < 2 * n; c++){
+            for (let c = 0; c < 2 * n; c++) {
               A[r][c] -= factor * A[i][c];
             }
           }
         }
       }
       let inv = [];
-      for (let i = 0; i < n; i++){
+      for (let i = 0; i < n; i++) {
         inv[i] = A[i].slice(n, 2 * n);
       }
       return inv;
@@ -404,17 +432,23 @@
       if (X.length < 2) {
         throw new Error("Not enough data points to solve regression (X rows < 2).");
       }
+      // Log the design matrix X and y for debugging
+      console.log("Solving regression with X =", X, "and y =", y);
+
       const yMat = y.map(val => [val]);
       const XT = matTranspose(X);
       const XTX = matMultiply(XT, X);
-      const inv = matInverse(XTX);
+      // Log X^T X to see if it might be singular
+      console.log("X^T X =", XTX);
+
+      const inv = matInverse(XTX); // Might throw if singular
       const XTy = matMultiply(XT, yMat);
-      const B = matMultiply(inv, XTy);
-      return B.map(row => row[0]);
+      const B = matMultiply(inv, XTy).map(row => row[0]);
+      console.log("Beta (solution) =", B);
+      return B;
     }
 
-    // ------------------- 10) Plotting with Plotly -------------------
-    // For LR (Price Only), Sentiment-Based LR, and Multivariate LR forecasts:
+    // ------------------- 10) Plotly for Charting -------------------
     function drawLineChart(historical, futureDate, forecastPrice) {
       let trace1 = {
         x: historical.map(d => d.date),
@@ -437,7 +471,6 @@
       Plotly.newPlot('chart', [trace1, trace2], layout);
     }
 
-    // For Monte Carlo simulation:
     function drawHistogram(finalPrices, extraLines = []) {
       let trace = {
         x: finalPrices,
@@ -476,42 +509,62 @@
 
     // ------------------- 12) Main Simulation -------------------
     document.getElementById('simulateButton').addEventListener('click', async () => {
+      console.clear(); // Clear console to keep logs fresh
       const ticker = document.getElementById('ticker').value.trim();
       const period = parseInt(document.getElementById('period').value);
       const futureDateVal = document.getElementById('futureDate').value;
+
       if (!ticker || !futureDateVal) {
         alert("Please provide ticker and future date.");
         return;
       }
+
       const method = document.getElementById('forecastMethod').value;
       const futureDate = new Date(futureDateVal);
+
       document.getElementById('loading').style.display = "block";
       document.getElementById('explanation').innerHTML = "";
       document.getElementById('sliderDiv').style.display = "none";
+
       try {
+        console.log("Fetching historical data for:", ticker);
         const tsData = await fetchHistoricalData(ticker);
+
+        console.log("Processing data for the last", period, "months...");
         const hist = processHistoricalData(tsData, period);
+        console.log("Processed historical data rows:", hist.length, hist);
+
         if (hist.length < 2) {
           throw new Error("Insufficient historical data after filtering by period. (Need >=2 days)");
         }
+
         const startDate = hist[0].date;
         const endDate = hist[hist.length - 1].date;
+        console.log("Fetching sentiment data for", ticker, "from", startDate.toDateString(), "to", endDate.toDateString());
         const sentData = await fetchNewsSentiment(ticker, startDate, endDate);
+
+        console.log("Merging sentiment into price data...");
         mergeSentiment(hist, sentData);
+
         let explanation = "";
         if (method === "lr_price") {
           const { slope, intercept, forecast } = linearRegressionForecast(hist, futureDate);
           drawLineChart(hist, futureDate, forecast);
+
           explanation += "<p><strong>Method:</strong> Simple Linear Regression (price vs. time)</p>";
           explanation += `<p>Slope = ${slope.toFixed(4)}, Intercept = ${intercept.toFixed(4)}</p>`;
           explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
           generateExplanation(method, explanation);
+
         } else if (method === "mc") {
           const stats = computeStats(hist);
+          console.log("Monte Carlo stats:", stats);
           const lastHistDate = hist[hist.length - 1].date;
           const dt = (futureDate - lastHistDate) / (1000 * 60 * 60 * 24 * 365);
+          console.log("Time horizon (years):", dt);
           const finalPrices = runSimulation(stats.lastPrice, stats.mean, stats.stdDev, dt);
           drawHistogram(finalPrices, []);
+
           document.getElementById('sliderDiv').style.display = "block";
           const minP = Math.floor(Math.min(...finalPrices));
           const maxP = Math.ceil(Math.max(...finalPrices));
@@ -519,26 +572,34 @@
           slider.min = minP; slider.max = maxP; slider.value = minP;
           document.getElementById('thresholdValue').innerText = minP;
           updateProbability(finalPrices, minP);
+
           slider.oninput = function() {
             const th = parseFloat(this.value);
             document.getElementById('thresholdValue').innerText = th;
             updateProbability(finalPrices, th);
           };
+
           explanation += "<p><strong>Method:</strong> Monte Carlo (Geometric Brownian Motion)</p>";
           explanation += `<p>Annual mean log return = ${stats.mean.toFixed(4)}, annual std dev = ${stats.stdDev.toFixed(4)}</p>`;
           explanation += `<p>Last price = $${stats.lastPrice.toFixed(2)}, time horizon = ${dt.toFixed(2)} years</p>`;
           explanation += `<p>Distribution based on ${finalPrices.length} simulations.</p>`;
           generateExplanation(method, explanation);
+
         } else if (method === "lr_sent") {
+          console.log("Running sentiment-based linear regression...");
           const { beta, forecast } = sentimentRegression(hist, futureDate);
+
           drawLineChart(hist, futureDate, forecast);
           explanation += "<p><strong>Method:</strong> Sentiment-Based Linear Regression (dayIndex + sentiment => price)</p>";
           explanation += `<p>Coefficients = b0: ${beta[0].toFixed(4)}, b1 (dayIndex): ${beta[1].toFixed(4)}, b2 (sentiment): ${beta[2].toFixed(4)}</p>`;
           explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
           explanation += "<p>Used average historical sentiment for forecast; missing days assumed sentiment = 0.</p>";
           generateExplanation(method, explanation);
+
         } else if (method === "multi") {
+          console.log("Running multivariate regression with volume + sentiment...");
           const { beta, forecast } = multivariateRegression(hist, futureDate);
+
           drawLineChart(hist, futureDate, forecast);
           explanation += "<p><strong>Method:</strong> Multivariate LR (dayIndex + volume + sentiment => price)</p>";
           explanation += `<p>Coefficients: b0 = ${beta[0].toFixed(4)}, b1 = ${beta[1].toFixed(4)}, b2 (volume) = ${beta[2].toFixed(4)}, b3 (sentiment) = ${beta[3].toFixed(4)}</p>`;
@@ -546,6 +607,7 @@
           generateExplanation(method, explanation);
         }
       } catch (err) {
+        console.error("Caught an error:", err);
         alert("Error: " + err.message);
       }
       document.getElementById('loading').style.display = "none";
