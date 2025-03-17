@@ -1,382 +1,618 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>WBS Generator </title>
-  <!-- Mermaid.js from a CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <title>Stock Forecast: LR, Monte Carlo, Sentiment, Multivariate (Error Handling)</title>
+  <!-- Include Plotly for interactive charts -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
     body {
-      font-family: sans-serif;
-      margin: 20px;
-      background: #f7f7f7;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #f3f4f6, #ffffff);
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 30px;
     }
     h1 {
-      margin-bottom: 0.5em;
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    p {
+      font-size: 0.95rem;
+      line-height: 1.4;
+      margin-bottom: 20px;
+      color: #555;
     }
     label {
-      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+      font-weight: 500;
     }
-    input[type="text"] {
-      width: 240px;
-      margin: 0.3em 0;
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      transition: border-color 0.3s ease;
     }
     button {
-      margin: 0.3em 0.5em 0.8em 0;
-      padding: 0.4em 0.8em;
-      cursor: pointer;
-    }
-
-    /* Containers for Deliverables, WPs, and Activities */
-    .deliverable-block,
-    .wp-block,
-    .activity-block {
-      background: #fff;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 0.5em;
-      margin: 0.5em 0;
-      position: relative; /* so the remove button can be absolutely positioned */
-    }
-
-    /* Remove button (X) in top-right corner */
-    .remove-btn {
-      position: absolute;
-      top: 0.3em;
-      right: 0.3em;
-      background: #f44336;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #2563eb;
       color: #fff;
       border: none;
-      border-radius: 50%;
-      width: 22px;
-      height: 22px;
-      text-align: center;
-      font-weight: bold;
-      line-height: 20px;
-      cursor: pointer;
-    }
-    .remove-btn:hover {
-      background: #d32f2f;
-    }
-
-    /* Output area */
-    #wbsOutput {
-      border: 1px solid #ccc;
-      background: #fff;
-      min-height: 300px;
-      margin-top: 1em;
-      padding: 1em;
       border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
     }
-    .mermaid {
-      text-align: center; /* center the chart horizontally */
-      margin-top: 1em;
+    button:hover {
+      background: #1e3a8a;
+    }
+    #loading {
+      margin-top: 10px;
+      font-style: italic;
+      color: #f97316;
+    }
+    #chart {
+      width: 800px;
+      height: 500px;
+      margin: 30px auto 0 auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      background-color: #fff;
+    }
+    #sliderDiv {
+      margin-top: 20px;
+      text-align: center;
+      display: none;
+    }
+    #thresholdValue {
+      font-weight: 600;
+      color: #2563eb;
+    }
+    #probability {
+      font-weight: 600;
+      color: #2563eb;
+    }
+    #explanation {
+      margin-top: 30px;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      background-color: #f9fafb;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    #explanation h3 {
+      margin-bottom: 10px;
+      font-weight: 600;
     }
   </style>
-
-  <script>
-    // Initialize Mermaid but don't auto-render
-    mermaid.initialize({ startOnLoad: false });
-  </script>
 </head>
 <body>
-  
-<button id="backButton" onclick="window.location.href='https://projectmanagerhelper.com'">Back to Main Page</button>
+  <!-- Back to Main Page button -->
+  <button onclick="window.location.href='https://projectmanagerhelper.com'">
+    Back to Main Page
+  </button>
 
-<h1>WBS Generator </h1>
+  <div class="container">
+    <h1>Stock Forecast: LR, Monte Carlo, Sentiment, Multivariate (Error Handling)</h1>
+    <p>
+      This demo fetches:
+      <ul>
+        <li>Historical price & volume (Alpha Vantage TIME_SERIES_DAILY)</li>
+        <li>News sentiment (Alpha Vantage NEWS_SENTIMENT)</li>
+      </ul>
+      Then provides four forecasting methods:
+      <ol>
+        <li><strong>LR (Price Only)</strong></li>
+        <li><strong>MC (Monte Carlo)</strong></li>
+        <li><strong>LR (Sentiment-Based)</strong> — dayIndex + sentiment → price</li>
+        <li><strong>Multivariate LR (Price, Volume, Sentiment)</strong> — dayIndex + volume + sentiment → price</li>
+      </ol>
+      <strong>NOTE:</strong> This version throws errors if data fails to fetch or if there's insufficient data.
+    </p>
 
-<!-- Project Name -->
-<div>
-  <label for="projectName">Project Name:</label><br/>
-  <input type="text" id="projectName" placeholder="e.g. New Website" />
-</div>
+    <label for="ticker">Ticker Symbol (e.g., AAPL):</label>
+    <input type="text" id="ticker" value="AAPL">
 
-<!-- Deliverables Section -->
-<h2>Deliverables</h2>
-<div id="deliverablesContainer"></div>
-<button id="addDeliverableBtn">Add Deliverable</button>
+    <label for="period">Historical Period (in months):</label>
+    <input type="number" id="period" value="6" min="1">
 
-<!-- Generate Button -->
-<br/>
-<button id="generateWbsBtn" style="font-weight:bold;">Generate WBS</button>
+    <label for="futureDate">Future Date:</label>
+    <input type="date" id="futureDate">
 
-<!-- Output Section (Mermaid) -->
-<div id="wbsOutput">
-  <div id="mermaidChart" class="mermaid"></div>
-</div>
+    <label for="forecastMethod">Forecast Method:</label>
+    <select id="forecastMethod">
+      <option value="lr_price">1) LR (Price Only)</option>
+      <option value="mc">2) Monte Carlo</option>
+      <option value="lr_sent">3) LR (Sentiment-Based)</option>
+      <option value="multi">4) Multivariate LR (Volume+Sentiment)</option>
+    </select>
 
-<script>
-/*
-  Data structure:
-  project = {
-    name: "",
-    deliverables: [
-      {
-        name: "Deliverable X",
-        workPackages: [
-          {
-            name: "WP1",
-            activities: ["Activity A", "Activity B"]
-          }
-        ]
+    <button id="simulateButton">Run Forecast</button>
+    <div id="loading" style="display:none;">Loading data...</div>
+
+    <!-- Chart container now uses Plotly -->
+    <div id="chart"></div>
+
+    <div id="sliderDiv">
+      <label>Select Price Threshold: <span id="thresholdValue">0</span></label>
+      <input type="range" id="priceSlider" min="0" max="1000" step="1" value="0"
+             style="width:60%; margin: 15px 0;" />
+      <p>Probability of final price above threshold: <span id="probability">0%</span></p>
+    </div>
+
+    <div id="explanation"></div>
+  </div>
+
+  <script>
+    // ------------------- 1) Fetch TIME_SERIES Data -------------------
+    async function fetchHistoricalData(ticker) {
+      // Replace with your valid (premium if needed) Alpha Vantage API key
+      const apiKey = 'YOUR_API_KEY';
+      const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${apiKey}`;
+      const response = await fetch(url);
+      
+      if(!response.ok) {
+        throw new Error("Network error fetching TIME_SERIES_DAILY data (HTTP " + response.status + ")");
       }
-    ]
-  }
-*/
+      const data = await response.json();
+      
+      // Check if the JSON has the expected structure
+      if (data["Error Message"] || !data["Time Series (Daily)"]) {
+        throw new Error("TIME_SERIES_DAILY data not found. Check ticker or API key.");
+      }
+      return data["Time Series (Daily)"];
+    }
 
-let project = {
-  name: "",
-  deliverables: []
-};
+    // ------------------- 2) Fetch NEWS_SENTIMENT with Date Filtering -------------------
+    async function fetchNewsSentiment(ticker, startDate, endDate) {
+      const apiKey = 'YOUR_API_KEY';
+      // Helper function to format dates as YYYYMMDDTHHMM (using midnight for start and 23:59 for end)
+      const formatDate = (d, time) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}${mm}${dd}T${time}`;
+      }
+      const time_from = formatDate(startDate, "0000");
+      const time_to = formatDate(endDate, "2359");
+      
+      const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&time_from=${time_from}&time_to=${time_to}&limit=200&apikey=${apiKey}`;
+      const response = await fetch(url);
 
-const deliverablesContainer = document.getElementById("deliverablesContainer");
-const addDeliverableBtn = document.getElementById("addDeliverableBtn");
-const generateWbsBtn = document.getElementById("generateWbsBtn");
-const projectNameInput = document.getElementById("projectName");
-const mermaidChartDiv = document.getElementById("mermaidChart");
+      if(!response.ok) {
+        throw new Error("Network error fetching NEWS_SENTIMENT (HTTP " + response.status + ")");
+      }
+      const data = await response.json();
 
-// 1. Add Deliverable block
-addDeliverableBtn.addEventListener("click", () => {
-  createDeliverableBlock();
-});
+      if (!data.feed || !Array.isArray(data.feed) || data.feed.length === 0) {
+        throw new Error("No sentiment data returned; check subscription level or ticker coverage.");
+      }
 
-function createDeliverableBlock() {
-  const dBlock = document.createElement("div");
-  dBlock.className = "deliverable-block";
+      // Group articles by date (YYYY-MM-DD) and average their sentiment for the given ticker
+      const dailyScores = {};
 
-  // Remove button
-  const removeBtn = document.createElement("button");
-  removeBtn.className = "remove-btn";
-  removeBtn.textContent = "x";
-  removeBtn.title = "Remove this Deliverable";
-  removeBtn.addEventListener("click", () => dBlock.remove());
-  dBlock.appendChild(removeBtn);
+      for (const article of data.feed) {
+        const published = article.time_published; // e.g. "2023-05-05T14:05:00Z"
+        if (!published) continue;
+        const dayKey = published.split('T')[0]; // "YYYY-MM-DD"
 
-  // Label + input
-  const dLabel = document.createElement("label");
-  dLabel.textContent = "Deliverable Name:";
-  const dInput = document.createElement("input");
-  dInput.type = "text";
-  dInput.placeholder = "e.g. Design Phase";
+        // Each article can have multiple tickers in ticker_sentiment
+        if (!article.ticker_sentiment) continue;
+        const tSent = article.ticker_sentiment.find(ts => ts.ticker === ticker.toUpperCase());
+        if (!tSent) continue;
 
-  // WP container
-  const wpContainer = document.createElement("div");
-  wpContainer.style.marginLeft = "1em";
+        const sVal = parseFloat(tSent.score) || 0;
 
-  // Add WP button
-  const addWpBtn = document.createElement("button");
-  addWpBtn.textContent = "Add Work Package";
-  addWpBtn.addEventListener("click", () => {
-    createWpBlock(wpContainer);
-  });
-
-  // Assemble deliverable block
-  dBlock.appendChild(document.createElement("br"));
-  dBlock.appendChild(dLabel);
-  dBlock.appendChild(document.createElement("br"));
-  dBlock.appendChild(dInput);
-  dBlock.appendChild(document.createElement("br"));
-  dBlock.appendChild(document.createElement("br"));
-  dBlock.appendChild(wpContainer);
-  dBlock.appendChild(addWpBtn);
-
-  deliverablesContainer.appendChild(dBlock);
-}
-
-// 2. Create a WP block under a Deliverable
-function createWpBlock(parent) {
-  const wpBlock = document.createElement("div");
-  wpBlock.className = "wp-block";
-
-  // Remove button
-  const removeBtn = document.createElement("button");
-  removeBtn.className = "remove-btn";
-  removeBtn.textContent = "x";
-  removeBtn.title = "Remove this Work Package";
-  removeBtn.addEventListener("click", () => wpBlock.remove());
-  wpBlock.appendChild(removeBtn);
-
-  // Label + input
-  const wpLabel = document.createElement("label");
-  wpLabel.textContent = "Work Package Name:";
-  const wpInput = document.createElement("input");
-  wpInput.type = "text";
-  wpInput.placeholder = "e.g. UI Prototype";
-
-  // Activities container
-  const actContainer = document.createElement("div");
-  actContainer.style.marginLeft = "1em";
-
-  // Add Activity button
-  const addActBtn = document.createElement("button");
-  addActBtn.textContent = "Add Activity";
-  addActBtn.addEventListener("click", () => {
-    createActivityBlock(actContainer);
-  });
-
-  wpBlock.appendChild(document.createElement("br"));
-  wpBlock.appendChild(wpLabel);
-  wpBlock.appendChild(document.createElement("br"));
-  wpBlock.appendChild(wpInput);
-  wpBlock.appendChild(document.createElement("br"));
-  wpBlock.appendChild(document.createElement("br"));
-  wpBlock.appendChild(actContainer);
-  wpBlock.appendChild(addActBtn);
-
-  parent.appendChild(wpBlock);
-}
-
-// 3. Create an Activity block under a WP
-function createActivityBlock(parent) {
-  const actBlock = document.createElement("div");
-  actBlock.className = "activity-block";
-
-  // Remove button
-  const removeBtn = document.createElement("button");
-  removeBtn.className = "remove-btn";
-  removeBtn.textContent = "x";
-  removeBtn.title = "Remove this Activity";
-  removeBtn.addEventListener("click", () => actBlock.remove());
-  actBlock.appendChild(removeBtn);
-
-  // Label + input
-  const actLabel = document.createElement("label");
-  actLabel.textContent = "Activity:";
-  const actInput = document.createElement("input");
-  actInput.type = "text";
-  actInput.placeholder = "e.g. Sketch UI screens";
-
-  // Assemble activity block
-  actBlock.appendChild(document.createElement("br"));
-  actBlock.appendChild(actLabel);
-  actBlock.appendChild(document.createElement("br"));
-  actBlock.appendChild(actInput);
-
-  parent.appendChild(actBlock);
-}
-
-/** EVENT: Generate the WBS chart **/
-generateWbsBtn.addEventListener("click", () => {
-  buildProjectData();
-  const mText = buildMermaidText();
-  renderMermaidChart(mText);
-});
-
-/** Build the 'project' object from the DOM **/
-function buildProjectData() {
-  project.name = projectNameInput.value.trim() || "Untitled Project";
-  project.deliverables = [];
-
-  // For each deliverable-block
-  const deliverableBlocks = deliverablesContainer.querySelectorAll(".deliverable-block");
-  deliverableBlocks.forEach(dBlock => {
-    const dInput = dBlock.querySelector("input[type='text']");
-    const dName = dInput ? dInput.value.trim() : "";
-    const deliverableObj = {
-      name: dName || "Unnamed Deliverable",
-      workPackages: []
-    };
-
-    // WP blocks
-    const wpBlocks = dBlock.querySelectorAll(".wp-block");
-    wpBlocks.forEach(wpBlock => {
-      const wpInput = wpBlock.querySelector("input[type='text']");
-      const wpName = wpInput ? wpInput.value.trim() : "";
-      const wpObj = {
-        name: wpName || "Unnamed Work Package",
-        activities: []
-      };
-
-      // Activity blocks
-      const actBlocks = wpBlock.querySelectorAll(".activity-block");
-      actBlocks.forEach(actBlock => {
-        const actInput = actBlock.querySelector("input[type='text']");
-        const actName = actInput ? actInput.value.trim() : "";
-        if (actName) {
-          wpObj.activities.push(actName);
+        if (!dailyScores[dayKey]) {
+          dailyScores[dayKey] = [];
         }
-      });
+        dailyScores[dayKey].push(sVal);
+      }
 
-      deliverableObj.workPackages.push(wpObj);
+      // Compute average sentiment per day
+      const avgPerDay = {};
+      for (const dayKey in dailyScores) {
+        const arr = dailyScores[dayKey];
+        const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
+        avgPerDay[dayKey] = avg;
+      }
+      return avgPerDay;
+    }
+
+    // ------------------- 3) Process TIME_SERIES for the Specified Period -------------------
+    function processHistoricalData(timeSeries, periodMonths) {
+      const dates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b));
+      const endDate = new Date(dates[dates.length - 1]);
+      const startDate = new Date(endDate);
+      startDate.setMonth(startDate.getMonth() - periodMonths);
+
+      let data = [];
+      for (let date of dates) {
+        const d = new Date(date);
+        if (d >= startDate && d <= endDate) {
+          data.push({
+            date: d,
+            close: parseFloat(timeSeries[date]["4. close"]),
+            volume: parseFloat(timeSeries[date]["5. volume"])
+          });
+        }
+      }
+      data.sort((a,b) => a.date - b.date);
+      return data;
+    }
+
+    // ------------------- 4) Merge Sentiment (by day) into price data -------------------
+    function mergeSentiment(priceData, sentimentData) {
+      // sentimentData is { "YYYY-MM-DD": avgSentiment }
+      // Add .sentiment to each daily record; if no sentiment for that day, default to 0
+      for (let row of priceData) {
+        const dayKey = row.date.toISOString().split('T')[0]; // "YYYY-MM-DD"
+        row.sentiment = sentimentData[dayKey] !== undefined ? sentimentData[dayKey] : 0;
+      }
+      return priceData;
+    }
+
+    // ------------------- 5) LR (Price Only) - Single-Variable Regression -------------------
+    function linearRegressionForecast(prices, futureDate) {
+      const firstDate = prices[0].date;
+      const xs = prices.map(p => (p.date - firstDate)/(1000*60*60*24));
+      const ys = prices.map(p => p.close);
+      const n = xs.length;
+
+      const sumX = xs.reduce((a,b) => a+b,0);
+      const sumY = ys.reduce((a,b) => a+b,0);
+      const sumXY = xs.reduce((acc, x, i) => acc + x*ys[i], 0);
+      const sumX2 = xs.reduce((acc, x) => acc + x*x, 0);
+
+      const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
+      const intercept = (sumY - slope*sumX)/n;
+
+      // future
+      const futX = (futureDate - firstDate)/(1000*60*60*24);
+      const forecast = intercept + slope*futX;
+      return { slope, intercept, forecast };
+    }
+
+    // ------------------- 6) Monte Carlo Simulation (GBM) -------------------
+    function randn_bm() {
+      let u=0, v=0;
+      while(u===0) u = Math.random();
+      while(v===0) v = Math.random();
+      return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+    }
+    function computeStats(prices) {
+      const logReturns = [];
+      for (let i=1; i<prices.length; i++){
+        const prev = prices[i-1].close;
+        const curr = prices[i].close;
+        logReturns.push(Math.log(curr/prev));
+      }
+      const n = logReturns.length;
+      if(n<1) return {mean:0, stdDev:0, lastPrice:prices[prices.length-1].close};
+      const dailyMean = logReturns.reduce((a,b) => a+b,0)/n;
+      const variance = logReturns.map(r => (r-dailyMean)*(r-dailyMean)).reduce((a,b)=>a+b,0)/(n-1);
+      const dailyStd = Math.sqrt(variance);
+      const annualMean = dailyMean*252;
+      const annualStd = dailyStd*Math.sqrt(252);
+      return {
+        mean: annualMean,
+        stdDev: annualStd,
+        lastPrice: prices[prices.length-1].close
+      };
+    }
+    function runSimulation(lastPrice, mean, stdDev, T, numSim=5000) {
+      let finalPrices = [];
+      for(let i=0; i<numSim; i++){
+        const Z = randn_bm();
+        const ST = lastPrice * Math.exp((mean - 0.5*stdDev*stdDev)*T + stdDev*Math.sqrt(T)*Z);
+        finalPrices.push(ST);
+      }
+      return finalPrices;
+    }
+
+    // ------------------- 7) Sentiment-Based LR (dayIndex + sentiment => price) -------------------
+    function sentimentRegression(prices, futureDate) {
+      const firstDate = prices[0].date;
+      let X = [];
+      let Y = [];
+
+      // Build X, y: X[i] = [1, dayIndex, sentiment], y[i] = price
+      for (let row of prices) {
+        const dayIndex = (row.date - firstDate)/(1000*60*60*24);
+        X.push([1, dayIndex, row.sentiment]);
+        Y.push(row.close);
+      }
+      const beta = solveRegression(X, Y); // [b0, b1, b2]
+
+      // future dayIndex; use average historical sentiment for forecast
+      const futX = (futureDate - firstDate)/(1000*60*60*24);
+      const avgSent = prices.reduce((acc,r) => acc+r.sentiment,0)/prices.length;
+      const forecast = beta[0] + beta[1]*futX + beta[2]*avgSent;
+
+      return { beta, forecast };
+    }
+
+    // ------------------- 8) Multivariate LR (dayIndex + volume + sentiment => price) -------------------
+    function multivariateRegression(prices, futureDate) {
+      const firstDate = prices[0].date;
+      let X = [];
+      let Y = [];
+
+      for (let row of prices) {
+        const dayIndex = (row.date - firstDate)/(1000*60*60*24);
+        X.push([1, dayIndex, row.volume, row.sentiment]);
+        Y.push(row.close);
+      }
+      const beta = solveRegression(X, Y); // [b0, b1, b2, b3]
+
+      // For future: use dayIndex and average volume & sentiment
+      const futDayIndex = (futureDate - firstDate)/(1000*60*60*24);
+      const avgVol = prices.reduce((acc,r) => acc+r.volume,0)/prices.length;
+      const avgSent = prices.reduce((acc,r) => acc+r.sentiment,0)/prices.length;
+
+      const forecast = beta[0] + beta[1]*futDayIndex + beta[2]*avgVol + beta[3]*avgSent;
+      return { beta, forecast };
+    }
+
+    // ------------------- 9) Matrix-based Regression Solver (Normal Equation) -------------------
+    function matTranspose(A){
+      const rows = A.length, cols = A[0].length;
+      let T = [];
+      for(let c=0; c<cols; c++){
+        let row = [];
+        for(let r=0; r<rows; r++){
+          row.push(A[r][c]);
+        }
+        T.push(row);
+      }
+      return T;
+    }
+    function matMultiply(A,B){
+      const m = A.length, n=A[0].length, p=B[0].length;
+      let R = new Array(m).fill(null).map(()=> new Array(p).fill(0));
+      for(let i=0; i<m; i++){
+        for(let j=0; j<p; j++){
+          let sum=0;
+          for(let k=0; k<n; k++){
+            sum += A[i][k]*B[k][j];
+          }
+          R[i][j] = sum;
+        }
+      }
+      return R;
+    }
+    function matInverse(M){
+      const n = M.length;
+      // augment M with identity
+      let A = [];
+      for(let i=0; i<n; i++){
+        A[i] = M[i].slice();
+        for(let j=0; j<n; j++){
+          A[i].push(i===j?1:0);
+        }
+      }
+      // forward elimination
+      for(let i=0; i<n; i++){
+        let pivot = A[i][i];
+        if(Math.abs(pivot)<1e-12){
+          // find row below with a larger pivot
+          for(let r=i+1;r<n;r++){
+            if(Math.abs(A[r][i])>Math.abs(pivot)){
+              [A[i], A[r]]=[A[r],A[i]];
+              pivot=A[i][i];
+              break;
+            }
+          }
+        }
+        if(Math.abs(pivot)<1e-12){
+          throw new Error("Matrix inversion failed (singular X^T X). Possibly not enough variation in data.");
+        }
+        for(let c=0;c<2*n;c++){
+          A[i][c] /= pivot;
+        }
+        for(let r=0;r<n;r++){
+          if(r!==i){
+            let factor=A[r][i];
+            for(let c=0;c<2*n;c++){
+              A[r][c]-=factor*A[i][c];
+            }
+          }
+        }
+      }
+      let inv=[];
+      for(let i=0;i<n;i++){
+        inv[i]=A[i].slice(n,2*n);
+      }
+      return inv;
+    }
+    function solveRegression(X, y){
+      if(X.length<2) {
+        throw new Error("Not enough data points to solve regression (X rows < 2).");
+      }
+      const yMat = y.map(val => [val]);
+      const XT = matTranspose(X);
+      const XTX = matMultiply(XT,X);
+      const inv = matInverse(XTX);
+      const XTy = matMultiply(XT,yMat);
+      const B = matMultiply(inv,XTy);
+      return B.map(row => row[0]);
+    }
+
+    // ------------------- 10) Plotting: Line Chart and Histogram using Plotly -------------------
+    // Replace the native SVG chart drawing with Plotly chart style
+
+    // For LR (Price Only), Sentiment-Based LR, and Multivariate LR forecasts
+    function drawLineChart(historical, futureDate, forecastPrice){
+      let trace1 = {
+        x: historical.map(d => d.date),
+        y: historical.map(d => d.close),
+        mode: 'lines+markers',
+        name: 'Historical Prices'
+      };
+      let lastHist = historical[historical.length - 1];
+      let trace2 = {
+        x: [lastHist.date, futureDate],
+        y: [lastHist.close, forecastPrice],
+        mode: 'lines+markers',
+        name: 'Forecast'
+      };
+      let layout = {
+        title: 'Stock Price Forecast',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Price' }
+      };
+      Plotly.newPlot('chart', [trace1, trace2], layout);
+    }
+
+    // For Monte Carlo simulation: Plot a histogram of final simulated prices
+    function drawHistogram(finalPrices, extraLines=[]){
+      let trace = {
+        x: finalPrices,
+        type: 'histogram',
+        marker: { color: '#7f7f7f' }
+      };
+      let layout = {
+        title: 'Simulated Final Stock Prices Distribution (Monte Carlo - GBM)',
+        xaxis: { title: 'Price' },
+        yaxis: { title: 'Frequency' }
+      };
+      if(extraLines.length > 0){
+        layout.shapes = extraLines.map(obj => ({
+          type: 'line',
+          x0: obj.value,
+          x1: obj.value,
+          y0: 0,
+          y1: 1,
+          yref: 'paper',
+          line: { color: obj.color || 'red', dash: 'dash' }
+        }));
+      }
+      Plotly.newPlot('chart', [trace], layout);
+    }
+
+    function updateProbability(finalPrices, threshold){
+      const count = finalPrices.filter(p=>p>=threshold).length;
+      const prob = (count/finalPrices.length*100).toFixed(2);
+      document.getElementById('probability').innerText = prob+"%";
+    }
+
+    // ------------------- 11) Explanation Builder -------------------
+    function generateExplanation(method, content){
+      document.getElementById('explanation').innerHTML = `<h3>Explanation</h3>` + content;
+    }
+
+    // ------------------- 12) Main: onClick => fetch, parse, run method, show chart -------------------
+    document.getElementById('simulateButton').addEventListener('click', async ()=>{
+      const ticker = document.getElementById('ticker').value.trim();
+      const period = parseInt(document.getElementById('period').value);
+      const futureDateVal = document.getElementById('futureDate').value;
+      if(!ticker || !futureDateVal){
+        alert("Please provide ticker and future date.");
+        return;
+      }
+      const method = document.getElementById('forecastMethod').value;
+      const futureDate = new Date(futureDateVal);
+
+      document.getElementById('loading').style.display="block";
+      document.getElementById('explanation').innerHTML="";
+      document.getElementById('sliderDiv').style.display="none";
+
+      try {
+        // 1) Fetch historical data (prices, volume)
+        const tsData = await fetchHistoricalData(ticker);
+        const hist = processHistoricalData(tsData, period);
+
+        // Ensure there is enough historical data
+        if(hist.length < 2) {
+          throw new Error("Insufficient historical data after filtering by period. (Need >=2 days)");
+        }
+
+        // Determine start and end dates based on the filtered historical data
+        const startDate = hist[0].date;
+        const endDate = hist[hist.length - 1].date;
+
+        // 2) Fetch news sentiment within the same date range
+        const sentData = await fetchNewsSentiment(ticker, startDate, endDate);
+        
+        // 3) Merge sentiment into historical data
+        mergeSentiment(hist, sentData);
+
+        let explanation="";
+        if(method==="lr_price"){
+          const {slope, intercept, forecast} = linearRegressionForecast(hist, futureDate);
+          drawLineChart(hist, futureDate, forecast);
+          explanation += "<p><strong>Method:</strong> Simple Linear Regression (price vs. time)</p>";
+          explanation += `<p>Slope = ${slope.toFixed(4)}, Intercept = ${intercept.toFixed(4)}</p>`;
+          explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
+          generateExplanation(method, explanation);
+
+        } else if(method==="mc"){
+          const stats = computeStats(hist);
+          const lastHistDate = hist[hist.length-1].date;
+          const dt = (futureDate - lastHistDate)/(1000*60*60*24*365);
+          const finalPrices = runSimulation(stats.lastPrice, stats.mean, stats.stdDev, dt);
+
+          drawHistogram(finalPrices, []);
+          document.getElementById('sliderDiv').style.display="block";
+          const minP=Math.floor(Math.min(...finalPrices));
+          const maxP=Math.ceil(Math.max(...finalPrices));
+          const slider = document.getElementById('priceSlider');
+          slider.min=minP; slider.max=maxP; slider.value=minP;
+          document.getElementById('thresholdValue').innerText=minP;
+          updateProbability(finalPrices, minP);
+          slider.oninput=function(){
+            const th = parseFloat(this.value);
+            document.getElementById('thresholdValue').innerText=th;
+            updateProbability(finalPrices, th);
+          };
+
+          explanation += "<p><strong>Method:</strong> Monte Carlo (Geometric Brownian Motion)</p>";
+          explanation += `<p>Annual mean log return = ${stats.mean.toFixed(4)}, annual std dev = ${stats.stdDev.toFixed(4)}</p>`;
+          explanation += `<p>Last price = $${stats.lastPrice.toFixed(2)}, time horizon = ${dt.toFixed(2)} years</p>`;
+          explanation += `<p>Above is the distribution of final prices from ${finalPrices.length} simulations.</p>`;
+          generateExplanation(method, explanation);
+
+        } else if(method==="lr_sent"){
+          const {beta, forecast} = sentimentRegression(hist, futureDate);
+          drawLineChart(hist, futureDate, forecast);
+
+          explanation += "<p><strong>Method:</strong> Sentiment-Based Linear Regression (dayIndex + sentiment => price)</p>";
+          explanation += `<p>Coefficients = b0: ${beta[0].toFixed(4)}, b1 (dayIndex): ${beta[1].toFixed(4)}, b2 (sentiment): ${beta[2].toFixed(4)}</p>`;
+          explanation += `<p>Forecasted Price for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
+          explanation += `<p>Used average historical sentiment for the future. Missing days were assumed sentiment=0 by default.</p>`;
+          generateExplanation(method, explanation);
+
+        } else if(method==="multi"){
+          const {beta, forecast} = multivariateRegression(hist, futureDate);
+          drawLineChart(hist, futureDate, forecast);
+
+          explanation += "<p><strong>Method:</strong> Multivariate LR (dayIndex + volume + sentiment => price)</p>";
+          explanation += `<p>Beta: b0=${beta[0].toFixed(4)}, b1=${beta[1].toFixed(4)}, b2(volume)=${beta[2].toFixed(4)}, b3(sentiment)=${beta[3].toFixed(4)}</p>`;
+          explanation += `<p>We used average volume & sentiment for the future date. Forecast: <strong>$${forecast.toFixed(2)}</strong></p>`;
+          generateExplanation(method, explanation);
+        }
+
+      } catch (err){
+        alert("Error: " + err.message);
+      }
+      document.getElementById('loading').style.display="none";
     });
-
-    project.deliverables.push(deliverableObj);
-  });
-}
-
-/** Builds a Mermaid flowchart from the project data, color-coding each layer **/
-function buildMermaidText() {
-  let mermaidStr = "flowchart TB\n";
-
-  // 1) Project node
-  const projectId = "project";
-  mermaidStr += `    ${projectId}["Project: ${escapeText(project.name)}"]\n\n`;
-
-  // Arrays to store IDs for coloring
-  let deliverableIds = [];
-  let wpIds = [];
-  let activityIds = [];
-
-  // For each deliverable
-  project.deliverables.forEach((d, dIndex) => {
-    const dId = `d${dIndex}`;
-    mermaidStr += `    ${dId}["${escapeText(d.name)}"]\n`;
-    mermaidStr += `    ${projectId} --> ${dId}\n\n`;
-    deliverableIds.push(dId);
-
-    // For each WP
-    d.workPackages.forEach((wp, wpIndex) => {
-      const wpId = `${dId}_wp${wpIndex}`;
-      mermaidStr += `    ${wpId}["${escapeText(wp.name)}"]\n`;
-      mermaidStr += `    ${dId} --> ${wpId}\n`;
-      wpIds.push(wpId);
-
-      // For each Activity
-      wp.activities.forEach((act, actIndex) => {
-        const actId = `${wpId}_act${actIndex}`;
-        mermaidStr += `    ${actId}["${escapeText(act)}"]\n`;
-        mermaidStr += `    ${wpId} --> ${actId}\n`;
-        activityIds.push(actId);
-      });
-      mermaidStr += "\n";
-    });
-  });
-
-  // 2) Color each layer:
-  // Project: Pink
-  mermaidStr += `    style ${projectId} fill:#d81b60,stroke:#d81b60,color:#fff,stroke-width:2px\n`;
-
-  // Deliverables: Green
-  deliverableIds.forEach(dId => {
-    mermaidStr += `    style ${dId} fill:#8bc34a,stroke:#558b2f,color:#fff,stroke-width:1px\n`;
-  });
-
-  // Work Packages: Yellow
-  wpIds.forEach(wpId => {
-    mermaidStr += `    style ${wpId} fill:#ffd54f,stroke:#ffa000,color:#000,stroke-width:1px\n`;
-  });
-
-  // Activities: Lavender
-  activityIds.forEach(aId => {
-    mermaidStr += `    style ${aId} fill:#ce93d8,stroke:#8e24aa,color:#000,stroke-width:1px\n`;
-  });
-
-  return mermaidStr;
-}
-
-/** Escape double quotes for safe Mermaid rendering **/
-function escapeText(str) {
-  return str.replace(/"/g, '\\"');
-}
-
-/** Renders the Mermaid chart **/
-function renderMermaidChart(chartText) {
-  // Place the mermaid code in #mermaidChart
-  mermaidChartDiv.textContent = chartText;
-  // Let Mermaid parse & render
-  mermaid.init(undefined, mermaidChartDiv);
-}
-</script>
-
+  </script>
 </body>
 </html>
