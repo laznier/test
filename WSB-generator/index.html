@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Stock Forecast: LR, Monte Carlo, Sentiment, Multivariate (Error Handling)</title>
+  <title>Stock Forecast: LR, Monte Carlo, &amp; Enhanced Regression</title>
   <!-- Include Plotly for interactive charts -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
@@ -109,21 +109,21 @@
   </button>
 
   <div class="container">
-    <h1>Stock Forecast: LR, Monte Carlo, Sentiment, Multivariate (Error Handling)</h1>
+    <h1>Stock Forecast Demo</h1>
     <p>
       This demo fetches:
       <ul>
-        <li>Historical price & volume (Alpha Vantage TIME_SERIES_DAILY)</li>
+        <li>Historical price &amp; volume (Alpha Vantage TIME_SERIES_DAILY)</li>
         <li>News sentiment (Alpha Vantage NEWS_SENTIMENT)</li>
       </ul>
       Then provides four forecasting methods:
       <ol>
         <li><strong>LR (Price Only)</strong></li>
-        <li><strong>MC (Monte Carlo)</strong></li>
-        <li><strong>LR (Sentiment-Based)</strong></li>
-        <li><strong>Multivariate LR (Volume+Sentiment)</strong></li>
+        <li><strong>Monte Carlo</strong></li>
+        <li><strong>LR (Price &amp; Volume)</strong></li>
+        <li><strong>Enhanced Regression</strong> (Time, Volume, Sentiment, Momentum)</li>
       </ol>
-      <strong>NOTE:</strong> This version throws errors if data fails to fetch or if there's insufficient data.
+      <strong>NOTE:</strong> This version throws errors if data fails to fetch or if there’s insufficient variation.
     </p>
 
     <label for="ticker">Ticker Symbol (e.g., AAPL):</label>
@@ -138,9 +138,9 @@
     <label for="forecastMethod">Forecast Method:</label>
     <select id="forecastMethod">
       <option value="lr_price">1) LR (Price Only)</option>
-      <option value="mc">2) Monte Carlo</option>
-      <option value="lr_sent">3) LR (Sentiment-Based)</option>
-      <option value="multi">4) Multivariate LR (Volume+Sentiment)</option>
+      <option value="mc">2) Monte Carlo (Price Only)</option>
+      <option value="lr_volume">3) LR (Price &amp; Volume)</option>
+      <option value="enhanced">4) Enhanced Regression (Time, Volume, Sentiment, Momentum)</option>
     </select>
 
     <button id="simulateButton">Run Forecast</button>
@@ -204,23 +204,12 @@
       // Group articles by date (YYYY-MM-DD) and average their sentiment
       const dailyScores = {};
       for (const article of data.feed) {
-        const published = article.time_published; // e.g., "2023-05-05T14:05:00Z"
+        const published = article.time_published;
         if (!published) continue;
         const dayKey = published.split('T')[0];
-
-        // Log the raw article sentiment for debugging
-        if (article.ticker_sentiment) {
-          for (let ts of article.ticker_sentiment) {
-            if (ts.ticker === ticker.toUpperCase()) {
-              console.log("Article date:", dayKey, "Raw sentiment score:", ts.score);
-            }
-          }
-        }
-
         if (!article.ticker_sentiment) continue;
         const tSent = article.ticker_sentiment.find(ts => ts.ticker === ticker.toUpperCase());
         if (!tSent) continue;
-
         const sVal = parseFloat(tSent.score) || 0;
         if (!dailyScores[dayKey]) {
           dailyScores[dayKey] = [];
@@ -234,10 +223,8 @@
         const arr = dailyScores[dayKey];
         const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
         avgPerDay[dayKey] = avg;
-        // Log the daily average sentiment for debugging
         console.log("Day:", dayKey, "Avg sentiment:", avg);
       }
-
       return avgPerDay;
     }
 
@@ -269,7 +256,6 @@
         const dayKey = row.date.toISOString().split('T')[0];
         row.sentiment = sentimentData[dayKey] !== undefined ? sentimentData[dayKey] : 0;
       }
-      // Log the final merged data for debugging
       console.log("Merged priceData with sentiment:", priceData);
       return priceData;
     }
@@ -327,36 +313,45 @@
       return finalPrices;
     }
 
-    // ------------------- 7) Sentiment-Based Linear Regression -------------------
-    function sentimentRegression(prices, futureDate) {
+    // ------------------- 7) Volume-Based Linear Regression (Price & Volume) -------------------
+    function volumeRegression(prices, futureDate) {
       const firstDate = prices[0].date;
       let X = [], Y = [];
       for (let row of prices) {
         const dayIndex = (row.date - firstDate) / (1000 * 60 * 60 * 24);
-        X.push([1, dayIndex, row.sentiment]);
-        Y.push(row.close);
-      }
-      const beta = solveRegression(X, Y);
-      const futX = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
-      const avgSent = prices.reduce((acc, r) => acc + r.sentiment, 0) / prices.length;
-      const forecast = beta[0] + beta[1] * futX + beta[2] * avgSent;
-      return { beta, forecast };
-    }
-
-    // ------------------- 8) Multivariate Linear Regression -------------------
-    function multivariateRegression(prices, futureDate) {
-      const firstDate = prices[0].date;
-      let X = [], Y = [];
-      for (let row of prices) {
-        const dayIndex = (row.date - firstDate) / (1000 * 60 * 60 * 24);
-        X.push([1, dayIndex, row.volume, row.sentiment]);
+        const logVolume = Math.log(row.volume);
+        X.push([1, dayIndex, logVolume]);
         Y.push(row.close);
       }
       const beta = solveRegression(X, Y);
       const futDayIndex = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
-      const avgVol = prices.reduce((acc, r) => acc + r.volume, 0) / prices.length;
+      const avgLogVol = prices.reduce((acc, r) => acc + Math.log(r.volume), 0) / prices.length;
+      const forecast = beta[0] + beta[1] * futDayIndex + beta[2] * avgLogVol;
+      return { beta, forecast };
+    }
+
+    // ------------------- 8) Enhanced Regression: Time, Volume, Sentiment, &amp; Momentum -------------------
+    function enhancedRegression(prices, futureDate) {
+      const firstDate = prices[0].date;
+      let X = [], Y = [];
+      for (let i = 0; i < prices.length; i++) {
+        const dayIndex = (prices[i].date - firstDate) / (1000 * 60 * 60 * 24);
+        const logVolume = Math.log(prices[i].volume);
+        const sentiment = prices[i].sentiment;
+        let momentum = 0;
+        if (i > 0) {
+          momentum = (prices[i].close - prices[i-1].close) / prices[i-1].close;
+        }
+        X.push([1, dayIndex, logVolume, sentiment, momentum]);
+        Y.push(prices[i].close);
+      }
+      const beta = solveRegression(X, Y);
+      const futDayIndex = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
+      // Use the averages for predictors for forecasting
+      const avgLogVol = prices.reduce((acc, r) => acc + Math.log(r.volume), 0) / prices.length;
       const avgSent = prices.reduce((acc, r) => acc + r.sentiment, 0) / prices.length;
-      const forecast = beta[0] + beta[1] * futDayIndex + beta[2] * avgVol + beta[3] * avgSent;
+      const avgMom = prices.slice(1).reduce((acc, r, i) => acc + ((r.close - prices[i].close) / prices[i].close), 0) / (prices.length - 1);
+      const forecast = beta[0] + beta[1] * futDayIndex + beta[2] * avgLogVol + beta[3] * avgSent + beta[4] * avgMom;
       return { beta, forecast };
     }
 
@@ -432,16 +427,12 @@
       if (X.length < 2) {
         throw new Error("Not enough data points to solve regression (X rows < 2).");
       }
-      // Log the design matrix X and y for debugging
       console.log("Solving regression with X =", X, "and y =", y);
-
       const yMat = y.map(val => [val]);
       const XT = matTranspose(X);
       const XTX = matMultiply(XT, X);
-      // Log X^T X to see if it might be singular
       console.log("X^T X =", XTX);
-
-      const inv = matInverse(XTX); // Might throw if singular
+      const inv = matInverse(XTX);
       const XTy = matMultiply(XT, yMat);
       const B = matMultiply(inv, XTy).map(row => row[0]);
       console.log("Beta (solution) =", B);
@@ -509,7 +500,7 @@
 
     // ------------------- 12) Main Simulation -------------------
     document.getElementById('simulateButton').addEventListener('click', async () => {
-      console.clear(); // Clear console to keep logs fresh
+      console.clear();
       const ticker = document.getElementById('ticker').value.trim();
       const period = parseInt(document.getElementById('period').value);
       const futureDateVal = document.getElementById('futureDate').value;
@@ -529,7 +520,6 @@
       try {
         console.log("Fetching historical data for:", ticker);
         const tsData = await fetchHistoricalData(ticker);
-
         console.log("Processing data for the last", period, "months...");
         const hist = processHistoricalData(tsData, period);
         console.log("Processed historical data rows:", hist.length, hist);
@@ -542,7 +532,6 @@
         const endDate = hist[hist.length - 1].date;
         console.log("Fetching sentiment data for", ticker, "from", startDate.toDateString(), "to", endDate.toDateString());
         const sentData = await fetchNewsSentiment(ticker, startDate, endDate);
-
         console.log("Merging sentiment into price data...");
         mergeSentiment(hist, sentData);
 
@@ -550,12 +539,10 @@
         if (method === "lr_price") {
           const { slope, intercept, forecast } = linearRegressionForecast(hist, futureDate);
           drawLineChart(hist, futureDate, forecast);
-
           explanation += "<p><strong>Method:</strong> Simple Linear Regression (price vs. time)</p>";
           explanation += `<p>Slope = ${slope.toFixed(4)}, Intercept = ${intercept.toFixed(4)}</p>`;
           explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
           generateExplanation(method, explanation);
-
         } else if (method === "mc") {
           const stats = computeStats(hist);
           console.log("Monte Carlo stats:", stats);
@@ -564,7 +551,6 @@
           console.log("Time horizon (years):", dt);
           const finalPrices = runSimulation(stats.lastPrice, stats.mean, stats.stdDev, dt);
           drawHistogram(finalPrices, []);
-
           document.getElementById('sliderDiv').style.display = "block";
           const minP = Math.floor(Math.min(...finalPrices));
           const maxP = Math.ceil(Math.max(...finalPrices));
@@ -572,38 +558,32 @@
           slider.min = minP; slider.max = maxP; slider.value = minP;
           document.getElementById('thresholdValue').innerText = minP;
           updateProbability(finalPrices, minP);
-
           slider.oninput = function() {
             const th = parseFloat(this.value);
             document.getElementById('thresholdValue').innerText = th;
             updateProbability(finalPrices, th);
           };
-
-          explanation += "<p><strong>Method:</strong> Monte Carlo (Geometric Brownian Motion)</p>";
+          explanation += "<p><strong>Method:</strong> Monte Carlo Simulation (Geometric Brownian Motion)</p>";
           explanation += `<p>Annual mean log return = ${stats.mean.toFixed(4)}, annual std dev = ${stats.stdDev.toFixed(4)}</p>`;
           explanation += `<p>Last price = $${stats.lastPrice.toFixed(2)}, time horizon = ${dt.toFixed(2)} years</p>`;
           explanation += `<p>Distribution based on ${finalPrices.length} simulations.</p>`;
           generateExplanation(method, explanation);
-
-        } else if (method === "lr_sent") {
-          console.log("Running sentiment-based linear regression...");
-          const { beta, forecast } = sentimentRegression(hist, futureDate);
-
+        } else if (method === "lr_volume") {
+          console.log("Running linear regression with Price & Volume (using log(volume))...");
+          const { beta, forecast } = volumeRegression(hist, futureDate);
           drawLineChart(hist, futureDate, forecast);
-          explanation += "<p><strong>Method:</strong> Sentiment-Based Linear Regression (dayIndex + sentiment => price)</p>";
-          explanation += `<p>Coefficients = b0: ${beta[0].toFixed(4)}, b1 (dayIndex): ${beta[1].toFixed(4)}, b2 (sentiment): ${beta[2].toFixed(4)}</p>`;
+          explanation += "<p><strong>Method:</strong> Linear Regression with Price & Volume</p>";
+          explanation += `<p>Coefficients: b0 = ${beta[0].toFixed(4)}, b1 (time) = ${beta[1].toFixed(4)}, b2 (log(volume)) = ${beta[2].toFixed(4)}</p>`;
           explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
-          explanation += "<p>Used average historical sentiment for forecast; missing days assumed sentiment = 0.</p>";
           generateExplanation(method, explanation);
-
-        } else if (method === "multi") {
-          console.log("Running multivariate regression with volume + sentiment...");
-          const { beta, forecast } = multivariateRegression(hist, futureDate);
-
+        } else if (method === "enhanced") {
+          console.log("Running enhanced regression with Time, Volume, Sentiment & Momentum...");
+          const { beta, forecast } = enhancedRegression(hist, futureDate);
           drawLineChart(hist, futureDate, forecast);
-          explanation += "<p><strong>Method:</strong> Multivariate LR (dayIndex + volume + sentiment => price)</p>";
-          explanation += `<p>Coefficients: b0 = ${beta[0].toFixed(4)}, b1 = ${beta[1].toFixed(4)}, b2 (volume) = ${beta[2].toFixed(4)}, b3 (sentiment) = ${beta[3].toFixed(4)}</p>`;
+          explanation += "<p><strong>Method:</strong> Enhanced Regression (Time, log(Volume), Sentiment, Momentum)</p>";
+          explanation += `<p>Coefficients: b0 = ${beta[0].toFixed(4)}, b1 = ${beta[1].toFixed(4)}, b2 (log(volume)) = ${beta[2].toFixed(4)}, b3 (sentiment) = ${beta[3].toFixed(4)}, b4 (momentum) = ${beta[4].toFixed(4)}</p>`;
           explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
+          explanation += "<p>Predictors for forecasting are taken as the average (or representative) values over the historical period.</p>";
           generateExplanation(method, explanation);
         }
       } catch (err) {
