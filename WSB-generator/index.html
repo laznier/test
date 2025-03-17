@@ -67,10 +67,11 @@
       font-style: italic;
       color: #f97316;
     }
+    /* Plotly chart container */
     #chart {
       width: 800px;
       height: 500px;
-      margin: 30px auto 0 auto;
+      margin: 30px auto;
       border: 1px solid #e5e7eb;
       border-radius: 4px;
       background-color: #fff;
@@ -121,7 +122,7 @@
         <li><strong>LR (Price Only)</strong></li>
         <li><strong>MC (Monte Carlo)</strong></li>
         <li><strong>LR (Sentiment-Based)</strong> — dayIndex + sentiment → price</li>
-        <li><strong>Multivariate LR (Price, Volume, Sentiment)</strong> — dayIndex + volume + sentiment → price</li>
+        <li><strong>Multivariate LR (Volume, Sentiment, Price)</strong> — dayIndex + volume + sentiment → price</li>
       </ol>
       <strong>NOTE:</strong> This version throws errors if data fails to fetch or if there's insufficient data.
     </p>
@@ -146,7 +147,7 @@
     <button id="simulateButton">Run Forecast</button>
     <div id="loading" style="display:none;">Loading data...</div>
 
-    <!-- Chart container now uses Plotly -->
+    <!-- Chart container using Plotly -->
     <div id="chart"></div>
 
     <div id="sliderDiv">
@@ -162,17 +163,13 @@
   <script>
     // ------------------- 1) Fetch TIME_SERIES Data -------------------
     async function fetchHistoricalData(ticker) {
-      // Replace with your valid (premium if needed) Alpha Vantage API key
       const apiKey = 'YOUR_API_KEY';
       const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${apiKey}`;
       const response = await fetch(url);
-      
       if(!response.ok) {
         throw new Error("Network error fetching TIME_SERIES_DAILY data (HTTP " + response.status + ")");
       }
       const data = await response.json();
-      
-      // Check if the JSON has the expected structure
       if (data["Error Message"] || !data["Time Series (Daily)"]) {
         throw new Error("TIME_SERIES_DAILY data not found. Check ticker or API key.");
       }
@@ -182,7 +179,6 @@
     // ------------------- 2) Fetch NEWS_SENTIMENT with Date Filtering -------------------
     async function fetchNewsSentiment(ticker, startDate, endDate) {
       const apiKey = 'YOUR_API_KEY';
-      // Helper function to format dates as YYYYMMDDTHHMM (using midnight for start and 23:59 for end)
       const formatDate = (d, time) => {
         const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -191,41 +187,29 @@
       }
       const time_from = formatDate(startDate, "0000");
       const time_to = formatDate(endDate, "2359");
-      
       const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&time_from=${time_from}&time_to=${time_to}&limit=200&apikey=${apiKey}`;
       const response = await fetch(url);
-
       if(!response.ok) {
         throw new Error("Network error fetching NEWS_SENTIMENT (HTTP " + response.status + ")");
       }
       const data = await response.json();
-
       if (!data.feed || !Array.isArray(data.feed) || data.feed.length === 0) {
         throw new Error("No sentiment data returned; check subscription level or ticker coverage.");
       }
-
-      // Group articles by date (YYYY-MM-DD) and average their sentiment for the given ticker
       const dailyScores = {};
-
       for (const article of data.feed) {
-        const published = article.time_published; // e.g. "2023-05-05T14:05:00Z"
+        const published = article.time_published;
         if (!published) continue;
-        const dayKey = published.split('T')[0]; // "YYYY-MM-DD"
-
-        // Each article can have multiple tickers in ticker_sentiment
+        const dayKey = published.split('T')[0];
         if (!article.ticker_sentiment) continue;
         const tSent = article.ticker_sentiment.find(ts => ts.ticker === ticker.toUpperCase());
         if (!tSent) continue;
-
         const sVal = parseFloat(tSent.score) || 0;
-
         if (!dailyScores[dayKey]) {
           dailyScores[dayKey] = [];
         }
         dailyScores[dayKey].push(sVal);
       }
-
-      // Compute average sentiment per day
       const avgPerDay = {};
       for (const dayKey in dailyScores) {
         const arr = dailyScores[dayKey];
@@ -241,7 +225,6 @@
       const endDate = new Date(dates[dates.length - 1]);
       const startDate = new Date(endDate);
       startDate.setMonth(startDate.getMonth() - periodMonths);
-
       let data = [];
       for (let date of dates) {
         const d = new Date(date);
@@ -257,208 +240,182 @@
       return data;
     }
 
-    // ------------------- 4) Merge Sentiment (by day) into price data -------------------
+    // ------------------- 4) Merge Sentiment into Price Data -------------------
     function mergeSentiment(priceData, sentimentData) {
-      // sentimentData is { "YYYY-MM-DD": avgSentiment }
-      // Add .sentiment to each daily record; if no sentiment for that day, default to 0
       for (let row of priceData) {
-        const dayKey = row.date.toISOString().split('T')[0]; // "YYYY-MM-DD"
+        const dayKey = row.date.toISOString().split('T')[0];
         row.sentiment = sentimentData[dayKey] !== undefined ? sentimentData[dayKey] : 0;
       }
       return priceData;
     }
 
-    // ------------------- 5) LR (Price Only) - Single-Variable Regression -------------------
+    // ------------------- 5) Linear Regression Forecast (Price Only) -------------------
     function linearRegressionForecast(prices, futureDate) {
       const firstDate = prices[0].date;
-      const xs = prices.map(p => (p.date - firstDate)/(1000*60*60*24));
+      const xs = prices.map(p => (p.date - firstDate) / (1000 * 60 * 60 * 24));
       const ys = prices.map(p => p.close);
       const n = xs.length;
-
-      const sumX = xs.reduce((a,b) => a+b,0);
-      const sumY = ys.reduce((a,b) => a+b,0);
-      const sumXY = xs.reduce((acc, x, i) => acc + x*ys[i], 0);
-      const sumX2 = xs.reduce((acc, x) => acc + x*x, 0);
-
-      const slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX);
-      const intercept = (sumY - slope*sumX)/n;
-
-      // future
-      const futX = (futureDate - firstDate)/(1000*60*60*24);
-      const forecast = intercept + slope*futX;
+      const sumX = xs.reduce((a, b) => a + b, 0);
+      const sumY = ys.reduce((a, b) => a + b, 0);
+      const sumXY = xs.reduce((acc, x, i) => acc + x * ys[i], 0);
+      const sumX2 = xs.reduce((acc, x) => acc + x * x, 0);
+      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+      const intercept = (sumY - slope * sumX) / n;
+      const futX = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
+      const forecast = intercept + slope * futX;
       return { slope, intercept, forecast };
     }
 
     // ------------------- 6) Monte Carlo Simulation (GBM) -------------------
     function randn_bm() {
-      let u=0, v=0;
-      while(u===0) u = Math.random();
-      while(v===0) v = Math.random();
-      return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+      let u = 0, v = 0;
+      while(u === 0) u = Math.random();
+      while(v === 0) v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
     }
     function computeStats(prices) {
       const logReturns = [];
-      for (let i=1; i<prices.length; i++){
+      for (let i = 1; i < prices.length; i++){
         const prev = prices[i-1].close;
         const curr = prices[i].close;
-        logReturns.push(Math.log(curr/prev));
+        logReturns.push(Math.log(curr / prev));
       }
       const n = logReturns.length;
-      if(n<1) return {mean:0, stdDev:0, lastPrice:prices[prices.length-1].close};
-      const dailyMean = logReturns.reduce((a,b) => a+b,0)/n;
-      const variance = logReturns.map(r => (r-dailyMean)*(r-dailyMean)).reduce((a,b)=>a+b,0)/(n-1);
+      if (n < 1) return { mean: 0, stdDev: 0, lastPrice: prices[prices.length - 1].close };
+      const dailyMean = logReturns.reduce((a, b) => a + b, 0) / n;
+      const variance = logReturns.map(r => (r - dailyMean) ** 2).reduce((a, b) => a + b, 0) / (n - 1);
       const dailyStd = Math.sqrt(variance);
-      const annualMean = dailyMean*252;
-      const annualStd = dailyStd*Math.sqrt(252);
-      return {
-        mean: annualMean,
-        stdDev: annualStd,
-        lastPrice: prices[prices.length-1].close
-      };
+      const annualMean = dailyMean * 252;
+      const annualStd = dailyStd * Math.sqrt(252);
+      return { mean: annualMean, stdDev: annualStd, lastPrice: prices[prices.length - 1].close };
     }
-    function runSimulation(lastPrice, mean, stdDev, T, numSim=5000) {
+    function runSimulation(lastPrice, mean, stdDev, T, numSim = 5000) {
       let finalPrices = [];
-      for(let i=0; i<numSim; i++){
+      for (let i = 0; i < numSim; i++){
         const Z = randn_bm();
-        const ST = lastPrice * Math.exp((mean - 0.5*stdDev*stdDev)*T + stdDev*Math.sqrt(T)*Z);
+        const ST = lastPrice * Math.exp((mean - 0.5 * stdDev * stdDev) * T + stdDev * Math.sqrt(T) * Z);
         finalPrices.push(ST);
       }
       return finalPrices;
     }
 
-    // ------------------- 7) Sentiment-Based LR (dayIndex + sentiment => price) -------------------
+    // ------------------- 7) Sentiment-Based Linear Regression -------------------
     function sentimentRegression(prices, futureDate) {
       const firstDate = prices[0].date;
-      let X = [];
-      let Y = [];
-
-      // Build X, y: X[i] = [1, dayIndex, sentiment], y[i] = price
+      let X = [], Y = [];
       for (let row of prices) {
-        const dayIndex = (row.date - firstDate)/(1000*60*60*24);
+        const dayIndex = (row.date - firstDate) / (1000 * 60 * 60 * 24);
         X.push([1, dayIndex, row.sentiment]);
         Y.push(row.close);
       }
-      const beta = solveRegression(X, Y); // [b0, b1, b2]
-
-      // future dayIndex; use average historical sentiment for forecast
-      const futX = (futureDate - firstDate)/(1000*60*60*24);
-      const avgSent = prices.reduce((acc,r) => acc+r.sentiment,0)/prices.length;
-      const forecast = beta[0] + beta[1]*futX + beta[2]*avgSent;
-
+      const beta = solveRegression(X, Y);
+      const futX = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
+      const avgSent = prices.reduce((acc, r) => acc + r.sentiment, 0) / prices.length;
+      const forecast = beta[0] + beta[1] * futX + beta[2] * avgSent;
       return { beta, forecast };
     }
 
-    // ------------------- 8) Multivariate LR (dayIndex + volume + sentiment => price) -------------------
+    // ------------------- 8) Multivariate Linear Regression -------------------
     function multivariateRegression(prices, futureDate) {
       const firstDate = prices[0].date;
-      let X = [];
-      let Y = [];
-
+      let X = [], Y = [];
       for (let row of prices) {
-        const dayIndex = (row.date - firstDate)/(1000*60*60*24);
+        const dayIndex = (row.date - firstDate) / (1000 * 60 * 60 * 24);
         X.push([1, dayIndex, row.volume, row.sentiment]);
         Y.push(row.close);
       }
-      const beta = solveRegression(X, Y); // [b0, b1, b2, b3]
-
-      // For future: use dayIndex and average volume & sentiment
-      const futDayIndex = (futureDate - firstDate)/(1000*60*60*24);
-      const avgVol = prices.reduce((acc,r) => acc+r.volume,0)/prices.length;
-      const avgSent = prices.reduce((acc,r) => acc+r.sentiment,0)/prices.length;
-
-      const forecast = beta[0] + beta[1]*futDayIndex + beta[2]*avgVol + beta[3]*avgSent;
+      const beta = solveRegression(X, Y);
+      const futDayIndex = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
+      const avgVol = prices.reduce((acc, r) => acc + r.volume, 0) / prices.length;
+      const avgSent = prices.reduce((acc, r) => acc + r.sentiment, 0) / prices.length;
+      const forecast = beta[0] + beta[1] * futDayIndex + beta[2] * avgVol + beta[3] * avgSent;
       return { beta, forecast };
     }
 
-    // ------------------- 9) Matrix-based Regression Solver (Normal Equation) -------------------
-    function matTranspose(A){
+    // ------------------- 9) Matrix-Based Regression Solver -------------------
+    function matTranspose(A) {
       const rows = A.length, cols = A[0].length;
       let T = [];
-      for(let c=0; c<cols; c++){
+      for (let c = 0; c < cols; c++){
         let row = [];
-        for(let r=0; r<rows; r++){
+        for (let r = 0; r < rows; r++){
           row.push(A[r][c]);
         }
         T.push(row);
       }
       return T;
     }
-    function matMultiply(A,B){
-      const m = A.length, n=A[0].length, p=B[0].length;
-      let R = new Array(m).fill(null).map(()=> new Array(p).fill(0));
-      for(let i=0; i<m; i++){
-        for(let j=0; j<p; j++){
-          let sum=0;
-          for(let k=0; k<n; k++){
-            sum += A[i][k]*B[k][j];
+    function matMultiply(A, B) {
+      const m = A.length, n = A[0].length, p = B[0].length;
+      let R = new Array(m).fill(null).map(() => new Array(p).fill(0));
+      for (let i = 0; i < m; i++){
+        for (let j = 0; j < p; j++){
+          let sum = 0;
+          for (let k = 0; k < n; k++){
+            sum += A[i][k] * B[k][j];
           }
           R[i][j] = sum;
         }
       }
       return R;
     }
-    function matInverse(M){
+    function matInverse(M) {
       const n = M.length;
-      // augment M with identity
       let A = [];
-      for(let i=0; i<n; i++){
+      for (let i = 0; i < n; i++){
         A[i] = M[i].slice();
-        for(let j=0; j<n; j++){
-          A[i].push(i===j?1:0);
+        for (let j = 0; j < n; j++){
+          A[i].push(i === j ? 1 : 0);
         }
       }
-      // forward elimination
-      for(let i=0; i<n; i++){
+      for (let i = 0; i < n; i++){
         let pivot = A[i][i];
-        if(Math.abs(pivot)<1e-12){
-          // find row below with a larger pivot
-          for(let r=i+1;r<n;r++){
-            if(Math.abs(A[r][i])>Math.abs(pivot)){
-              [A[i], A[r]]=[A[r],A[i]];
-              pivot=A[i][i];
+        if (Math.abs(pivot) < 1e-12){
+          for (let r = i + 1; r < n; r++){
+            if (Math.abs(A[r][i]) > Math.abs(pivot)){
+              [A[i], A[r]] = [A[r], A[i]];
+              pivot = A[i][i];
               break;
             }
           }
         }
-        if(Math.abs(pivot)<1e-12){
+        if (Math.abs(pivot) < 1e-12){
           throw new Error("Matrix inversion failed (singular X^T X). Possibly not enough variation in data.");
         }
-        for(let c=0;c<2*n;c++){
+        for (let c = 0; c < 2 * n; c++){
           A[i][c] /= pivot;
         }
-        for(let r=0;r<n;r++){
-          if(r!==i){
-            let factor=A[r][i];
-            for(let c=0;c<2*n;c++){
-              A[r][c]-=factor*A[i][c];
+        for (let r = 0; r < n; r++){
+          if (r !== i){
+            let factor = A[r][i];
+            for (let c = 0; c < 2 * n; c++){
+              A[r][c] -= factor * A[i][c];
             }
           }
         }
       }
-      let inv=[];
-      for(let i=0;i<n;i++){
-        inv[i]=A[i].slice(n,2*n);
+      let inv = [];
+      for (let i = 0; i < n; i++){
+        inv[i] = A[i].slice(n, 2 * n);
       }
       return inv;
     }
-    function solveRegression(X, y){
-      if(X.length<2) {
+    function solveRegression(X, y) {
+      if (X.length < 2) {
         throw new Error("Not enough data points to solve regression (X rows < 2).");
       }
       const yMat = y.map(val => [val]);
       const XT = matTranspose(X);
-      const XTX = matMultiply(XT,X);
+      const XTX = matMultiply(XT, X);
       const inv = matInverse(XTX);
-      const XTy = matMultiply(XT,yMat);
-      const B = matMultiply(inv,XTy);
+      const XTy = matMultiply(XT, yMat);
+      const B = matMultiply(inv, XTy);
       return B.map(row => row[0]);
     }
 
-    // ------------------- 10) Plotting: Line Chart and Histogram using Plotly -------------------
-    // Replace the native SVG chart drawing with Plotly chart style
-
-    // For LR (Price Only), Sentiment-Based LR, and Multivariate LR forecasts
-    function drawLineChart(historical, futureDate, forecastPrice){
+    // ------------------- 10) Plotting with Plotly -------------------
+    // For LR (Price Only), Sentiment-Based LR, and Multivariate LR forecasts:
+    function drawLineChart(historical, futureDate, forecastPrice) {
       let trace1 = {
         x: historical.map(d => d.date),
         y: historical.map(d => d.close),
@@ -480,8 +437,8 @@
       Plotly.newPlot('chart', [trace1, trace2], layout);
     }
 
-    // For Monte Carlo simulation: Plot a histogram of final simulated prices
-    function drawHistogram(finalPrices, extraLines=[]){
+    // For Monte Carlo simulation:
+    function drawHistogram(finalPrices, extraLines = []) {
       let trace = {
         x: finalPrices,
         type: 'histogram',
@@ -492,7 +449,7 @@
         xaxis: { title: 'Price' },
         yaxis: { title: 'Frequency' }
       };
-      if(extraLines.length > 0){
+      if (extraLines.length > 0) {
         layout.shapes = extraLines.map(obj => ({
           type: 'line',
           x0: obj.value,
@@ -506,112 +463,92 @@
       Plotly.newPlot('chart', [trace], layout);
     }
 
-    function updateProbability(finalPrices, threshold){
-      const count = finalPrices.filter(p=>p>=threshold).length;
-      const prob = (count/finalPrices.length*100).toFixed(2);
-      document.getElementById('probability').innerText = prob+"%";
+    function updateProbability(finalPrices, threshold) {
+      const count = finalPrices.filter(p => p >= threshold).length;
+      const prob = (count / finalPrices.length * 100).toFixed(2);
+      document.getElementById('probability').innerText = prob + "%";
     }
 
     // ------------------- 11) Explanation Builder -------------------
-    function generateExplanation(method, content){
+    function generateExplanation(method, content) {
       document.getElementById('explanation').innerHTML = `<h3>Explanation</h3>` + content;
     }
 
-    // ------------------- 12) Main: onClick => fetch, parse, run method, show chart -------------------
-    document.getElementById('simulateButton').addEventListener('click', async ()=>{
+    // ------------------- 12) Main Simulation -------------------
+    document.getElementById('simulateButton').addEventListener('click', async () => {
       const ticker = document.getElementById('ticker').value.trim();
       const period = parseInt(document.getElementById('period').value);
       const futureDateVal = document.getElementById('futureDate').value;
-      if(!ticker || !futureDateVal){
+      if (!ticker || !futureDateVal) {
         alert("Please provide ticker and future date.");
         return;
       }
       const method = document.getElementById('forecastMethod').value;
       const futureDate = new Date(futureDateVal);
-
-      document.getElementById('loading').style.display="block";
-      document.getElementById('explanation').innerHTML="";
-      document.getElementById('sliderDiv').style.display="none";
-
+      document.getElementById('loading').style.display = "block";
+      document.getElementById('explanation').innerHTML = "";
+      document.getElementById('sliderDiv').style.display = "none";
       try {
-        // 1) Fetch historical data (prices, volume)
         const tsData = await fetchHistoricalData(ticker);
         const hist = processHistoricalData(tsData, period);
-
-        // Ensure there is enough historical data
-        if(hist.length < 2) {
+        if (hist.length < 2) {
           throw new Error("Insufficient historical data after filtering by period. (Need >=2 days)");
         }
-
-        // Determine start and end dates based on the filtered historical data
         const startDate = hist[0].date;
         const endDate = hist[hist.length - 1].date;
-
-        // 2) Fetch news sentiment within the same date range
         const sentData = await fetchNewsSentiment(ticker, startDate, endDate);
-        
-        // 3) Merge sentiment into historical data
         mergeSentiment(hist, sentData);
-
-        let explanation="";
-        if(method==="lr_price"){
-          const {slope, intercept, forecast} = linearRegressionForecast(hist, futureDate);
+        let explanation = "";
+        if (method === "lr_price") {
+          const { slope, intercept, forecast } = linearRegressionForecast(hist, futureDate);
           drawLineChart(hist, futureDate, forecast);
           explanation += "<p><strong>Method:</strong> Simple Linear Regression (price vs. time)</p>";
           explanation += `<p>Slope = ${slope.toFixed(4)}, Intercept = ${intercept.toFixed(4)}</p>`;
           explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
           generateExplanation(method, explanation);
-
-        } else if(method==="mc"){
+        } else if (method === "mc") {
           const stats = computeStats(hist);
-          const lastHistDate = hist[hist.length-1].date;
-          const dt = (futureDate - lastHistDate)/(1000*60*60*24*365);
+          const lastHistDate = hist[hist.length - 1].date;
+          const dt = (futureDate - lastHistDate) / (1000 * 60 * 60 * 24 * 365);
           const finalPrices = runSimulation(stats.lastPrice, stats.mean, stats.stdDev, dt);
-
           drawHistogram(finalPrices, []);
-          document.getElementById('sliderDiv').style.display="block";
-          const minP=Math.floor(Math.min(...finalPrices));
-          const maxP=Math.ceil(Math.max(...finalPrices));
+          document.getElementById('sliderDiv').style.display = "block";
+          const minP = Math.floor(Math.min(...finalPrices));
+          const maxP = Math.ceil(Math.max(...finalPrices));
           const slider = document.getElementById('priceSlider');
-          slider.min=minP; slider.max=maxP; slider.value=minP;
-          document.getElementById('thresholdValue').innerText=minP;
+          slider.min = minP; slider.max = maxP; slider.value = minP;
+          document.getElementById('thresholdValue').innerText = minP;
           updateProbability(finalPrices, minP);
-          slider.oninput=function(){
+          slider.oninput = function() {
             const th = parseFloat(this.value);
-            document.getElementById('thresholdValue').innerText=th;
+            document.getElementById('thresholdValue').innerText = th;
             updateProbability(finalPrices, th);
           };
-
           explanation += "<p><strong>Method:</strong> Monte Carlo (Geometric Brownian Motion)</p>";
           explanation += `<p>Annual mean log return = ${stats.mean.toFixed(4)}, annual std dev = ${stats.stdDev.toFixed(4)}</p>`;
           explanation += `<p>Last price = $${stats.lastPrice.toFixed(2)}, time horizon = ${dt.toFixed(2)} years</p>`;
-          explanation += `<p>Above is the distribution of final prices from ${finalPrices.length} simulations.</p>`;
+          explanation += `<p>Distribution based on ${finalPrices.length} simulations.</p>`;
           generateExplanation(method, explanation);
-
-        } else if(method==="lr_sent"){
-          const {beta, forecast} = sentimentRegression(hist, futureDate);
+        } else if (method === "lr_sent") {
+          const { beta, forecast } = sentimentRegression(hist, futureDate);
           drawLineChart(hist, futureDate, forecast);
-
           explanation += "<p><strong>Method:</strong> Sentiment-Based Linear Regression (dayIndex + sentiment => price)</p>";
           explanation += `<p>Coefficients = b0: ${beta[0].toFixed(4)}, b1 (dayIndex): ${beta[1].toFixed(4)}, b2 (sentiment): ${beta[2].toFixed(4)}</p>`;
-          explanation += `<p>Forecasted Price for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
-          explanation += `<p>Used average historical sentiment for the future. Missing days were assumed sentiment=0 by default.</p>`;
+          explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
+          explanation += "<p>Used average historical sentiment for forecast; missing days assumed sentiment = 0.</p>";
           generateExplanation(method, explanation);
-
-        } else if(method==="multi"){
-          const {beta, forecast} = multivariateRegression(hist, futureDate);
+        } else if (method === "multi") {
+          const { beta, forecast } = multivariateRegression(hist, futureDate);
           drawLineChart(hist, futureDate, forecast);
-
           explanation += "<p><strong>Method:</strong> Multivariate LR (dayIndex + volume + sentiment => price)</p>";
-          explanation += `<p>Beta: b0=${beta[0].toFixed(4)}, b1=${beta[1].toFixed(4)}, b2(volume)=${beta[2].toFixed(4)}, b3(sentiment)=${beta[3].toFixed(4)}</p>`;
-          explanation += `<p>We used average volume & sentiment for the future date. Forecast: <strong>$${forecast.toFixed(2)}</strong></p>`;
+          explanation += `<p>Coefficients: b0 = ${beta[0].toFixed(4)}, b1 = ${beta[1].toFixed(4)}, b2 (volume) = ${beta[2].toFixed(4)}, b3 (sentiment) = ${beta[3].toFixed(4)}</p>`;
+          explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
           generateExplanation(method, explanation);
         }
-
-      } catch (err){
+      } catch (err) {
         alert("Error: " + err.message);
       }
-      document.getElementById('loading').style.display="none";
+      document.getElementById('loading').style.display = "none";
     });
   </script>
 </body>
