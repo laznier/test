@@ -1,16 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Stock Forecast: LR, Monte Carlo, &amp; Enhanced Regression</title>
+  <title>Advanced Stock Price Prediction Tool</title>
   <!-- Include Plotly for interactive charts -->
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   <style>
+    /* Basic Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(to right, #f3f4f6, #ffffff);
+      color: #333;
       margin: 0;
       padding: 0;
-      color: #333;
     }
     .container {
       max-width: 900px;
@@ -48,6 +54,13 @@
       font-size: 0.95rem;
       transition: border-color 0.3s ease;
     }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="date"]:focus,
+    select:focus {
+      outline: none;
+      border-color: #6b7280;
+    }
     button {
       margin-top: 20px;
       padding: 10px 20px;
@@ -67,18 +80,27 @@
       font-style: italic;
       color: #f97316;
     }
+    #result {
+      margin-top: 30px;
+    }
     #chart {
-      width: 800px;
+      width: 100%;
       height: 500px;
-      margin: 30px auto;
       border: 1px solid #e5e7eb;
       border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
       background-color: #fff;
     }
     #sliderDiv {
       margin-top: 20px;
-      text-align: center;
-      display: none;
+    }
+    #sliderDiv label {
+      margin: 0;
+      font-weight: 500;
+    }
+    #priceSlider {
+      width: 80%;
+      margin: 10px 0;
     }
     #thresholdValue {
       font-weight: 600;
@@ -89,8 +111,8 @@
       color: #2563eb;
     }
     #explanation {
-      margin-top: 30px;
-      padding: 20px;
+      margin-top: 30px; 
+      padding: 20px; 
       border: 1px solid #e5e7eb;
       border-radius: 4px;
       background-color: #f9fafb;
@@ -107,205 +129,119 @@
   <button onclick="window.location.href='https://projectmanagerhelper.com'">
     Back to Main Page
   </button>
-
   <div class="container">
-    <h1>Stock Forecast Demo</h1>
+    <h1>Advanced Stock Price Prediction Tool</h1>
     <p>
-      This demo fetches:
-      <ul>
-        <li>Historical price &amp; volume (Alpha Vantage TIME_SERIES_DAILY)</li>
-        <li>News sentiment (Alpha Vantage NEWS_SENTIMENT)</li>
-      </ul>
-      Then provides four forecasting methods:
-      <ol>
-        <li><strong>LR (Price Only)</strong></li>
-        <li><strong>Monte Carlo</strong></li>
-        <li><strong>LR (Price &amp; Volume)</strong></li>
-        <li><strong>Enhanced Regression</strong> (Time, Volume, Sentiment, Momentum)</li>
-      </ol>
-      <strong>NOTE:</strong> This version throws errors if data fails to fetch or if there’s insufficient variation.
+      Enter a ticker symbol (e.g., AAPL), the historical period (in months) to consider, select a future date, and choose a forecasting method.
+      The tool uses advanced techniques to predict the future stock price and then generates an explanation of the methods and math used.
     </p>
-
+    
     <label for="ticker">Ticker Symbol (e.g., AAPL):</label>
     <input type="text" id="ticker" value="AAPL">
-
+    
     <label for="period">Historical Period (in months):</label>
-    <input type="number" id="period" value="6" min="1">
-
+    <input type="number" id="period" value="12" min="1">
+    
     <label for="futureDate">Future Date:</label>
     <input type="date" id="futureDate">
-
+    
     <label for="forecastMethod">Forecast Method:</label>
     <select id="forecastMethod">
-      <option value="lr_price">1) LR (Price Only)</option>
-      <option value="mc">2) Monte Carlo (Price Only)</option>
-      <option value="lr_volume">3) LR (Price &amp; Volume)</option>
-      <option value="enhanced">4) Enhanced Regression (Time, Volume, Sentiment, Momentum)</option>
+      <option value="mc">Monte Carlo Simulation (GBM)</option>
+      <option value="lr">Linear Trend Forecast</option>
+      <option value="combined">Combined Technical Indicators</option>
     </select>
-
-    <button id="simulateButton">Run Forecast</button>
-    <div id="loading" style="display:none;">Loading data...</div>
-
-    <div id="chart"></div>
-
-    <div id="sliderDiv">
-      <label>Select Price Threshold: <span id="thresholdValue">0</span></label>
-      <input type="range" id="priceSlider" min="0" max="1000" step="1" value="0"
-             style="width:60%; margin: 15px 0;" />
-      <p>Probability of final price above threshold: <span id="probability">0%</span></p>
+    
+    <button id="simulateButton">Run Simulation</button>
+    <div id="loading" style="display:none;">Loading data and running simulation...</div>
+    
+    <div id="result">
+      <div id="chart"></div>
+      <!-- Slider for Monte Carlo histogram (if applicable) -->
+      <div id="sliderDiv" style="display:none;">
+        <label for="priceSlider">Select Price Threshold:</label>
+        <input type="range" id="priceSlider" min="0" max="1000" step="1" value="0">
+        <span id="thresholdValue">0</span>
+        <p>Probability of final price above threshold: <span id="probability">0%</span></p>
+      </div>
     </div>
-
+    
     <div id="explanation"></div>
   </div>
-
+  
   <script>
-    // ------------------- 1) Fetch TIME_SERIES Data -------------------
+    // 1. Generate a standard normal random variable (Box-Muller Transform)
+    function randn_bm() {
+      let u = 0, v = 0;
+      while(u === 0) u = Math.random();
+      while(v === 0) v = Math.random();
+      return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    // 2. Fetch historical stock data from Alpha Vantage
     async function fetchHistoricalData(ticker) {
+      // Replace with your valid Alpha Vantage API key
       const apiKey = 'YOUR_API_KEY';
       const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&outputsize=full&apikey=${apiKey}`;
+      
       const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error("Network error fetching TIME_SERIES_DAILY data (HTTP " + response.status + ")");
-      }
       const data = await response.json();
-
       if (data["Error Message"] || !data["Time Series (Daily)"]) {
-        throw new Error("TIME_SERIES_DAILY data not found. Check ticker or API key.");
+        throw new Error("Error fetching data. Check ticker symbol or API key.");
       }
       return data["Time Series (Daily)"];
     }
 
-    // ------------------- 2) Fetch NEWS_SENTIMENT with Date Filtering -------------------
-    async function fetchNewsSentiment(ticker, startDate, endDate) {
-      const apiKey = 'YOUR_API_KEY';
-      const formatDate = (d, time) => {
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}${mm}${dd}T${time}`;
-      };
-      const time_from = formatDate(startDate, "0000");
-      const time_to = formatDate(endDate, "2359");
-
-      const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${ticker}&time_from=${time_from}&time_to=${time_to}&limit=200&apikey=${apiKey}`;
-      console.log("Fetching sentiment from:", url);
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error("Network error fetching NEWS_SENTIMENT (HTTP " + response.status + ")");
-      }
-      const data = await response.json();
-
-      if (!data.feed || !Array.isArray(data.feed) || data.feed.length === 0) {
-        throw new Error("No sentiment data returned; check subscription level or ticker coverage.");
-      }
-
-      // Group articles by date (YYYY-MM-DD) and average their sentiment
-      const dailyScores = {};
-      for (const article of data.feed) {
-        const published = article.time_published;
-        if (!published) continue;
-        const dayKey = published.split('T')[0];
-        if (!article.ticker_sentiment) continue;
-        const tSent = article.ticker_sentiment.find(ts => ts.ticker === ticker.toUpperCase());
-        if (!tSent) continue;
-        const sVal = parseFloat(tSent.score) || 0;
-        if (!dailyScores[dayKey]) {
-          dailyScores[dayKey] = [];
-        }
-        dailyScores[dayKey].push(sVal);
-      }
-
-      // Compute average sentiment per day
-      const avgPerDay = {};
-      for (const dayKey in dailyScores) {
-        const arr = dailyScores[dayKey];
-        const avg = arr.reduce((a, b) => a + b, 0) / arr.length;
-        avgPerDay[dayKey] = avg;
-        console.log("Day:", dayKey, "Avg sentiment:", avg);
-      }
-      return avgPerDay;
-    }
-
-    // ------------------- 3) Process TIME_SERIES for the Specified Period -------------------
+    // 3. Process historical data to extract prices within the desired period
     function processHistoricalData(timeSeries, periodMonths) {
       const dates = Object.keys(timeSeries).sort((a, b) => new Date(a) - new Date(b));
       const endDate = new Date(dates[dates.length - 1]);
       const startDate = new Date(endDate);
       startDate.setMonth(startDate.getMonth() - periodMonths);
-
-      let data = [];
-      for (let date of dates) {
-        const d = new Date(date);
-        if (d >= startDate && d <= endDate) {
-          data.push({
-            date: d,
-            close: parseFloat(timeSeries[date]["4. close"]),
-            volume: parseFloat(timeSeries[date]["5. volume"])
+      
+      let prices = [];
+      for(let date of dates) {
+        const currentDate = new Date(date);
+        if(currentDate >= startDate && currentDate <= endDate) {
+          prices.push({
+            date: currentDate,
+            close: parseFloat(timeSeries[date]["4. close"])
           });
         }
       }
-      data.sort((a, b) => a.date - b.date);
-      return data;
+      // Ensure ascending order
+      prices.sort((a, b) => a.date - b.date);
+      return prices;
     }
 
-    // ------------------- 4) Merge Sentiment into Price Data -------------------
-    function mergeSentiment(priceData, sentimentData) {
-      for (let row of priceData) {
-        const dayKey = row.date.toISOString().split('T')[0];
-        row.sentiment = sentimentData[dayKey] !== undefined ? sentimentData[dayKey] : 0;
-      }
-      console.log("Merged priceData with sentiment:", priceData);
-      return priceData;
-    }
-
-    // ------------------- 5) Linear Regression Forecast (Price Only) -------------------
-    function linearRegressionForecast(prices, futureDate) {
-      const firstDate = prices[0].date;
-      const xs = prices.map(p => (p.date - firstDate) / (1000 * 60 * 60 * 24));
-      const ys = prices.map(p => p.close);
-      const n = xs.length;
-
-      const sumX = xs.reduce((a, b) => a + b, 0);
-      const sumY = ys.reduce((a, b) => a + b, 0);
-      const sumXY = xs.reduce((acc, x, i) => acc + x * ys[i], 0);
-      const sumX2 = xs.reduce((acc, x) => acc + x * x, 0);
-
-      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-      const intercept = (sumY - slope * sumX) / n;
-
-      const futX = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
-      const forecast = intercept + slope * futX;
-      return { slope, intercept, forecast };
-    }
-
-    // ------------------- 6) Monte Carlo Simulation (GBM) -------------------
-    function randn_bm() {
-      let u = 0, v = 0;
-      while(u === 0) u = Math.random();
-      while(v === 0) v = Math.random();
-      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-    }
+    // 4. Compute daily log returns, then annualize them for Monte Carlo
     function computeStats(prices) {
-      const logReturns = [];
-      for (let i = 1; i < prices.length; i++) {
-        const prev = prices[i - 1].close;
+      let logReturns = [];
+      for(let i = 1; i < prices.length; i++) {
+        const prev = prices[i-1].close;
         const curr = prices[i].close;
         logReturns.push(Math.log(curr / prev));
       }
-      const n = logReturns.length;
-      if (n < 1) return { mean: 0, stdDev: 0, lastPrice: prices[prices.length - 1].close };
-      const dailyMean = logReturns.reduce((a, b) => a + b, 0) / n;
-      const variance = logReturns.map(r => (r - dailyMean) ** 2).reduce((a, b) => a + b, 0) / (n - 1);
-      const dailyStd = Math.sqrt(variance);
-      const annualMean = dailyMean * 252;
-      const annualStd = dailyStd * Math.sqrt(252);
-      return { mean: annualMean, stdDev: annualStd, lastPrice: prices[prices.length - 1].close };
+      if (logReturns.length < 1) {
+        return { mean: 0, stdDev: 0, lastPrice: prices[prices.length - 1].close };
+      }
+      const dailyMean = logReturns.reduce((a, b) => a + b, 0) / logReturns.length;
+      const variance = logReturns.reduce((sum, r) => sum + Math.pow(r - dailyMean, 2), 0) / (logReturns.length - 1);
+      const dailyStdDev = Math.sqrt(variance);
+      const tradingDaysPerYear = 252;
+      const annualMean = dailyMean * tradingDaysPerYear;
+      const annualStdDev = dailyStdDev * Math.sqrt(tradingDaysPerYear);
+      return {
+        mean: annualMean,
+        stdDev: annualStdDev,
+        lastPrice: prices[prices.length - 1].close
+      };
     }
-    function runSimulation(lastPrice, mean, stdDev, T, numSim = 5000) {
+
+    // 5. Run Monte Carlo simulation using GBM
+    function runSimulation(lastPrice, mean, stdDev, T, numSimulations = 10000) {
       let finalPrices = [];
-      for (let i = 0; i < numSim; i++) {
+      for(let i = 0; i < numSimulations; i++) {
         const Z = randn_bm();
         const ST = lastPrice * Math.exp((mean - 0.5 * stdDev * stdDev) * T + stdDev * Math.sqrt(T) * Z);
         finalPrices.push(ST);
@@ -313,284 +249,443 @@
       return finalPrices;
     }
 
-    // ------------------- 7) Volume-Based Linear Regression (Price & Volume) -------------------
-    function volumeRegression(prices, futureDate) {
+    // 6. Linear regression forecast using least squares
+    function linearRegressionForecast(prices, futureDate) {
+      if(prices.length < 2) {
+        return { forecastPrice: NaN, slope: 0, intercept: 0 };
+      }
       const firstDate = prices[0].date;
-      let X = [], Y = [];
-      for (let row of prices) {
-        const dayIndex = (row.date - firstDate) / (1000 * 60 * 60 * 24);
-        const logVolume = Math.log(row.volume);
-        X.push([1, dayIndex, logVolume]);
-        Y.push(row.close);
-      }
-      const beta = solveRegression(X, Y);
-      const futDayIndex = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
-      const avgLogVol = prices.reduce((acc, r) => acc + Math.log(r.volume), 0) / prices.length;
-      const forecast = beta[0] + beta[1] * futDayIndex + beta[2] * avgLogVol;
-      return { beta, forecast };
+      let xs = prices.map(p => (p.date - firstDate) / (1000 * 60 * 60 * 24));
+      let ys = prices.map(p => p.close);
+      const n = xs.length;
+      const sumX = xs.reduce((a, b) => a + b, 0);
+      const sumY = ys.reduce((a, b) => a + b, 0);
+      const sumXY = xs.reduce((sum, x, i) => sum + x * ys[i], 0);
+      const sumX2 = xs.reduce((sum, x) => sum + x * x, 0);
+      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+      const intercept = (sumY - slope * sumX) / n;
+      const futureX = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
+      const forecastPrice = intercept + slope * futureX;
+      return { forecastPrice, slope, intercept };
     }
 
-    // ------------------- 8) Enhanced Regression: Time, Volume, Sentiment, &amp; Momentum -------------------
-    function enhancedRegression(prices, futureDate) {
-      const firstDate = prices[0].date;
-      let X = [], Y = [];
-      for (let i = 0; i < prices.length; i++) {
-        const dayIndex = (prices[i].date - firstDate) / (1000 * 60 * 60 * 24);
-        const logVolume = Math.log(prices[i].volume);
-        const sentiment = prices[i].sentiment;
-        let momentum = 0;
-        if (i > 0) {
-          momentum = (prices[i].close - prices[i-1].close) / prices[i-1].close;
-        }
-        X.push([1, dayIndex, logVolume, sentiment, momentum]);
-        Y.push(prices[i].close);
-      }
-      const beta = solveRegression(X, Y);
-      const futDayIndex = (futureDate - firstDate) / (1000 * 60 * 60 * 24);
-      // Use the averages for predictors for forecasting
-      const avgLogVol = prices.reduce((acc, r) => acc + Math.log(r.volume), 0) / prices.length;
-      const avgSent = prices.reduce((acc, r) => acc + r.sentiment, 0) / prices.length;
-      const avgMom = prices.slice(1).reduce((acc, r, i) => acc + ((r.close - prices[i].close) / prices[i].close), 0) / (prices.length - 1);
-      const forecast = beta[0] + beta[1] * futDayIndex + beta[2] * avgLogVol + beta[3] * avgSent + beta[4] * avgMom;
-      return { beta, forecast };
-    }
-
-    // ------------------- 9) Matrix-Based Regression Solver -------------------
-    function matTranspose(A) {
-      const rows = A.length, cols = A[0].length;
-      let T = [];
-      for (let c = 0; c < cols; c++) {
-        let row = [];
-        for (let r = 0; r < rows; r++) {
-          row.push(A[r][c]);
-        }
-        T.push(row);
-      }
-      return T;
-    }
-    function matMultiply(A, B) {
-      const m = A.length, n = A[0].length, p = B[0].length;
-      let R = new Array(m).fill(null).map(() => new Array(p).fill(0));
-      for (let i = 0; i < m; i++) {
-        for (let j = 0; j < p; j++) {
-          let sum = 0;
-          for (let k = 0; k < n; k++) {
-            sum += A[i][k] * B[k][j];
-          }
-          R[i][j] = sum;
-        }
-      }
-      return R;
-    }
-    function matInverse(M) {
-      const n = M.length;
-      let A = [];
-      for (let i = 0; i < n; i++) {
-        A[i] = M[i].slice();
-        for (let j = 0; j < n; j++) {
-          A[i].push(i === j ? 1 : 0);
-        }
-      }
-      for (let i = 0; i < n; i++) {
-        let pivot = A[i][i];
-        if (Math.abs(pivot) < 1e-12) {
-          for (let r = i + 1; r < n; r++) {
-            if (Math.abs(A[r][i]) > Math.abs(pivot)) {
-              [A[i], A[r]] = [A[r], A[i]];
-              pivot = A[i][i];
-              break;
-            }
-          }
-        }
-        if (Math.abs(pivot) < 1e-12) {
-          throw new Error("Matrix inversion failed (singular X^T X). Possibly not enough variation in data.");
-        }
-        for (let c = 0; c < 2 * n; c++) {
-          A[i][c] /= pivot;
-        }
-        for (let r = 0; r < n; r++) {
-          if (r !== i) {
-            let factor = A[r][i];
-            for (let c = 0; c < 2 * n; c++) {
-              A[r][c] -= factor * A[i][c];
-            }
-          }
-        }
-      }
-      let inv = [];
-      for (let i = 0; i < n; i++) {
-        inv[i] = A[i].slice(n, 2 * n);
-      }
-      return inv;
-    }
-    function solveRegression(X, y) {
-      if (X.length < 2) {
-        throw new Error("Not enough data points to solve regression (X rows < 2).");
-      }
-      console.log("Solving regression with X =", X, "and y =", y);
-      const yMat = y.map(val => [val]);
-      const XT = matTranspose(X);
-      const XTX = matMultiply(XT, X);
-      console.log("X^T X =", XTX);
-      const inv = matInverse(XTX);
-      const XTy = matMultiply(XT, yMat);
-      const B = matMultiply(inv, XTy).map(row => row[0]);
-      console.log("Beta (solution) =", B);
-      return B;
-    }
-
-    // ------------------- 10) Plotly for Charting -------------------
-    function drawLineChart(historical, futureDate, forecastPrice) {
-      let trace1 = {
-        x: historical.map(d => d.date),
-        y: historical.map(d => d.close),
-        mode: 'lines+markers',
-        name: 'Historical Prices'
-      };
-      let lastHist = historical[historical.length - 1];
-      let trace2 = {
-        x: [lastHist.date, futureDate],
-        y: [lastHist.close, forecastPrice],
-        mode: 'lines+markers',
-        name: 'Forecast'
-      };
-      let layout = {
-        title: 'Stock Price Forecast',
-        xaxis: { title: 'Date' },
-        yaxis: { title: 'Price' }
-      };
-      Plotly.newPlot('chart', [trace1, trace2], layout);
-    }
-
-    function drawHistogram(finalPrices, extraLines = []) {
-      let trace = {
+    // 7. Plotting the Monte Carlo histogram + slider
+    function updateChartMC(finalPrices) {
+      const trace = {
         x: finalPrices,
         type: 'histogram',
         marker: { color: '#7f7f7f' }
       };
-      let layout = {
+      const layout = {
         title: 'Simulated Final Stock Prices Distribution (Monte Carlo - GBM)',
         xaxis: { title: 'Price' },
         yaxis: { title: 'Frequency' }
       };
-      if (extraLines.length > 0) {
-        layout.shapes = extraLines.map(obj => ({
-          type: 'line',
-          x0: obj.value,
-          x1: obj.value,
-          y0: 0,
-          y1: 1,
-          yref: 'paper',
-          line: { color: obj.color || 'red', dash: 'dash' }
-        }));
-      }
       Plotly.newPlot('chart', [trace], layout);
+      document.getElementById('sliderDiv').style.display = 'block';
+      const minPrice = Math.floor(Math.min(...finalPrices));
+      const maxPrice = Math.ceil(Math.max(...finalPrices));
+      const slider = document.getElementById('priceSlider');
+      slider.min = minPrice;
+      slider.max = maxPrice;
+      slider.value = minPrice;
+      document.getElementById('thresholdValue').innerText = minPrice;
+      updateProbability(finalPrices, minPrice);
+      slider.oninput = function() {
+        const threshold = parseFloat(this.value);
+        document.getElementById('thresholdValue').innerText = threshold;
+        updateProbability(finalPrices, threshold);
+      };
     }
 
     function updateProbability(finalPrices, threshold) {
-      const count = finalPrices.filter(p => p >= threshold).length;
-      const prob = (count / finalPrices.length * 100).toFixed(2);
-      document.getElementById('probability').innerText = prob + "%";
+      const count = finalPrices.filter(price => price >= threshold).length;
+      const probability = (count / finalPrices.length * 100).toFixed(2);
+      document.getElementById('probability').innerText = probability + '%';
     }
 
-    // ------------------- 11) Explanation Builder -------------------
-    function generateExplanation(method, content) {
-      document.getElementById('explanation').innerHTML = `<h3>Explanation</h3>` + content;
+    // 8. Plotting the Linear Trend Forecast
+    function updateChartLinear(prices, futureDate, forecastPrice) {
+      let trace1 = {
+        x: prices.map(p => p.date),
+        y: prices.map(p => p.close),
+        mode: 'lines+markers',
+        name: 'Historical Prices'
+      };
+      let lastDate = prices[prices.length - 1].date;
+      let trace2 = {
+        x: [lastDate, futureDate],
+        y: [prices[prices.length - 1].close, forecastPrice],
+        mode: 'lines+markers',
+        name: 'Linear Trend Forecast'
+      };
+      let layout = {
+        title: 'Linear Trend Forecast',
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Price' }
+      };
+      Plotly.newPlot('chart', [trace1, trace2], layout);
+      document.getElementById('sliderDiv').style.display = 'none';
     }
 
-    // ------------------- 12) Main Simulation -------------------
+    // ===== New Functions for Combined Technical Indicators =====
+    // Compute Bollinger Bands (using a 20-day period and k=2)
+    function computeBollingerBands(prices, period = 20, k = 2) {
+      let bands = [];
+      for (let i = period - 1; i < prices.length; i++) {
+        let slice = prices.slice(i - period + 1, i + 1).map(p => p.close);
+        let sma = slice.reduce((a, b) => a + b, 0) / period;
+        let variance = slice.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / period;
+        let std = Math.sqrt(variance);
+        bands.push({ date: prices[i].date, sma: sma, upper: sma + k * std, lower: sma - k * std });
+      }
+      return bands;
+    }
+
+    // Compute Weighted Moving Average (WMA) with a given period (default 20)
+    function computeWMA(prices, period = 20) {
+      let wmas = [];
+      for (let i = period - 1; i < prices.length; i++) {
+        let slice = prices.slice(i - period + 1, i + 1).map(p => p.close);
+        let numerator = 0, denominator = 0;
+        for (let j = 0; j < period; j++) {
+          let weight = j + 1; // weights 1...period
+          numerator += slice[j] * weight;
+          denominator += weight;
+        }
+        wmas.push({ date: prices[i].date, wma: numerator / denominator });
+      }
+      return wmas;
+    }
+
+    // Compute RSI (Relative Strength Index) with a given period (default 14)
+    function computeRSI(prices, period = 14) {
+      let rsis = [];
+      for (let i = period; i < prices.length; i++) {
+        let gains = 0, losses = 0;
+        for (let j = i - period + 1; j <= i; j++) {
+          let change = prices[j].close - prices[j-1].close;
+          if (change > 0) gains += change;
+          else losses -= change;
+        }
+        let avgGain = gains / period;
+        let avgLoss = losses / period;
+        let rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+        let rsi = 100 - (100 / (1 + rs));
+        rsis.push({ date: prices[i].date, rsi: rsi });
+      }
+      return rsis;
+    }
+
+    // Compute Exponential Moving Average (EMA)
+    function computeEMA(prices, period) {
+      let ema = [];
+      const multiplier = 2 / (period + 1);
+      let sum = 0;
+      for (let i = 0; i < period; i++) {
+        sum += prices[i].close;
+      }
+      let prevEma = sum / period;
+      ema[period - 1] = { date: prices[period - 1].date, ema: prevEma };
+      for (let i = period; i < prices.length; i++) {
+        let currentEma = (prices[i].close - prevEma) * multiplier + prevEma;
+        ema[i] = { date: prices[i].date, ema: currentEma };
+        prevEma = currentEma;
+      }
+      return ema.filter(v => v !== undefined);
+    }
+
+    // Compute MACD and its signal line (default fastPeriod=12, slowPeriod=26, signalPeriod=9)
+    function computeMACD(prices, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
+      let fastEMA = computeEMA(prices, fastPeriod);
+      let slowEMA = computeEMA(prices, slowPeriod);
+      let macdLine = [];
+      for (let i = 0; i < slowEMA.length; i++) {
+        let date = slowEMA[i].date;
+        let fastVal = fastEMA.find(e => e.date.getTime() === date.getTime());
+        if (fastVal) {
+          macdLine.push({ date: date, macd: fastVal.ema - slowEMA[i].ema });
+        }
+      }
+      if (macdLine.length < signalPeriod) return { macdLine: macdLine, signalLine: [] };
+      let signalLine = [];
+      const multiplier = 2 / (signalPeriod + 1);
+      let sum = 0;
+      for (let i = 0; i < signalPeriod; i++) {
+        sum += macdLine[i].macd;
+      }
+      let prevSignal = sum / signalPeriod;
+      signalLine[signalPeriod - 1] = { date: macdLine[signalPeriod - 1].date, signal: prevSignal };
+      for (let i = signalPeriod; i < macdLine.length; i++) {
+        let currentSignal = (macdLine[i].macd - prevSignal) * multiplier + prevSignal;
+        signalLine[i] = { date: macdLine[i].date, signal: currentSignal };
+        prevSignal = currentSignal;
+      }
+      signalLine = signalLine.filter(v => v !== undefined);
+      return { macdLine: macdLine, signalLine: signalLine };
+    }
+
+    // --- Scoring Functions (scale 1 to 7) ---
+    function getScoreRSI(rsi) {
+      // Lower RSI: buy signal; higher RSI: sell signal
+      if(rsi <= 20) return 7;         // Strong Buy
+      else if(rsi <= 30) return 6;      // Buy
+      else if(rsi <= 40) return 5;      // Light Buy
+      else if(rsi <= 60) return 4;      // Hold
+      else if(rsi <= 70) return 3;      // Light Sell
+      else if(rsi <= 80) return 2;      // Sell
+      else return 1;                   // Strong Sell
+    }
+
+    function getScoreBollinger(price, band) {
+      // Calculate position relative to lower and upper bands
+      let pos = (price - band.lower) / (band.upper - band.lower);
+      // Map pos (0 to 1) to score (7 to 1)
+      let score = 7 - Math.round(pos * 6);
+      // Ensure within bounds
+      return Math.min(7, Math.max(1, score));
+    }
+
+    function getScoreMACD(diff) {
+      // diff = MACD - Signal; positive means buy, negative means sell
+      if(diff >= 1) return 7;
+      else if(diff >= 0.5) return 6;
+      else if(diff > 0) return 5;
+      else if(diff === 0) return 4;
+      else if(diff > -0.5) return 3;
+      else if(diff > -1) return 2;
+      else return 1;
+    }
+
+    function getScoreWMA(price, wma) {
+      let diff = (price - wma) / wma;
+      if(diff >= 0.05) return 7;
+      else if(diff >= 0.02) return 6;
+      else if(diff > 0) return 5;
+      else if(Math.abs(diff) < 0.005) return 4;
+      else if(diff > -0.02) return 3;
+      else if(diff > -0.05) return 2;
+      else return 1;
+    }
+
+    function getRecommendation(avgScore) {
+      if(avgScore < 1.5) return "Strong Sell";
+      else if(avgScore < 2.5) return "Sell";
+      else if(avgScore < 3.5) return "Light Sell";
+      else if(avgScore < 4.5) return "Hold";
+      else if(avgScore < 5.5) return "Light Buy";
+      else if(avgScore < 6.5) return "Buy";
+      else return "Strong Buy";
+    }
+
+    // --- Plotting the Combined Technical Indicators Chart ---
+    function updateChartCombined(prices, bands, wmas, rsis, macdData, recommendation) {
+      // Top subplot: Price, Bollinger Bands and WMA
+      const priceTrace = {
+        x: prices.map(p => p.date),
+        y: prices.map(p => p.close),
+        mode: 'lines+markers',
+        name: 'Price',
+        xaxis: 'x',
+        yaxis: 'y'
+      };
+      const smaTrace = {
+        x: bands.map(b => b.date),
+        y: bands.map(b => b.sma),
+        mode: 'lines',
+        name: 'Bollinger SMA',
+        line: { dash: 'dash', color: 'gray' },
+        xaxis: 'x',
+        yaxis: 'y'
+      };
+      const upperTrace = {
+        x: bands.map(b => b.date),
+        y: bands.map(b => b.upper),
+        mode: 'lines',
+        name: 'Upper Band',
+        line: { color: 'red' },
+        xaxis: 'x',
+        yaxis: 'y'
+      };
+      const lowerTrace = {
+        x: bands.map(b => b.date),
+        y: bands.map(b => b.lower),
+        mode: 'lines',
+        name: 'Lower Band',
+        line: { color: 'red' },
+        xaxis: 'x',
+        yaxis: 'y'
+      };
+      const wmaTrace = {
+        x: wmas.map(w => w.date),
+        y: wmas.map(w => w.wma),
+        mode: 'lines',
+        name: 'WMA',
+        line: { color: 'orange' },
+        xaxis: 'x',
+        yaxis: 'y'
+      };
+
+      // Middle subplot: MACD and Signal line
+      const macdTrace = {
+        x: macdData.macdLine.map(d => d.date),
+        y: macdData.macdLine.map(d => d.macd),
+        mode: 'lines',
+        name: 'MACD',
+        xaxis: 'x2',
+        yaxis: 'y2'
+      };
+      const signalTrace = {
+        x: macdData.signalLine.map(s => s.date),
+        y: macdData.signalLine.map(s => s.signal),
+        mode: 'lines',
+        name: 'Signal',
+        xaxis: 'x2',
+        yaxis: 'y2'
+      };
+
+      // Bottom subplot: RSI
+      const rsiTrace = {
+        x: rsis.map(r => r.date),
+        y: rsis.map(r => r.rsi),
+        mode: 'lines',
+        name: 'RSI',
+        xaxis: 'x3',
+        yaxis: 'y3'
+      };
+
+      // Layout with three subplots using domains
+      const layout = {
+        grid: { rows: 3, columns: 1, roworder: 'top to bottom' },
+        // Top subplot
+        xaxis: { domain: [0, 1], anchor: 'y', title: 'Date' },
+        yaxis: { domain: [0.55, 1], title: 'Price' },
+        // Middle subplot
+        xaxis2: { domain: [0, 1], anchor: 'y2', title: 'Date' },
+        yaxis2: { domain: [0.35, 0.55], title: 'MACD' },
+        // Bottom subplot
+        xaxis3: { domain: [0, 1], anchor: 'y3', title: 'Date' },
+        yaxis3: { domain: [0, 0.25], title: 'RSI' },
+        shapes: [
+          // Horizontal lines for RSI thresholds
+          { type: 'line', x0: Math.min(...rsis.map(r => r.date)), x1: Math.max(...rsis.map(r => r.date)), y0: 30, y1: 30, line: { dash: 'dash', color: 'red' }, xref: 'x3', yref: 'y3' },
+          { type: 'line', x0: Math.min(...rsis.map(r => r.date)), x1: Math.max(...rsis.map(r => r.date)), y0: 70, y1: 70, line: { dash: 'dash', color: 'red' }, xref: 'x3', yref: 'y3' }
+        ],
+        // Annotation for the combined recommendation in the top subplot
+        annotations: [
+          {
+            xref: 'paper',
+            yref: 'paper',
+            x: 0.5,
+            y: 0.98,
+            text: `<b>Recommendation: ${recommendation}</b>`,
+            showarrow: false,
+            font: { size: 16, color: 'green' }
+          }
+        ]
+      };
+
+      const traces = [priceTrace, smaTrace, upperTrace, lowerTrace, wmaTrace, macdTrace, signalTrace, rsiTrace];
+      Plotly.newPlot('chart', traces, layout);
+      document.getElementById('sliderDiv').style.display = 'none';
+    }
+
+    // 9. Update explanation panel
+    function generateExplanation(method, mcStats, lrResult, extra) {
+      let explanation = "<h3>Explanation of Results</h3>";
+      explanation += "<p><strong>Data Source:</strong> Historical stock data is sourced from the Alpha Vantage API.</p>";
+      if (method === "mc") {
+        explanation += "<p><strong>Method:</strong> Monte Carlo Simulation using Geometric Brownian Motion (GBM).</p>";
+        explanation += "<p>The simulation uses the formula:</p>";
+        explanation += "<p style='font-style: italic;'>S<sub>T</sub> = S<sub>0</sub> × exp((μ - 0.5σ²)T + σ√T × Z)</p>";
+      } else if (method === "lr") {
+        explanation += "<p><strong>Method:</strong> Linear Trend Forecast using least squares regression.</p>";
+        explanation += "<p>This method fits a line to the historical prices and extrapolates to the selected future date.</p>";
+      } else if (method === "combined") {
+        explanation += "<p><strong>Method:</strong> Combined Technical Indicators.</p>";
+        explanation += "<p>Four technical indicators (RSI, Bollinger Bands, MACD, and a Weighted Moving Average) are computed. ";
+        explanation += "Each indicator produces a score from 1 (Strong Sell) to 7 (Strong Buy). The final recommendation is derived by averaging these scores.</p>";
+      }
+      if (lrResult) {
+        explanation += `<p><strong>Linear Regression Details:</strong> Slope = ${lrResult.slope.toFixed(4)}, Intercept = ${lrResult.intercept.toFixed(4)}, Forecast Price = ${lrResult.forecastPrice.toFixed(2)}</p>`;
+      }
+      if (mcStats) {
+        explanation += `<p><strong>Monte Carlo Simulation Details:</strong> Last Price = ${mcStats.lastPrice.toFixed(2)}, Mean Log Return = ${mcStats.mean.toFixed(4)}, Standard Deviation = ${mcStats.stdDev.toFixed(4)}</p>`;
+      }
+      if (method === "combined" && extra) {
+        explanation += `<p><strong>Final Recommendation:</strong> ${extra}</p>`;
+      }
+      document.getElementById('explanation').innerHTML = explanation;
+    }
+
+    // 10. Main simulation event
     document.getElementById('simulateButton').addEventListener('click', async () => {
-      console.clear();
+      document.getElementById('loading').style.display = 'block';
       const ticker = document.getElementById('ticker').value.trim();
-      const period = parseInt(document.getElementById('period').value);
-      const futureDateVal = document.getElementById('futureDate').value;
-
-      if (!ticker || !futureDateVal) {
-        alert("Please provide ticker and future date.");
+      const periodMonths = parseInt(document.getElementById('period').value);
+      const futureDateInput = document.getElementById('futureDate').value;
+      const forecastMethod = document.getElementById('forecastMethod').value; // "mc", "lr", or "combined"
+      
+      if(!ticker || !futureDateInput) {
+        alert("Please enter both a ticker symbol and a future date.");
+        document.getElementById('loading').style.display = 'none';
         return;
       }
-
-      const method = document.getElementById('forecastMethod').value;
-      const futureDate = new Date(futureDateVal);
-
-      document.getElementById('loading').style.display = "block";
-      document.getElementById('explanation').innerHTML = "";
-      document.getElementById('sliderDiv').style.display = "none";
-
+      
       try {
-        console.log("Fetching historical data for:", ticker);
-        const tsData = await fetchHistoricalData(ticker);
-        console.log("Processing data for the last", period, "months...");
-        const hist = processHistoricalData(tsData, period);
-        console.log("Processed historical data rows:", hist.length, hist);
-
-        if (hist.length < 2) {
-          throw new Error("Insufficient historical data after filtering by period. (Need >=2 days)");
+        const timeSeries = await fetchHistoricalData(ticker);
+        const prices = processHistoricalData(timeSeries, periodMonths);
+        if(prices.length < 2) {
+          alert("Not enough historical data available for the specified period.");
+          document.getElementById('loading').style.display = 'none';
+          return;
         }
-
-        const startDate = hist[0].date;
-        const endDate = hist[hist.length - 1].date;
-        console.log("Fetching sentiment data for", ticker, "from", startDate.toDateString(), "to", endDate.toDateString());
-        const sentData = await fetchNewsSentiment(ticker, startDate, endDate);
-        console.log("Merging sentiment into price data...");
-        mergeSentiment(hist, sentData);
-
-        let explanation = "";
-        if (method === "lr_price") {
-          const { slope, intercept, forecast } = linearRegressionForecast(hist, futureDate);
-          drawLineChart(hist, futureDate, forecast);
-          explanation += "<p><strong>Method:</strong> Simple Linear Regression (price vs. time)</p>";
-          explanation += `<p>Slope = ${slope.toFixed(4)}, Intercept = ${intercept.toFixed(4)}</p>`;
-          explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
-          generateExplanation(method, explanation);
-        } else if (method === "mc") {
-          const stats = computeStats(hist);
-          console.log("Monte Carlo stats:", stats);
-          const lastHistDate = hist[hist.length - 1].date;
-          const dt = (futureDate - lastHistDate) / (1000 * 60 * 60 * 24 * 365);
-          console.log("Time horizon (years):", dt);
-          const finalPrices = runSimulation(stats.lastPrice, stats.mean, stats.stdDev, dt);
-          drawHistogram(finalPrices, []);
-          document.getElementById('sliderDiv').style.display = "block";
-          const minP = Math.floor(Math.min(...finalPrices));
-          const maxP = Math.ceil(Math.max(...finalPrices));
-          const slider = document.getElementById('priceSlider');
-          slider.min = minP; slider.max = maxP; slider.value = minP;
-          document.getElementById('thresholdValue').innerText = minP;
-          updateProbability(finalPrices, minP);
-          slider.oninput = function() {
-            const th = parseFloat(this.value);
-            document.getElementById('thresholdValue').innerText = th;
-            updateProbability(finalPrices, th);
-          };
-          explanation += "<p><strong>Method:</strong> Monte Carlo Simulation (Geometric Brownian Motion)</p>";
-          explanation += `<p>Annual mean log return = ${stats.mean.toFixed(4)}, annual std dev = ${stats.stdDev.toFixed(4)}</p>`;
-          explanation += `<p>Last price = $${stats.lastPrice.toFixed(2)}, time horizon = ${dt.toFixed(2)} years</p>`;
-          explanation += `<p>Distribution based on ${finalPrices.length} simulations.</p>`;
-          generateExplanation(method, explanation);
-        } else if (method === "lr_volume") {
-          console.log("Running linear regression with Price & Volume (using log(volume))...");
-          const { beta, forecast } = volumeRegression(hist, futureDate);
-          drawLineChart(hist, futureDate, forecast);
-          explanation += "<p><strong>Method:</strong> Linear Regression with Price & Volume</p>";
-          explanation += `<p>Coefficients: b0 = ${beta[0].toFixed(4)}, b1 (time) = ${beta[1].toFixed(4)}, b2 (log(volume)) = ${beta[2].toFixed(4)}</p>`;
-          explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
-          generateExplanation(method, explanation);
-        } else if (method === "enhanced") {
-          console.log("Running enhanced regression with Time, Volume, Sentiment & Momentum...");
-          const { beta, forecast } = enhancedRegression(hist, futureDate);
-          drawLineChart(hist, futureDate, forecast);
-          explanation += "<p><strong>Method:</strong> Enhanced Regression (Time, log(Volume), Sentiment, Momentum)</p>";
-          explanation += `<p>Coefficients: b0 = ${beta[0].toFixed(4)}, b1 = ${beta[1].toFixed(4)}, b2 (log(volume)) = ${beta[2].toFixed(4)}, b3 (sentiment) = ${beta[3].toFixed(4)}, b4 (momentum) = ${beta[4].toFixed(4)}</p>`;
-          explanation += `<p>Forecast for ${futureDate.toDateString()}: <strong>$${forecast.toFixed(2)}</strong></p>`;
-          explanation += "<p>Predictors for forecasting are taken as the average (or representative) values over the historical period.</p>";
-          generateExplanation(method, explanation);
+        
+        const futureDate = new Date(futureDateInput);
+        const lrResult = linearRegressionForecast(prices, futureDate);
+        
+        let mcStats = null;
+        let finalPrices = null;
+        
+        if(forecastMethod === "mc") {
+          mcStats = computeStats(prices);
+          const lastDate = prices[prices.length - 1].date;
+          const diffTime = Math.abs(futureDate - lastDate);
+          const T = diffTime / (365 * 24 * 60 * 60 * 1000);
+          finalPrices = runSimulation(mcStats.lastPrice, mcStats.mean, mcStats.stdDev, T);
+          updateChartMC(finalPrices);
+          generateExplanation("mc", mcStats, lrResult, null);
+        } else if(forecastMethod === "lr") {
+          updateChartLinear(prices, futureDate, lrResult.forecastPrice);
+          generateExplanation("lr", null, lrResult, null);
+        } else if(forecastMethod === "combined") {
+          // Compute technical indicators
+          const bands = computeBollingerBands(prices);
+          const wmas = computeWMA(prices);
+          const rsis = computeRSI(prices);
+          const macdData = computeMACD(prices);
+          // Get latest values for signal scoring
+          const latestPrice = prices[prices.length - 1].close;
+          const latestBand = bands[bands.length - 1];
+          const latestWMA = wmas[wmas.length - 1].wma;
+          const latestRSI = rsis[rsis.length - 1].rsi;
+          const latestMACD = macdData.macdLine[macdData.macdLine.length - 1].macd;
+          const latestSignal = macdData.signalLine[macdData.signalLine.length - 1].signal;
+          const diffMACD = latestMACD - latestSignal;
+          // Compute scores from each indicator
+          const scoreRSI = getScoreRSI(latestRSI);
+          const scoreBB = getScoreBollinger(latestPrice, latestBand);
+          const scoreMACD = getScoreMACD(diffMACD);
+          const scoreWMA = getScoreWMA(latestPrice, latestWMA);
+          const combinedScore = (scoreRSI + scoreBB + scoreMACD + scoreWMA) / 4;
+          const recommendation = getRecommendation(combinedScore);
+          updateChartCombined(prices, bands, wmas, rsis, macdData, recommendation);
+          generateExplanation("combined", null, lrResult, recommendation);
         }
-      } catch (err) {
-        console.error("Caught an error:", err);
-        alert("Error: " + err.message);
+      } catch (error) {
+        alert("Error: " + error.message);
       }
-      document.getElementById('loading').style.display = "none";
+      document.getElementById('loading').style.display = 'none';
     });
   </script>
 </body>
