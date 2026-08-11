@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" width="1000" height="520" role="img" aria-label="Headquarters Assessment Tool preview: nested maturity donut with trend and forecast">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a1424"/>
+      <stop offset="55%" stop-color="#070d18"/>
+      <stop offset="100%" stop-color="#04070d"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="72%" cy="8%" r="80%">
+      <stop offset="0%" stop-color="#1f78be" stop-opacity=".30"/>
+      <stop offset="100%" stop-color="#1f78be" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#12283f"/>
+      <stop offset="100%" stop-color="#04070d"/>
+    </radialGradient>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffc247"/><stop offset="100%" stop-color="#9a6b00"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2fe08a"/><stop offset="100%" stop-color="#0a7a45"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2fe08a"/><stop offset="100%" stop-color="#0c8a4e"/>
+    </linearGradient>
+    <linearGradient id="g4" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#3aa2ff"/><stop offset="100%" stop-color="#0a4f96"/>
+    </linearGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4fe3ff" stop-opacity=".28"/>
+      <stop offset="100%" stop-color="#4fe3ff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M34 0H0v34" fill="none" stroke="#5a96dc" stroke-opacity=".07"/>
+    </pattern>
+  </defs>
+
+  <rect width="1000" height="520" fill="url(#bg)"/>
+  <rect width="1000" height="520" fill="url(#grid)"/>
+  <rect width="1000" height="520" fill="url(#halo)"/>
+
+  <!-- title bar -->
+  <rect x="0" y="0" width="1000" height="54" fill="#050910" fill-opacity=".72"/>
+  <line x1="0" y1="54" x2="1000" y2="54" stroke="#78beff" stroke-opacity=".18"/>
+  <rect x="26" y="14" width="52" height="26" rx="7" fill="#4fe3ff" fill-opacity=".12" stroke="#4fe3ff" stroke-opacity=".45"/>
+  <text x="52" y="32" text-anchor="middle" font-family="ui-monospace,monospace" font-size="13" fill="#4fe3ff">C1AA</text>
+  <text x="92" y="32" font-family="ui-monospace,monospace" font-size="14" letter-spacing="1.6" fill="#e8f2ff">HQ</text>
+  <text x="122" y="32" font-family="ui-monospace,monospace" font-size="14" letter-spacing="1.6" fill="#4fe3ff" font-weight="600">ASSESSMENT</text>
+  <text x="974" y="32" text-anchor="end" font-family="ui-monospace,monospace" font-size="11" letter-spacing="2.4" fill="#5d7391">FY26 Q3</text>
+
+  <!-- nested maturity donut -->
+  <g transform="translate(248,300)">
+    <circle r="176" fill="none" stroke="#78beff" stroke-opacity=".14"/>
+    <g stroke="#78beff" stroke-opacity=".22">
+      <line x1="0" y1="-170" x2="0" y2="-180"/><line x1="170" y1="0" x2="180" y2="0"/>
+      <line x1="0" y1="170" x2="0" y2="180"/><line x1="-170" y1="0" x2="-180" y2="0"/>
+    </g>
+    <!-- outer ring: four lines of effort, angle proportional to maturity -->
+    <path d="M0,-166A166,166 0 0 1 143.7,-83L61.6,-35.6A96,96 0 0 0 0,-96Z" fill="url(#g1)" stroke="#04070d" stroke-width="2.5"/>
+    <path d="M143.7,-83A166,166 0 0 1 47,159.2L27.2,92.1A96,96 0 0 0 83,-48Z" fill="url(#g2)" stroke="#04070d" stroke-width="2.5"/>
+    <path d="M47,159.2A166,166 0 0 1 -143.7,83L-83,48A96,96 0 0 0 27.2,92.1Z" fill="url(#g3)" stroke="#04070d" stroke-width="2.5"/>
+    <path d="M-143.7,83A166,166 0 0 1 0,-166L0,-96A96,96 0 0 0 -83,48Z" fill="url(#g4)" stroke="#04070d" stroke-width="2.5"/>
+    <!-- inner band: subordinate objectives revealed under the hovered slice -->
+    <g stroke="#04070d" stroke-width="1.4">
+      <path d="M2,-88A88,88 0 0 1 40,-78L26,-51A57,57 0 0 0 1,-57Z" fill="#ffc247" fill-opacity=".92"/>
+      <path d="M43,-76A88,88 0 0 1 68,-55L44,-36A57,57 0 0 0 28,-49Z" fill="#2fe08a" fill-opacity=".92"/>
+      <path d="M70,-52A88,88 0 0 1 85,-22L55,-14A57,57 0 0 0 46,-34Z" fill="#ffc247" fill-opacity=".92"/>
+    </g>
+    <circle r="66" fill="url(#core)" stroke="#2fe08a" stroke-opacity=".5"/>
+    <path d="M0,-72A72,72 0 0 1 68.5,22.2L65.3,21.2A69,69 0 0 0 0,-69Z" fill="#2fe08a" fill-opacity=".85"/>
+    <text y="-16" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" letter-spacing="2.6" fill="#8fa5c4">OVERALL</text>
+    <text y="16" text-anchor="middle" font-family="ui-monospace,monospace" font-size="32" font-weight="600" fill="#eaf6ff">55%</text>
+    <text y="36" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" letter-spacing="2" fill="#2fe08a">GREEN</text>
+  </g>
+
+  <!-- trend + forecast panel -->
+  <g transform="translate(470,96)">
+    <rect x="0" y="0" width="500" height="376" rx="12" fill="#101828" fill-opacity=".55" stroke="#78beff" stroke-opacity=".18"/>
+    <text x="20" y="28" font-family="ui-monospace,monospace" font-size="11" letter-spacing="2.4" fill="#8fa5c4">TREND &amp; FORECAST</text>
+    <g stroke="#78beff" stroke-opacity=".09">
+      <line x1="52" y1="72" x2="466" y2="72"/><line x1="52" y1="128" x2="466" y2="128"/>
+      <line x1="52" y1="184" x2="466" y2="184"/><line x1="52" y1="240" x2="466" y2="240"/>
+    </g>
+    <line x1="52" y1="296" x2="466" y2="296" stroke="#78beff" stroke-opacity=".3"/>
+    <g font-family="ui-monospace,monospace" font-size="9" fill="#5d7391" text-anchor="end">
+      <text x="42" y="76">5</text><text x="42" y="132">4</text>
+      <text x="42" y="188">3</text><text x="42" y="244">2</text><text x="42" y="300">0</text>
+    </g>
+    <!-- component lines, de-emphasised -->
+    <g fill="none" stroke-opacity=".34" stroke-width="1.4">
+      <path d="M66,250 L146,262 L226,244 L306,176 L386,150 L446,138" stroke="#4fe3ff"/>
+      <path d="M66,268 L146,252 L226,266 L306,206 L386,186 L446,166" stroke="#8ce0a0"/>
+      <path d="M66,240 L146,258 L226,238 L306,190 L386,168 L446,152" stroke="#ffc247"/>
+    </g>
+    <!-- main line + area -->
+    <path d="M66,256 L146,258 L226,250 L306,190 L386,168 L446,152 L446,296 L66,296Z" fill="url(#area)"/>
+    <path d="M66,256 L146,258 L226,250 L306,190 L386,168 L446,152" fill="none" stroke="#8ceeff" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+    <g fill="#05070d" stroke="#8ceeff" stroke-width="2.2">
+      <circle cx="66" cy="256" r="4"/><circle cx="146" cy="258" r="4"/><circle cx="226" cy="250" r="4"/>
+      <circle cx="306" cy="190" r="4"/><circle cx="386" cy="168" r="4"/><circle cx="446" cy="152" r="4"/>
+    </g>
+    <!-- forecast wedge with upper and lower bound -->
+    <path d="M446,152 L482,104 L482,196Z" fill="#4fe3ff" fill-opacity=".16" stroke="#4fe3ff" stroke-opacity=".32"/>
+    <line x1="446" y1="152" x2="482" y2="150" stroke="#4fe3ff" stroke-width="2.4" stroke-dasharray="6 5"/>
+    <line x1="474" y1="104" x2="490" y2="104" stroke="#4fe3ff" stroke-opacity=".75" stroke-width="1.6"/>
+    <line x1="474" y1="196" x2="490" y2="196" stroke="#4fe3ff" stroke-opacity=".75" stroke-width="1.6"/>
+    <circle cx="482" cy="150" r="5" fill="#4fe3ff"/>
+    <g font-family="ui-monospace,monospace" font-size="9" letter-spacing="1.2" fill="#5d7391">
+      <text x="66" y="318" text-anchor="middle">25Q2</text>
+      <text x="226" y="318" text-anchor="middle">25Q4</text>
+      <text x="386" y="318" text-anchor="middle">26Q2</text>
+      <text x="482" y="318" text-anchor="middle" fill="#4fe3ff">26Q4</text>
+      <text x="482" y="332" text-anchor="middle" fill="#33586e" font-size="7.5">FORECAST</text>
+    </g>
+    <g font-family="ui-monospace,monospace" font-size="9" letter-spacing="1.6" fill="#5d7391">
+      <text x="20" y="352">LOE &#183; IMO &#183; TASK &#183; INDICATOR</text>
+    </g>
+  </g>
+</svg>

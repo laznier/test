@@ -1,0 +1,2398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>C1AA Headquarters Assessment Tool</title>
+<meta name="description" content="Front-end-only proof of concept assessment tool for a military headquarters. Nested LOE / IMO / Task / Indicator pie drill-down, quarterly trend and forecast, role-based data entry." />
+
+<!--
+================================================================================
+  C1AA HEADQUARTERS ASSESSMENT TOOL  —  single-file proof of concept
+================================================================================
+  ZERO external dependencies. No fonts, no CDNs, no network calls. Open the file.
+
+  FILE MAP (search for the banner comments)
+    [1]  DESIGN TOKENS / CSS
+    [2]  MARKUP
+    [3]  CONSTANTS  (offices, statuses, periods)
+    [4]  DATA MODEL + PERSISTENCE
+    [5]  DEMO SEED
+    [6]  SELECTORS / ROLLUP MATH        <- pure, port straight to .ts
+    [7]  FORECAST MATH                  <- pure, port straight to .ts
+    [8]  SVG GEOMETRY HELPERS           <- pure, port straight to .ts
+    [9]  AI EXECUTIVE SUMMARY — INTEGRATION STUB (NOT WIRED)
+    [10] LOGIN VIEW
+    [11] PIE (nested drill-down) VIEW
+    [12] TREND / FORECAST VIEW
+    [13] DATA TAB — A9 ADMIN VIEW
+    [14] DATA TAB — OFFICE VIEW
+    [15] SHELL / ROUTING / BOOT
+
+  PORTING TO TypeScript + widget.tsx
+    Sections [3]-[9] are pure functions over plain data with JSDoc types; they
+    become a `model.ts` / `math.ts` pair with no edits beyond adding the type
+    annotations already spelled out in the JSDoc.
+    Sections [10]-[15] are the DOM layer and map to components as follows:
+        LoginScreen        <- section [10]
+        NestedPie          <- section [11]   props: { tree, period, focusPath,
+                                                     colorMode, onFocus }
+        TrendForecast      <- section [12]   props: { series, components,
+                                                      forecast }
+        ExecutiveSummary   <- section [9]    props: { payload, summary, loading }
+        DataTabAdmin       <- section [13]
+        DataTabOffice      <- section [14]
+        AssessmentWidget   <- section [15]   owns state, replaces `S` + render()
+    `S` (the single mutable store) becomes useState/useReducer; every render()
+    call site becomes a state set. Rollups are memo-friendly: they are keyed by
+    (nodeId, period) and have no side effects, so wrap in useMemo.
+================================================================================
+-->
+
+<style>
+/* =============================================================================
+   [1] DESIGN TOKENS / CSS
+   ========================================================================== */
+:root{
+  --bg:#05070d;
+  --bg2:#080c16;
+  --panel:rgba(16,24,40,.62);
+  --panel-2:rgba(11,17,30,.86);
+  --edge:rgba(120,190,255,.16);
+  --edge-hot:rgba(120,210,255,.42);
+  --ink:#e8f2ff;
+  --ink-dim:#8fa5c4;
+  --ink-faint:#5d7391;
+  --cy:#4fe3ff;
+  --cy-deep:#1b6f8c;
+  --amber:#ffc247;
+  --grid:rgba(90,150,220,.07);
+
+  --st-gray:#7b8a9e;   --st-gray-2:#414d5e;
+  --st-red:#ff4d63;    --st-red-2:#8f0f22;
+  --st-yellow:#ffc247; --st-yellow-2:#9a6b00;
+  --st-green:#2fe08a;  --st-green-2:#0a7a45;
+  --st-blue:#3aa2ff;   --st-blue-2:#0a4f96;
+
+  --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+/* ambient command-center backdrop */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(1100px 700px at 78% -12%,rgba(31,120,190,.20),transparent 60%),
+    radial-gradient(900px 620px at 8% 108%,rgba(20,140,150,.16),transparent 62%),
+    linear-gradient(180deg,var(--bg2),var(--bg));
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.55;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:46px 46px;
+  mask-image:radial-gradient(1200px 800px at 50% 30%,#000 40%,transparent 92%);
+}
+#app{position:relative;z-index:1;min-height:100%}
+.hidden{display:none !important}
+button{font-family:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;color:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:rgba(255,255,255,.02)}
+::-webkit-scrollbar-thumb{background:rgba(120,180,240,.18);border-radius:20px}
+::-webkit-scrollbar-thumb:hover{background:rgba(120,190,255,.32)}
+
+.mono{font-family:var(--mono)}
+.eyebrow{
+  font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink-faint)
+}
+
+/* ---------- panels ---------- */
+.panel{
+  position:relative;background:var(--panel);border:1px solid var(--edge);
+  border-radius:var(--r);backdrop-filter:blur(14px);
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.045);
+}
+.panel-h{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:13px 18px;border-bottom:1px solid var(--edge);
+}
+.panel-h h2{margin:0;font-size:12px;letter-spacing:.2em;font-family:var(--mono);
+  text-transform:uppercase;color:var(--ink-dim);font-weight:600}
+.corner{position:absolute;width:11px;height:11px;border:1px solid var(--edge-hot);pointer-events:none}
+.corner.tl{top:-1px;left:-1px;border-right:0;border-bottom:0;border-top-left-radius:4px}
+.corner.tr{top:-1px;right:-1px;border-left:0;border-bottom:0;border-top-right-radius:4px}
+.corner.bl{bottom:-1px;left:-1px;border-right:0;border-top:0;border-bottom-left-radius:4px}
+.corner.br{bottom:-1px;right:-1px;border-left:0;border-top:0;border-bottom-right-radius:4px}
+
+/* =========================== LOGIN ================================= */
+#login{min-height:100vh;display:grid;place-items:center;padding:32px 20px}
+.login-wrap{width:min(940px,100%);display:grid;grid-template-columns:1.05fr .95fr;gap:0;
+  border:1px solid var(--edge);border-radius:20px;overflow:hidden;
+  background:var(--panel-2);backdrop-filter:blur(18px);
+  box-shadow:0 50px 120px -50px #000,inset 0 1px 0 rgba(255,255,255,.05)}
+.login-art{position:relative;overflow:hidden;padding:44px 40px;border-right:1px solid var(--edge);
+  background:linear-gradient(160deg,rgba(20,60,100,.34),rgba(6,12,22,.2))}
+.login-art .ring{position:absolute;right:-90px;bottom:-90px;width:340px;height:340px;
+  border-radius:50%;border:1px solid rgba(120,210,255,.18)}
+.login-art .ring::after{content:"";position:absolute;inset:38px;border-radius:50%;
+  border:1px dashed rgba(120,210,255,.22);animation:spin 26s linear infinite}
+.login-art .ring::before{content:"";position:absolute;inset:80px;border-radius:50%;
+  border:1px solid rgba(79,227,255,.30);
+  box-shadow:0 0 60px rgba(79,227,255,.18) inset}
+@keyframes spin{to{transform:rotate(360deg)}}
+.crest{width:52px;height:52px;border-radius:12px;display:grid;place-items:center;
+  border:1px solid var(--edge-hot);background:linear-gradient(150deg,rgba(79,227,255,.16),transparent);
+  font-family:var(--mono);font-size:15px;letter-spacing:.04em;color:var(--cy);
+  box-shadow:0 0 34px rgba(79,227,255,.16)}
+.login-art h1{margin:26px 0 8px;font-size:31px;line-height:1.08;letter-spacing:-.02em;font-weight:650}
+.login-art h1 span{color:var(--cy);text-shadow:0 0 28px rgba(79,227,255,.42)}
+.login-art p{margin:0;color:var(--ink-dim);font-size:13.5px;line-height:1.6;max-width:38ch}
+.classline{margin-top:30px;display:inline-flex;align-items:center;gap:9px;
+  padding:6px 12px;border-radius:999px;border:1px solid rgba(47,224,138,.32);
+  background:rgba(47,224,138,.07);color:#7ff0b6;font-family:var(--mono);font-size:9.5px;letter-spacing:.2em}
+.dot{width:6px;height:6px;border-radius:50%;background:#2fe08a;box-shadow:0 0 10px #2fe08a}
+.login-form{padding:40px}
+.field{margin-bottom:19px}
+.field label{display:block;margin-bottom:8px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint)}
+.ctl{
+  width:100%;padding:13px 14px;background:rgba(6,11,20,.75);color:var(--ink);
+  border:1px solid var(--edge);border-radius:10px;font-size:14px;outline:none;
+  transition:border-color .16s,box-shadow .16s,background .16s;
+}
+.ctl:focus{border-color:var(--edge-hot);box-shadow:0 0 0 3px rgba(79,227,255,.11);background:rgba(8,16,28,.9)}
+select.ctl{appearance:none;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-dim) 50%),
+                   linear-gradient(135deg,var(--ink-dim) 50%,transparent 50%);
+  background-position:calc(100% - 19px) 55%,calc(100% - 14px) 55%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:38px}
+select.ctl optgroup{background:#0a121f;color:var(--ink-faint);font-family:var(--mono);font-size:11px}
+select.ctl option{background:#0a121f;color:var(--ink);font-family:var(--sans)}
+.role-hint{margin-top:7px;font-size:11.5px;color:var(--ink-faint);min-height:15px;font-family:var(--mono)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  padding:12px 18px;border-radius:10px;border:1px solid var(--edge);
+  background:rgba(255,255,255,.03);font-size:12.5px;font-weight:600;letter-spacing:.03em;
+  transition:.16s;
+}
+.btn:hover{border-color:var(--edge-hot);background:rgba(79,227,255,.09)}
+.btn:active{transform:translateY(1px)}
+.btn-primary{
+  width:100%;margin-top:6px;padding:14px;border-color:rgba(79,227,255,.5);
+  background:linear-gradient(180deg,rgba(79,227,255,.22),rgba(79,227,255,.08));
+  color:#eafaff;font-family:var(--mono);letter-spacing:.16em;font-size:11.5px;text-transform:uppercase;
+  box-shadow:0 10px 34px -14px rgba(79,227,255,.5)}
+.btn-primary:hover{background:linear-gradient(180deg,rgba(79,227,255,.34),rgba(79,227,255,.14))}
+.btn-sm{padding:6px 11px;font-size:11px;border-radius:8px}
+.btn-ghost{background:transparent}
+.backlink{text-decoration:none;font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  color:var(--ink-dim);white-space:nowrap}
+.backlink:hover{color:var(--cy)}
+.login-back{position:relative;z-index:2;display:inline-block;margin-top:22px;font-size:11px}
+.err{
+  margin-top:14px;padding:10px 13px;border-radius:9px;font-size:12.5px;
+  border:1px solid rgba(255,77,99,.4);background:rgba(255,77,99,.09);color:#ffbcc6;
+  font-family:var(--mono)}
+.shake{animation:shake .34s}
+@keyframes shake{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(4px)}50%{transform:translateX(-6px)}}
+
+/* =========================== SHELL ================================= */
+.topbar{
+  position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:18px;
+  padding:11px 22px;border-bottom:1px solid var(--edge);
+  background:rgba(5,9,16,.86);backdrop-filter:blur(18px);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--mono);font-size:13px;letter-spacing:.1em}
+.brand b{color:var(--cy);font-weight:600}
+.brand .crest{width:32px;height:32px;border-radius:9px;font-size:11px}
+.tabs{display:flex;gap:5px;padding:4px;border-radius:11px;border:1px solid var(--edge);background:rgba(255,255,255,.02)}
+.tab-btn{padding:8px 18px;border:0;background:transparent;border-radius:8px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--ink-dim);transition:.15s}
+.tab-btn:hover{color:var(--ink)}
+.tab-btn.on{background:rgba(79,227,255,.15);color:#dff8ff;box-shadow:inset 0 0 0 1px rgba(79,227,255,.34)}
+.spacer{flex:1 1 auto}
+.userchip{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 12px;border-radius:999px;
+  border:1px solid var(--edge);background:rgba(255,255,255,.02)}
+.userchip .nm{font-size:12.5px;line-height:1.2}
+.userchip .rl{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--cy)}
+.avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;border:1px solid var(--edge-hot);
+  background:linear-gradient(150deg,rgba(79,227,255,.2),transparent);color:#cdefff}
+
+/* period selector */
+.per{position:relative}
+.per-btn{display:flex;align-items:center;gap:10px;padding:7px 13px;border-radius:10px;
+  border:1px solid var(--edge);background:rgba(255,255,255,.02);font-family:var(--mono);font-size:11.5px;letter-spacing:.1em}
+.per-btn:hover{border-color:var(--edge-hot)}
+.per-btn .lbl{color:var(--cy)}
+.per-pop{position:absolute;top:calc(100% + 9px);left:0;z-index:80;padding:14px;
+  border-radius:12px;border:1px solid var(--edge-hot);background:#070d18;
+  box-shadow:0 30px 70px -24px #000;min-width:250px}
+.per-row{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.per-row:last-child{margin-bottom:0}
+.per-yr{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);width:34px}
+.q{width:42px;padding:7px 0;text-align:center;border-radius:7px;border:1px solid var(--edge);
+  background:transparent;font-family:var(--mono);font-size:11px;color:var(--ink-dim);transition:.14s}
+.q:hover{border-color:var(--edge-hot);color:var(--ink)}
+.q.on{border-color:rgba(79,227,255,.7);background:rgba(79,227,255,.16);color:#e6fbff;
+  box-shadow:0 0 18px -4px rgba(79,227,255,.6)}
+.q.fut{opacity:.4}
+
+main{padding:22px;max-width:1680px;margin:0 auto}
+
+/* ==================== REPORTS: exec summary ======================== */
+.exec{margin-bottom:18px;overflow:hidden}
+.exec-body{padding:18px 20px;display:flex;gap:20px;align-items:flex-start}
+.exec-scope{flex:0 0 210px;border-right:1px solid var(--edge);padding-right:20px}
+.exec-scope .big{font-family:var(--mono);font-size:19px;color:var(--cy);letter-spacing:.04em;margin:4px 0 3px}
+.exec-scope .sub{font-size:12px;color:var(--ink-dim);line-height:1.45}
+.exec-text{flex:1 1 auto;min-height:78px;display:flex;align-items:center}
+.exec-empty{width:100%;padding:16px 18px;border-radius:10px;
+  border:1px dashed rgba(120,190,255,.26);background:rgba(120,190,255,.03);
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);line-height:1.9;letter-spacing:.03em}
+.exec-empty .k{color:var(--cy);opacity:.8}
+.exec-metrics{display:flex;gap:10px;flex:0 0 auto}
+.metric{min-width:96px;padding:11px 13px;border-radius:10px;border:1px solid var(--edge);
+  background:rgba(255,255,255,.02)}
+.metric .v{font-family:var(--mono);font-size:21px;letter-spacing:-.01em}
+.metric .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink-faint);margin-top:3px}
+
+/* ==================== REPORTS: layout ============================== */
+.viz{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.pie-panel .panel-h{justify-content:space-between}
+.crumbs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:11px}
+.crumb{padding:5px 10px;border-radius:7px;border:1px solid transparent;background:transparent;
+  color:var(--ink-dim);letter-spacing:.08em;transition:.14s}
+.crumb:hover{color:var(--ink);border-color:var(--edge);background:rgba(255,255,255,.03)}
+.crumb.on{color:var(--cy);border-color:rgba(79,227,255,.34);background:rgba(79,227,255,.09)}
+.crumb-sep{color:var(--ink-faint);opacity:.6}
+.seg{display:flex;border:1px solid var(--edge);border-radius:9px;overflow:hidden}
+.seg button{padding:6px 12px;border:0;background:transparent;font-family:var(--mono);
+  font-size:10px;letter-spacing:.14em;color:var(--ink-faint)}
+.seg button.on{background:rgba(79,227,255,.14);color:#dff8ff}
+.pie-stage{display:grid;grid-template-columns:minmax(0,1fr) 306px;gap:0}
+.pie-hold{position:relative;padding:8px 8px 16px}
+#pie{width:100%;height:auto;display:block;max-height:min(58vh,620px);touch-action:manipulation}
+#gRing path,#gKids path{cursor:pointer}
+.hud{border-left:1px solid var(--edge);padding:18px;display:flex;flex-direction:column;gap:14px}
+.hud-code{font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--cy)}
+.hud-title{font-size:17px;line-height:1.3;font-weight:600;letter-spacing:-.01em}
+.hud-bar{height:7px;border-radius:20px;background:rgba(255,255,255,.06);overflow:hidden}
+.hud-bar i{display:block;height:100%;border-radius:20px;transition:width .3s}
+.hud-kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:6px 0;
+  border-bottom:1px dashed rgba(120,190,255,.12)}
+.hud-kv b{font-family:var(--mono);font-weight:500}
+.hud-kv span:first-child{color:var(--ink-faint);font-family:var(--mono);font-size:10px;letter-spacing:.14em}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;border:1px solid}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:3px 8px;border-radius:6px;border:1px solid var(--edge);background:rgba(255,255,255,.03);
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-dim)}
+.hud-note{font-size:12px;line-height:1.55;color:var(--ink-dim);max-height:170px;overflow:auto;
+  padding:10px 12px;border-radius:9px;border:1px solid var(--edge);background:rgba(0,0,0,.24)}
+.hud-note .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--cy);display:block;margin-bottom:3px}
+.hud-idle{color:var(--ink-faint);font-family:var(--mono);font-size:11px;line-height:1.9;letter-spacing:.04em}
+
+/* ==================== REPORTS: trend =============================== */
+#trend{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:7px 16px;padding:12px 18px 16px}
+.lg{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.1em;color:var(--ink-dim)}
+.lg i{width:16px;height:0;border-top-width:2px;border-top-style:solid;display:block}
+
+/* ==================== DATA TAB ===================================== */
+.dbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.tree{padding:16px}
+.node{border:1px solid var(--edge);border-radius:12px;margin-bottom:12px;background:rgba(255,255,255,.016)}
+.node.loe{border-color:rgba(120,190,255,.24)}
+.node-h{display:flex;align-items:center;gap:11px;padding:11px 13px;flex-wrap:wrap}
+.code{font-family:var(--mono);font-size:11px;letter-spacing:.1em;padding:4px 9px;border-radius:6px;
+  border:1px solid var(--edge-hot);color:var(--cy);background:rgba(79,227,255,.07);white-space:nowrap}
+.code.imo{color:#9fd0ff;border-color:rgba(159,208,255,.3);background:rgba(159,208,255,.06)}
+.code.task{color:#ffd98a;border-color:rgba(255,194,71,.3);background:rgba(255,194,71,.06)}
+.code.ind{color:#a6f5d0;border-color:rgba(47,224,138,.28);background:rgba(47,224,138,.06)}
+.ti{flex:1 1 240px;min-width:150px;padding:9px 11px;background:rgba(4,8,15,.6);border:1px solid var(--edge);
+  border-radius:8px;font-size:13.5px;outline:none;transition:.15s}
+.ti:focus{border-color:var(--edge-hot);box-shadow:0 0 0 3px rgba(79,227,255,.09)}
+.node-kids{padding:0 13px 13px 30px;position:relative}
+.node-kids::before{content:"";position:absolute;left:15px;top:0;bottom:20px;width:1px;
+  background:linear-gradient(180deg,var(--edge),transparent)}
+.mini{height:6px;width:110px;border-radius:20px;background:rgba(255,255,255,.07);overflow:hidden;flex:0 0 auto}
+.mini i{display:block;height:100%;border-radius:20px}
+.pct{font-family:var(--mono);font-size:11px;color:var(--ink-dim);width:42px;text-align:right}
+.sw{width:15px;height:15px;border-radius:4px;border:1px solid rgba(255,255,255,.16);flex:0 0 auto}
+.addrow{display:flex;gap:8px;flex-wrap:wrap;padding:4px 0 2px}
+.btn-add{padding:6px 12px;border-radius:8px;border:1px dashed rgba(120,190,255,.32);
+  background:transparent;font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--ink-dim)}
+.btn-add:hover{border-color:var(--edge-hot);color:var(--cy);background:rgba(79,227,255,.06)}
+.btn-del{width:26px;height:26px;border-radius:7px;border:1px solid var(--edge);background:transparent;
+  color:var(--ink-faint);font-size:14px;line-height:1;display:grid;place-items:center;flex:0 0 auto}
+.btn-del:hover{border-color:rgba(255,77,99,.5);color:#ff8b9b;background:rgba(255,77,99,.08)}
+.offs{display:flex;flex-wrap:wrap;gap:5px;padding:2px 0 10px}
+.off{padding:4px 9px;border-radius:6px;border:1px solid var(--edge);background:transparent;
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-faint);transition:.14s}
+.off:hover{border-color:var(--edge-hot);color:var(--ink)}
+.off.on{border-color:rgba(79,227,255,.6);background:rgba(79,227,255,.16);color:#e2f9ff}
+.cov{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--ink-faint)}
+
+/* office data view */
+.card{border:1px solid var(--edge);border-radius:12px;margin-bottom:14px;background:rgba(255,255,255,.016)}
+.card-h{padding:13px 16px;border-bottom:1px solid var(--edge);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.card-b{padding:6px 16px 16px}
+.ctx{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--ink-faint)}
+.irow{display:grid;grid-template-columns:minmax(160px,1.35fr) minmax(220px,2fr) auto auto;
+  gap:16px;align-items:center;padding:13px 0;border-bottom:1px dashed rgba(120,190,255,.11)}
+.irow:last-child{border-bottom:0}
+.irow .nm{font-size:13px;line-height:1.4}
+.irow .nm .c{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--ink-faint);display:block}
+.slider-wrap{position:relative}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:20px;outline:none;
+  background:rgba(255,255,255,.1);margin:0}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:#eafaff;
+  border:2px solid var(--cy);box-shadow:0 0 14px rgba(79,227,255,.75);cursor:pointer}
+input[type=range]::-moz-range-thumb{
+  width:15px;height:15px;border-radius:50%;background:#eafaff;border:2px solid var(--cy);
+  box-shadow:0 0 14px rgba(79,227,255,.75);cursor:pointer}
+.ticks{display:flex;justify-content:space-between;margin-top:7px;font-family:var(--mono);
+  font-size:9px;color:var(--ink-faint);letter-spacing:.06em}
+.ratev{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;
+  font-family:var(--mono);font-size:15px;border:1px solid var(--edge-hot);color:var(--cy);
+  background:rgba(79,227,255,.07)}
+.stat-pick{display:flex;gap:6px;flex:0 0 auto}
+.sp{width:24px;height:24px;border-radius:7px;border:1px solid rgba(255,255,255,.13);transition:.14s;position:relative}
+.sp:hover{transform:translateY(-1px)}
+.sp.on{box-shadow:0 0 0 2px #05070d,0 0 0 3.5px currentColor}
+.cmt{width:100%;margin-top:6px;min-height:74px;resize:vertical;padding:11px 13px;
+  background:rgba(4,8,15,.6);border:1px solid var(--edge);border-radius:9px;font-size:13px;
+  line-height:1.55;outline:none}
+.cmt:focus{border-color:var(--edge-hot);box-shadow:0 0 0 3px rgba(79,227,255,.09)}
+.empty{padding:46px 22px;text-align:center;color:var(--ink-faint);font-family:var(--mono);
+  font-size:12px;letter-spacing:.06em;line-height:1.9}
+.sync{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:#7ff0b6;opacity:0;transition:opacity .3s}
+.sync.on{opacity:1}
+
+@media (max-width:1180px){
+  .pie-stage{grid-template-columns:minmax(0,1fr)}
+  .hud{border-left:0;border-top:1px solid var(--edge)}
+}
+@media (max-width:900px){
+  .login-wrap{grid-template-columns:1fr}
+  .login-art{border-right:0;border-bottom:1px solid var(--edge)}
+  .exec-body{flex-direction:column}
+  .exec-scope{flex:1 1 auto;border-right:0;border-bottom:1px solid var(--edge);padding:0 0 14px}
+  .irow{grid-template-columns:1fr;gap:12px}
+  main{padding:14px}
+}
+</style>
+</head>
+<body>
+<!-- =============================================================================
+     [2] MARKUP
+     ========================================================================== -->
+<div id="app">
+
+  <!-- ------------------------------- LOGIN ------------------------------- -->
+  <section id="login">
+    <div class="login-wrap" id="loginWrap">
+      <div class="login-art">
+        <div class="crest mono">C1AA</div>
+        <h1>Headquarters<br><span>Assessment</span> Terminal</h1>
+        <p>Objective maturity, status and trend assessment across all lines of
+           effort. Authenticate with your office to continue.</p>
+        <div class="classline"><span class="dot"></span>PROOF OF CONCEPT &nbsp;//&nbsp; UNCLASSIFIED</div>
+        <div><a class="backlink login-back" href="https://projectmanagerhelper.com">&#8592;&nbsp;Back to PM Helper</a></div>
+        <div class="ring"></div>
+      </div>
+      <form class="login-form" id="loginForm" autocomplete="off">
+        <div class="field">
+          <label for="inName">Operator name</label>
+          <input class="ctl" id="inName" placeholder="Rank / Name" required />
+        </div>
+        <div class="field">
+          <label for="inRole">Office</label>
+          <select class="ctl" id="inRole" required></select>
+          <div class="role-hint" id="roleHint"></div>
+        </div>
+        <div class="field">
+          <label for="inPass">Access code</label>
+          <input class="ctl" id="inPass" type="password" placeholder="••••••••" required />
+        </div>
+        <button class="btn btn-primary" type="submit">Authenticate</button>
+        <div id="loginErr" class="err hidden"></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ------------------------------- MAIN -------------------------------- -->
+  <section id="main" class="hidden">
+    <header class="topbar">
+      <div class="brand"><span class="crest mono">C1AA</span><span>HQ&nbsp;<b>ASSESSMENT</b></span></div>
+
+      <div class="per">
+        <button class="per-btn" id="perBtn" type="button">
+          <span class="eyebrow" style="letter-spacing:.18em">PERIOD</span>
+          <span class="lbl" id="perLbl">FY26 Q3</span>
+        </button>
+        <div class="per-pop hidden" id="perPop"></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn on" data-tab="reports" type="button">REPORTS</button>
+        <button class="tab-btn" data-tab="data" type="button">DATA</button>
+      </div>
+
+      <div class="spacer"></div>
+      <a class="btn btn-sm btn-ghost backlink" href="https://projectmanagerhelper.com">&#8592;&nbsp;PM&nbsp;HELPER</a>
+      <span class="sync" id="syncFlag">SAVED</span>
+      <div class="userchip">
+        <div class="avatar mono" id="uAv">--</div>
+        <div><div class="nm" id="uNm">—</div><div class="rl mono" id="uRl">—</div></div>
+        <button class="btn btn-sm btn-ghost" id="btnOut" type="button" title="Sign out">EXIT</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============================ REPORTS ============================ -->
+      <div id="tabReports">
+
+        <!-- Executive summary: rendering only. AI hook lives in section [9]. -->
+        <section class="panel exec">
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+          <div class="panel-h">
+            <h2>Executive Summary</h2>
+            <span class="eyebrow" id="execScopeTag"></span>
+            <div class="spacer"></div>
+            <button class="btn btn-sm" id="btnPayload" type="button" title="Copy the AI request payload for this scope">
+              COPY&nbsp;AI&nbsp;PAYLOAD
+            </button>
+          </div>
+          <div class="exec-body">
+            <div class="exec-scope">
+              <div class="eyebrow">Scope</div>
+              <div class="big" id="execCode">OVERALL</div>
+              <div class="sub" id="execTitle">All lines of effort</div>
+            </div>
+            <div class="exec-text" id="execText"></div>
+            <div class="exec-metrics" id="execMetrics"></div>
+          </div>
+        </section>
+
+        <div class="viz">
+          <!-- nested pie -->
+          <section class="panel pie-panel">
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <div class="panel-h">
+              <div class="crumbs" id="crumbs"></div>
+              <div class="spacer"></div>
+              <div class="seg" id="colorSeg">
+                <button data-cm="status" class="on" type="button">STATUS</button>
+                <button data-cm="maturity" type="button">MATURITY</button>
+              </div>
+            </div>
+            <div class="pie-stage">
+              <div class="pie-hold">
+                <svg id="pie" viewBox="0 0 1000 1000" role="img" aria-label="Objective maturity distribution"></svg>
+              </div>
+              <aside class="hud" id="hud"></aside>
+            </div>
+          </section>
+
+          <!-- trend + forecast -->
+          <section class="panel">
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <div class="panel-h">
+              <h2>Trend &amp; Forecast</h2>
+              <span class="eyebrow" id="trendScope"></span>
+              <div class="spacer"></div>
+              <div class="seg" id="seasonSeg">
+                <button data-se="1" class="on" type="button">SEASONAL</button>
+                <button data-se="0" type="button">LINEAR</button>
+              </div>
+            </div>
+            <div style="padding:14px 8px 0">
+              <svg id="trend" viewBox="0 0 1200 400" role="img" aria-label="Maturity trend and forecast"></svg>
+            </div>
+            <div class="legend" id="trendLegend"></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ============================= DATA ============================== -->
+      <div id="tabData" class="hidden">
+        <div class="dbar" id="dataBar"></div>
+        <div id="dataRoot"></div>
+      </div>
+    </main>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* =============================================================================
+   [3] CONSTANTS
+   ========================================================================== */
+
+/** @typedef {'gray'|'red'|'yellow'|'green'|'blue'} StatusKey */
+
+/** Ordered low -> high. `gray` means "not assessed" and is excluded from means. */
+const STATUS_ORDER = /** @type {StatusKey[]} */(['gray','red','yellow','green','blue']);
+const STATUS = {
+  gray  :{ord:0,label:'NOT ASSESSED',c:'#7b8a9e',c2:'#414d5e'},
+  red   :{ord:1,label:'RED',         c:'#ff4d63',c2:'#8f0f22'},
+  yellow:{ord:2,label:'YELLOW',      c:'#ffc247',c2:'#9a6b00'},
+  green :{ord:3,label:'GREEN',       c:'#2fe08a',c2:'#0a7a45'},
+  blue  :{ord:4,label:'BLUE',        c:'#3aa2ff',c2:'#0a4f96'},
+};
+
+/** The managing office. Only this role may shape the objective tree. */
+const ADMIN_ROLE = 'A9';
+const PASS_DEFAULT = 'C1AA';
+const PASS_ADMIN   = 'C1AA_A9_ADMIN';
+
+/** Headquarters offices. A7 is intentionally absent. */
+const OFFICE_GROUPS = [
+  {group:'A-STAFF', items:[
+    {id:'A1',  name:'Manpower, Personnel & Services'},
+    {id:'A2',  name:'Intelligence'},
+    {id:'A3',  name:'Operations'},
+    {id:'A4',  name:'Logistics, Engineering & Force Protection'},
+    {id:'A5',  name:'Plans & Strategy'},
+    {id:'A6',  name:'Communications & Cyber'},
+    {id:'A8',  name:'Programs & Requirements'},
+    {id:'A9',  name:'Assessments & Lessons Learned (Managing Office)'},
+  ]},
+  {group:'OPERATIONS CENTER DIVISIONS', items:[
+    {id:'SRD', name:'Strategy Division'},
+    {id:'CPD', name:'Combat Plans Division'},
+    {id:'COD', name:'Combat Operations Division'},
+    {id:'ISRD',name:'ISR Division'},
+    {id:'AMD', name:'Air Mobility Division'},
+  ]},
+  {group:'SPECIAL & PERSONAL STAFF', items:[
+    {id:'KM',  name:'Knowledge Management'},
+    {id:'PA',  name:'Public Affairs'},
+    {id:'SG',  name:'Surgeon General / Medical'},
+    {id:'IG',  name:'Inspector General'},
+    {id:'JA',  name:'Judge Advocate'},
+    {id:'HC',  name:'Chaplain'},
+    {id:'FM',  name:'Comptroller / Financial Management'},
+    {id:'SE',  name:'Safety'},
+    {id:'CAG', name:"Commander's Action Group"},
+    {id:'CSEL',name:'Command Senior Enlisted Leader'},
+    {id:'HO',  name:'History Office'},
+    {id:'IA',  name:'International Affairs'},
+    {id:'PMO', name:'Program Management Office'},
+  ]},
+];
+const OFFICES = OFFICE_GROUPS.flatMap(g=>g.items);
+const OFFICE_NAME = Object.fromEntries(OFFICES.map(o=>[o.id,o.name]));
+/** Offices that can be tasked. The managing office does not rate its own tree. */
+const TASKABLE = OFFICES.filter(o=>o.id!==ADMIN_ROLE).map(o=>o.id);
+
+/** Assessment periods are quarterly. */
+const YEARS = [25,26,27];
+/** @type {{id:string,y:number,q:number,label:string,short:string}[]} */
+const PERIODS = YEARS.flatMap(y=>[1,2,3,4].map(q=>(
+  {id:`${y}Q${q}`,y,q,label:`FY${y} Q${q}`,short:`${y}Q${q}`}
+)));
+const PERIOD_IDX = Object.fromEntries(PERIODS.map((p,i)=>[p.id,i]));
+/** "Today" for the proof of concept: the latest period that accepts input. */
+const CURRENT_PERIOD = '26Q3';
+
+const MAX_RATING = 5;
+/**
+ * Slice angle is proportional to maturity, but a zero-maturity objective must
+ * stay visible and clickable, so every weight gets this floor added.
+ */
+const MIN_SLICE_WEIGHT = 0.30;
+
+const LEVELS = ['LOE','IMO','Task','Indicator'];
+/** Keyed by the *depth of the parent path*: [] -> LOEs, [loe] -> imos, ... */
+const CHILD_KEY = {1:'imos',2:'tasks',3:'indicators'};
+
+/* =============================================================================
+   [4] DATA MODEL + PERSISTENCE
+   -----------------------------------------------------------------------------
+   Shape (all ids are stable; display codes are always derived from position):
+
+   tree  : Loe[]
+     Loe        { id, title, imos:  Imo[] }
+     Imo        { id, title, tasks: Task[] }
+     Task       { id, title, offices: string[], indicators: Indicator[] }
+     Indicator  { id, title }
+
+   entries : { [periodId]: { [office]: { ind:{[indId]:{r:number,s:StatusKey}},
+                                        cmt:{[taskId]:string} } } }
+
+   Ratings live on indicators (the leaves) so every level of the pie is a real
+   rollup. Offices are assigned at task level only; when several offices hold
+   the same task their indicator ratings are averaged.
+   ========================================================================== */
+const LS_KEY = 'c1aa.assessment.v1';
+
+/** Single mutable store. -> useReducer state in widget.tsx */
+const S = {
+  user:null,                  /** @type {{name:string,role:string}|null} */
+  tab:'reports',
+  period:CURRENT_PERIOD,
+  focus:/** @type {number[]} */([]),   // [] | [loe] | [loe,imo] | [loe,imo,task] | [...,ind]
+  hover:/** @type {number|null} */(null),
+  colorMode:'status',         // 'status' | 'maturity'
+  seasonal:true,
+  animating:false,
+  tree:/** @type {any[]} */([]),
+  entries:/** @type {any} */({}),
+};
+
+let _uid = 0;
+const uid = p => `${p}_${(++_uid).toString(36)}${Math.floor(Math.random()*1e6).toString(36)}`;
+
+function save(){
+  try{
+    localStorage.setItem(LS_KEY,JSON.stringify({tree:S.tree,entries:S.entries,v:1}));
+    flashSync();
+  }catch(e){ /* proof of concept: storage is best effort */ }
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return false;
+    const d = JSON.parse(raw);
+    if(!d || !Array.isArray(d.tree) || !d.tree.length) return false;
+    S.tree = d.tree; S.entries = d.entries||{};
+    return true;
+  }catch(e){ return false; }
+}
+let _syncT;
+function flashSync(){
+  const el = document.getElementById('syncFlag'); if(!el) return;
+  el.classList.add('on'); clearTimeout(_syncT);
+  _syncT = setTimeout(()=>el.classList.remove('on'),1100);
+}
+
+/* ---- tree mutation (managing office only) -------------------------------- */
+const newIndicator = ()=>({id:uid('ind'),title:'New indicator'});
+const newTask      = ()=>({id:uid('tsk'),title:'New task',offices:[],indicators:[newIndicator()]});
+const newImo       = ()=>({id:uid('imo'),title:'New intermediate military objective',tasks:[newTask()]});
+const newLoe       = ()=>({id:uid('loe'),title:'New line of effort',imos:[newImo()]});
+
+/** Every entry that references removed nodes is dropped. */
+function pruneEntries(){
+  const inds=new Set(), tasks=new Set();
+  walkTasks((t)=>{ tasks.add(t.id); t.indicators.forEach(i=>inds.add(i.id)); });
+  for(const p in S.entries) for(const off in S.entries[p]){
+    const e = S.entries[p][off];
+    for(const k in e.ind) if(!inds.has(k)) delete e.ind[k];
+    for(const k in e.cmt) if(!tasks.has(k)) delete e.cmt[k];
+  }
+}
+
+/* =============================================================================
+   [5] DEMO SEED — deterministic, so the tool is useful the moment it opens
+   ========================================================================== */
+const mulberry32 = a => () => {
+  a |= 0; a = a + 0x6D2B79F5 | 0;
+  let t = Math.imul(a ^ a>>>15, 1|a);
+  t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+  return ((t ^ t>>>14)>>>0)/4294967296;
+};
+
+const SEED_TREE = [
+  {title:'Build and Sustain the Coalition', imos:[
+    {title:'Deepen partner interoperability', tasks:[
+      {title:'Execute combined exercise program', offices:['A3','CPD'], indicators:[
+        'Combined exercises executed vs. planned','Partner nations participating','Interoperability findings closed']},
+      {title:'Expand liaison officer network', offices:['A5','IA'], indicators:[
+        'LNO billets filled','Partner HQs with resident LNO']},
+    ]},
+    {title:'Institutionalize security cooperation governance', tasks:[
+      {title:'Publish theater campaign support annex', offices:['A5','SRD'], indicators:[
+        'Annex staffing milestones met','Partner concurrence obtained']},
+      {title:'Synchronize engagement calendar', offices:['A5','KM'], indicators:[
+        'Engagements deconflicted','Calendar currency']},
+    ]},
+    {title:'Strengthen public narrative with partners', tasks:[
+      {title:'Execute combined communication plan', offices:['PA'], indicators:[
+        'Combined releases published','Partner-approved themes in use']},
+    ]},
+  ]},
+  {title:'Modernize and Advance Theater Security Cooperation', imos:[
+    {title:'Field agile combat employment infrastructure', tasks:[
+      {title:'Develop cooperative security locations', offices:['A4','A8'], indicators:[
+        'Sites surveyed','Fuel and munitions capacity fielded','Airfield damage repair kits positioned']},
+      {title:'Pre-position sustainment stocks', offices:['A4'], indicators:[
+        'Stock objective on hand','Distribution timelines met']},
+    ]},
+    {title:'Modernize command and control nodes', tasks:[
+      {title:'Harden alternate operations center', offices:['A6','COD'], indicators:[
+        'Node survivability upgrades complete','Failover rehearsals passed']},
+      {title:'Migrate mission systems to resilient transport', offices:['A6'], indicators:[
+        'Systems migrated','Latency objective met']},
+    ]},
+  ]},
+  {title:'Generate Readiness and Interoperability', imos:[
+    {title:'Improve force generation throughput', tasks:[
+      {title:'Close critical manning gaps', offices:['A1'], indicators:[
+        'Critical billets filled','Time to fill (inverse)']},
+      {title:'Sustain aircrew currency', offices:['A3','A1'], indicators:[
+        'Aircrew current','Simulator hours delivered']},
+    ]},
+    {title:'Assure medical and personnel readiness', tasks:[
+      {title:'Raise individual medical readiness', offices:['SG','A1'], indicators:[
+        'Individual medical readiness rate','En route care capacity']},
+    ]},
+    {title:'Institutionalize lessons learned', tasks:[
+      {title:'Close observation backlog', offices:['KM','A3'], indicators:[
+        'Observations adjudicated','Corrective actions verified']},
+    ]},
+  ]},
+  {title:'Achieve Decision and Information Advantage', imos:[
+    {title:'Deliver persistent ISR coverage', tasks:[
+      {title:'Optimize collection management', offices:['ISRD','A2'], indicators:[
+        'Priority requirements satisfied','Collection deck utilization','Time-sensitive tasking latency (inverse)']},
+      {title:'Federate partner intelligence sharing', offices:['A2','IA'], indicators:[
+        'Releasable products shared','Partner analysts integrated']},
+    ]},
+    {title:'Accelerate the assessment cycle', tasks:[
+      {title:'Automate indicator reporting', offices:['A9','A6','KM'], indicators:[
+        'Indicators auto-populated','Reporting cycle time (inverse)']},
+      {title:'Institutionalize commander decision boards', offices:['CAG','SRD'], indicators:[
+        'Boards executed on cycle','Decisions tracked to closure']},
+    ]},
+    {title:'Protect the information environment', tasks:[
+      {title:'Reduce cyber attack surface', offices:['A6','SE'], indicators:[
+        'Critical findings remediated','Continuity of operations exercises passed']},
+    ]},
+  ]},
+];
+
+function buildSeedTree(){
+  return SEED_TREE.map(l=>({
+    id:uid('loe'), title:l.title,
+    imos:l.imos.map(m=>({
+      id:uid('imo'), title:m.title,
+      tasks:m.tasks.map(t=>({
+        id:uid('tsk'), title:t.title, offices:t.offices.slice(),
+        indicators:t.indicators.map(n=>({id:uid('ind'),title:n})),
+      })),
+    })),
+  }));
+}
+
+/**
+ * Synthesizes plausible history: a rising trajectory per indicator with a mild
+ * quarterly seasonal wobble plus noise, so the trend, seasonal decomposition
+ * and forecast bands all have something real to work on.
+ */
+function seedEntries(tree){
+  const rnd = mulberry32(20260811);
+  const entries = {};
+  const upto = PERIOD_IDX[CURRENT_PERIOD];
+  const seasonal = [0.30,-0.18,-0.34,0.22];        // Q1..Q4 offset
+  walkTasks((task)=>{
+    task.indicators.forEach(ind=>{
+      const start = 0.6 + rnd()*1.7;
+      const slope = 0.10 + rnd()*0.34;
+      task.offices.forEach(off=>{
+        const bias = (rnd()-0.5)*0.7;              // office-to-office spread
+        for(let i=0;i<=upto;i++){
+          if(i<2 && rnd()<0.18) continue;          // sparse early reporting
+          const p = PERIODS[i];
+          const v = start + slope*i + seasonal[p.q-1] + bias + (rnd()-0.5)*0.5;
+          const r = clamp(Math.round(v),0,MAX_RATING);   // integers: slider step is 1
+          const e = ent(entries,p.id,off);
+          e.ind[ind.id] = {r, s:statusFromRating(r,rnd())};
+        }
+      });
+    });
+    // a comment on the current period for most tasks, for the AI payload
+    task.offices.forEach(off=>{
+      if(rnd()<0.72){
+        const e = ent(entries,CURRENT_PERIOD,off);
+        e.cmt[task.id] = pickComment(rnd,task.title);
+      }
+    });
+  },tree);
+  return entries;
+}
+function ent(entries,p,off){
+  entries[p] = entries[p]||{};
+  entries[p][off] = entries[p][off]||{ind:{},cmt:{}};
+  return entries[p][off];
+}
+function statusFromRating(r,x){
+  if(r<1.0) return 'red';
+  if(r<2.2) return x<0.25?'red':'yellow';
+  if(r<3.4) return x<0.22?'red':(x<0.72?'yellow':'green');
+  if(r<4.4) return x<0.2?'yellow':'green';
+  return x<0.42?'green':'blue';
+}
+const COMMENT_BANK = [
+  'On glidepath. Milestones tracking to plan; no external dependencies at risk this quarter.',
+  'Progress constrained by funding release timing; recovery expected next quarter with no change to the end state.',
+  'Partner concurrence slower than planned. Mitigation underway through the engagement calendar.',
+  'Manning shortfall is the pacing constraint. Recommend commander emphasis at the next board.',
+  'Exceeded the quarterly objective. Recommend raising the target for the remainder of the fiscal year.',
+  'Rehearsals surfaced a transport single point of failure. Corrective action opened and resourced.',
+  'Steady state achieved. Sustainment resourcing is the remaining risk to the trajectory.',
+  'Late-quarter surge recovered earlier slippage. Trend is positive but fragile.',
+];
+const pickComment = (rnd,t)=>COMMENT_BANK[Math.floor(rnd()*COMMENT_BANK.length)];
+
+function resetToDemo(){
+  S.tree = buildSeedTree();
+  S.entries = seedEntries(S.tree);
+  S.focus = []; S.hover = null;
+  save();
+}
+
+/* =============================================================================
+   [6] SELECTORS / ROLLUP MATH   (pure — port straight to .ts)
+   ========================================================================== */
+const mean = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp = (a,b,t)=>a+(b-a)*t;
+
+function walkTasks(fn,tree){
+  (tree||S.tree).forEach((l,li)=>l.imos.forEach((m,mi)=>m.tasks.forEach((t,ti)=>fn(t,{li,mi,ti},m,l))));
+}
+
+/** Display code for a node, derived from its position. `LOE 1 / IMO 1.1 / ...` */
+function codeOf(path){
+  const n = path.map(i=>i+1);
+  if(path.length===1) return `LOE ${n[0]}`;
+  if(path.length===2) return `IMO ${n[0]}.${n[1]}`;
+  if(path.length===3) return `Task ${n[0]}.${n[1]}.${n[2]}`;
+  if(path.length===4) return `Indicator ${n[0]}.${n[1]}.${n[2]}.${n[3]}`;
+  return 'OVERALL';
+}
+function nodeAt(path){
+  let n = {imos:S.tree,title:'All lines of effort',id:'root'};
+  const keys = ['imos','tasks','indicators'];
+  for(let d=0;d<path.length;d++){
+    const kids = d===0 ? S.tree : n[keys[d-1]];
+    n = kids[path[d]];
+    if(!n) return null;
+  }
+  return n;
+}
+/** Children of a focus path, or [] at the indicator leaf. */
+function childrenOf(path){
+  if(path.length===0) return S.tree;
+  const n = nodeAt(path);
+  if(!n) return [];
+  const k = CHILD_KEY[path.length];
+  return k ? (n[k]||[]) : [];
+}
+function taskOfPath(path){ return path.length>=3 ? nodeAt(path.slice(0,3)) : null; }
+
+/* ---- leaf value: average of the assigned offices that reported ---------- */
+function indicatorValue(indId, task, period){
+  const vals=[];
+  for(const off of task.offices){
+    const r = S.entries?.[period]?.[off]?.ind?.[indId]?.r;
+    if(typeof r === 'number') vals.push(r);
+  }
+  return mean(vals);
+}
+function indicatorStatus(indId, task, period){
+  const ords=[];
+  for(const off of task.offices){
+    const s = S.entries?.[period]?.[off]?.ind?.[indId]?.s;
+    if(s && s!=='gray') ords.push(STATUS[s].ord);
+  }
+  const m = mean(ords);
+  return m==null ? 'gray' : STATUS_ORDER[clamp(Math.round(m),1,4)];
+}
+
+/**
+ * Maturity of any node for a period, on the 0..MAX_RATING scale.
+ * Null when nothing beneath it has been assessed.
+ * @returns {number|null}
+ */
+function valueOf(path, period){
+  const depth = path.length;
+  if(depth===4){
+    const task = taskOfPath(path);
+    const ind = nodeAt(path);
+    return (task&&ind) ? indicatorValue(ind.id,task,period) : null;
+  }
+  const kids = childrenOf(path);
+  if(!kids.length) return null;
+  const vals=[];
+  for(let i=0;i<kids.length;i++){
+    const v = valueOf(path.concat(i),period);
+    if(v!=null) vals.push(v);
+  }
+  return mean(vals);
+}
+/** @returns {StatusKey} */
+function statusOf(path, period){
+  if(path.length===4){
+    const task = taskOfPath(path), ind = nodeAt(path);
+    return (task&&ind) ? indicatorStatus(ind.id,task,period) : 'gray';
+  }
+  const kids = childrenOf(path);
+  const ords=[];
+  for(let i=0;i<kids.length;i++){
+    const s = statusOf(path.concat(i),period);
+    if(s!=='gray') ords.push(STATUS[s].ord);
+  }
+  const m = mean(ords);
+  return m==null ? 'gray' : STATUS_ORDER[clamp(Math.round(m),1,4)];
+}
+const pctOf = v => v==null ? null : Math.round((v/MAX_RATING)*100);
+
+/** Offices contributing anywhere beneath a node. */
+function officesUnder(path){
+  const out = new Set();
+  const rec = p => {
+    if(p.length>=3){ const t=taskOfPath(p); if(t) t.offices.forEach(o=>out.add(o)); return; }
+    childrenOf(p).forEach((_,i)=>rec(p.concat(i)));
+  };
+  rec(path); return out;
+}
+/** Current-period comments beneath a node: {office, task, text}. */
+function commentsUnder(path, period){
+  const out=[];
+  const rec = p => {
+    if(p.length===3){
+      const t = nodeAt(p); if(!t) return;
+      t.offices.forEach(off=>{
+        const c = S.entries?.[period]?.[off]?.cmt?.[t.id];
+        if(c && c.trim()) out.push({office:off,code:codeOf(p),task:t.title,text:c.trim()});
+      });
+      return;
+    }
+    if(p.length>3) return;
+    childrenOf(p).forEach((_,i)=>rec(p.concat(i)));
+  };
+  rec(path.slice(0,3)); return out;
+}
+/** Periods from the start of record through the selected period. */
+const historyPeriods = () => PERIODS.slice(0,PERIOD_IDX[S.period]+1);
+
+/** Series of a node across periods. @returns {(number|null)[]} */
+const seriesOf = (path,periods) => periods.map(p=>valueOf(path,p.id));
+
+/* =============================================================================
+   [7] FORECAST MATH   (pure — port straight to .ts)
+   -----------------------------------------------------------------------------
+   Ordinary least squares on the period index, a 95% prediction interval for the
+   next period, and an optional additive quarterly seasonal term estimated from
+   the detrended residuals. Same construction as the site's forecast tool.
+   ========================================================================== */
+const T95 = [12.71,4.303,3.182,2.776,2.571,2.447,2.365,2.306,2.262,2.228,
+             2.201,2.179,2.160,2.145,2.131,2.120,2.110,2.101,2.093,2.086,
+             2.080,2.074,2.069,2.064,2.060,2.056,2.052,2.048,2.045,2.042];
+const tcrit = df => df<1 ? 12.71 : (df<=30 ? T95[df-1] : 1.96);
+
+/**
+ * @param {(number|null)[]} series  aligned to `periods`
+ * @param {{id:string,q:number}[]} periods
+ * @param {boolean} seasonal
+ * @returns {{ok:boolean,fit:(number|null)[],next:number,lo:number,hi:number,
+ *            slope:number,r2:number,season:number[]|null,n:number}}
+ */
+function forecastNext(series, periods, seasonal){
+  const pts=[]; series.forEach((v,i)=>{ if(v!=null) pts.push([i,v]); });
+  const n = pts.length;
+  const blank = {ok:false,fit:series.map(()=>null),next:0,lo:0,hi:0,slope:0,r2:0,season:null,n};
+  if(n<2) return blank;
+
+  const sx=pts.reduce((a,p)=>a+p[0],0), sy=pts.reduce((a,p)=>a+p[1],0);
+  const mx=sx/n, my=sy/n;
+  let sxx=0,sxy=0,syy=0;
+  for(const [x,y] of pts){ sxx+=(x-mx)**2; sxy+=(x-mx)*(y-my); syy+=(y-my)**2; }
+  if(sxx===0) return blank;
+  const slope=sxy/sxx, intercept=my-slope*mx;
+  const line = x => intercept+slope*x;
+
+  let sse=0; for(const [x,y] of pts) sse += (y-line(x))**2;
+  const df = Math.max(1,n-2);
+  const se = Math.sqrt(sse/df);
+  const r2 = syy>0 ? clamp(1-sse/syy,0,1) : 0;
+
+  // additive quarterly seasonality from detrended residuals
+  let season=null;
+  if(seasonal && n>=6){
+    const acc=[[],[],[],[]];
+    for(const [x,y] of pts) acc[periods[x].q-1].push(y-line(x));
+    const raw = acc.map(a=>a.length?mean(a):0);
+    const centre = mean(raw)||0;                     // offsets sum to ~0
+    season = raw.map(v=>v-centre);
+  }
+  const sAt = i => (season && periods[i]) ? season[periods[i].q-1] : 0;
+
+  const nx = series.length;                          // index of the next period
+  const nq = (PERIODS[nx] ? PERIODS[nx].q : ((periods[nx-1].q % 4) + 1)) - 1;
+  const seasonNext = season ? season[nq] : 0;
+
+  const yhat = line(nx) + seasonNext;
+  const margin = tcrit(df)*se*Math.sqrt(1 + 1/n + ((nx-mx)**2)/sxx);
+  return {
+    ok:true,
+    fit: series.map((_,i)=> i<=nx ? clamp(line(i)+sAt(i),0,MAX_RATING) : null),
+    next: clamp(yhat,0,MAX_RATING),
+    lo:   clamp(yhat-margin,0,MAX_RATING),
+    hi:   clamp(yhat+margin,0,MAX_RATING),
+    slope, r2, season, n,
+  };
+}
+
+/* =============================================================================
+   [8] SVG GEOMETRY HELPERS   (pure — port straight to .ts)
+   ========================================================================== */
+const CX=500, CY=500;
+const RING = {r0:252, r1:400};        // current-level band
+const KIDS = {r0:150, r1:236};        // children band, revealed on hover
+const CORE = 122;                     // centre disc
+const EXPLODE = 13;                   // hover pull-out, px
+const GAP = 0.9;                      // inter-slice gap, degrees
+
+const polar = (r,deg)=>{ const a=(deg-90)*Math.PI/180; return [CX+r*Math.cos(a),CY+r*Math.sin(a)]; };
+const f2 = n => Math.round(n*100)/100;
+
+/** Annular sector path. Handles the full-circle case with an even-odd donut. */
+function arcPath(r0,r1,a0,a1){
+  let sweep = a1-a0;
+  if(sweep<=0.02 || r1<=r0) return '';
+  if(sweep>=359.99){
+    const m=a0+180;
+    const p=(r,a)=>polar(r,a).map(f2).join(',');
+    return `M${p(r1,a0)}A${f2(r1)},${f2(r1)} 0 0 1 ${p(r1,m)}A${f2(r1)},${f2(r1)} 0 0 1 ${p(r1,a0)}Z`
+         + `M${p(r0,a0)}A${f2(r0)},${f2(r0)} 0 0 1 ${p(r0,m)}A${f2(r0)},${f2(r0)} 0 0 1 ${p(r0,a0)}Z`;
+  }
+  const big = sweep>180 ? 1 : 0;
+  const [x0,y0]=polar(r1,a0),[x1,y1]=polar(r1,a1),[x2,y2]=polar(r0,a1),[x3,y3]=polar(r0,a0);
+  return `M${f2(x0)},${f2(y0)}A${f2(r1)},${f2(r1)} 0 ${big} 1 ${f2(x1)},${f2(y1)}`
+       + `L${f2(x2)},${f2(y2)}A${f2(r0)},${f2(r0)} 0 ${big} 0 ${f2(x3)},${f2(y3)}Z`;
+}
+/** @typedef {{a0:number,a1:number,r0:number,r1:number,op:number,push:number}} Geom */
+const geom = (a0,a1,r0,r1,op=1,push=0)=>({a0,a1,r0,r1,op,push});
+const lerpGeom = (A,B,t)=>geom(
+  lerp(A.a0,B.a0,t),lerp(A.a1,B.a1,t),lerp(A.r0,B.r0,t),lerp(A.r1,B.r1,t),
+  lerp(A.op,B.op,t),lerp(A.push,B.push,t));
+const easeInOut = t => t<0.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+const easeOut = t => 1-Math.pow(1-t,3);
+
+/**
+ * Angular layout of one level: size proportional to maturity, with a floor so
+ * unassessed objectives remain visible and clickable.
+ * @returns {{a0:number,a1:number,mid:number,v:number|null,w:number}[]}
+ */
+function layout(path, period, a0=0, a1=360){
+  const kids = childrenOf(path);
+  const vals = kids.map((_,i)=>valueOf(path.concat(i),period));
+  const ws = vals.map(v=>(v==null?0:v)+MIN_SLICE_WEIGHT);
+  const tot = ws.reduce((a,b)=>a+b,0) || kids.length || 1;
+  const span = a1-a0;
+  let acc=a0;
+  return kids.map((_,i)=>{
+    const w = span*(ws[i]/tot);
+    const s={a0:acc,a1:acc+w,mid:acc+w/2,v:vals[i],w:ws[i]};
+    acc+=w; return s;
+  });
+}
+
+/** Slice fill: status hue, or a cool maturity ramp. */
+function sliceColor(path,period){
+  if(S.colorMode==='maturity'){
+    const v = valueOf(path,period);
+    if(v==null) return {c:STATUS.gray.c,c2:STATUS.gray.c2};
+    const t = v/MAX_RATING;
+    const stops=[[26,52,96],[24,110,150],[32,178,178],[79,227,255]];
+    const x=t*(stops.length-1), i=Math.min(stops.length-2,Math.floor(x)), f=x-i;
+    const mix=(a,b)=>Math.round(lerp(a,b,f));
+    const rgb=[0,1,2].map(k=>mix(stops[i][k],stops[i+1][k]));
+    const dark=rgb.map(v2=>Math.round(v2*0.42));
+    return {c:`rgb(${rgb.join(',')})`,c2:`rgb(${dark.join(',')})`};
+  }
+  const st = STATUS[statusOf(path,period)];
+  return {c:st.c,c2:st.c2};
+}
+
+/* =============================================================================
+   [9] AI EXECUTIVE SUMMARY — INTEGRATION STUB  (NOT WIRED)
+   -----------------------------------------------------------------------------
+   `buildSummaryPayload()` below is live and pure: it assembles everything an
+   LLM needs to write the executive summary for the currently displayed scope —
+   the rollup, the child breakdown, the trend and forecast, and every office
+   comment beneath the node. Nothing calls out to a network. To activate the
+   feature later, implement one function and call `renderExecSummary` with the
+   result. The types are written as TypeScript for the widget.tsx port.
+
+   ---------------------------------------------------------------------------
+   export type StatusKey = 'gray' | 'red' | 'yellow' | 'green' | 'blue';
+
+   export interface NodeRollup {
+     code: string;                  // 'LOE 1' | 'IMO 1.1' | 'Task 1.1.1' | ...
+     title: string;
+     level: 'OVERALL'|'LOE'|'IMO'|'Task'|'Indicator';
+     maturity: number | null;       // 0..5
+     percent: number | null;        // 0..100
+     status: StatusKey;
+     offices: string[];             // contributing offices
+   }
+   export interface TrendBlock {
+     periods: string[];             // ['25Q1','25Q2',...]
+     series: (number|null)[];       // aligned to periods
+     slope: number;                 // maturity points per quarter
+     r2: number;
+     forecast: { period: string; point: number; low: number; high: number } | null;
+     seasonalOffsets: number[] | null;   // Q1..Q4, additive
+   }
+   export interface OfficeComment {
+     office: string; code: string; task: string; text: string;
+   }
+   export interface ExecutiveSummaryRequest {
+     scope: NodeRollup;
+     period: string;                // '26Q3'
+     children: NodeRollup[];
+     trend: TrendBlock;
+     comments: OfficeComment[];
+     descendantCounts: { imos:number; tasks:number; indicators:number };
+     audience: 'commander' | 'staff';
+     maxWords: number;
+   }
+   export interface ExecutiveSummaryResponse {
+     headline: string;              // one line, <= 140 chars
+     summary: string;               // 3-5 sentences: status, progress, trend
+     drivers: string[];             // what is pulling the score up
+     risks: string[];               // what is pulling it down
+     recommendation?: string;
+     confidence: 'low' | 'medium' | 'high';
+     generatedAt: string;           // ISO 8601
+   }
+
+   // ---- suggested implementation (server keeps the model credentials) ------
+   export async function fetchExecutiveSummary(
+     req: ExecutiveSummaryRequest,
+     signal?: AbortSignal
+   ): Promise<ExecutiveSummaryResponse> {
+     const res = await fetch('/api/assessment/executive-summary', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify(req),
+       signal,
+     });
+     if (!res.ok) throw new Error(`summary failed: ${res.status}`);
+     return res.json();
+   }
+
+   // ---- suggested widget.tsx wiring ---------------------------------------
+   // Cache on (scope.code, period, dataRevision) so drilling around the pie
+   // does not re-bill the model, and abort in flight requests on focus change.
+   //
+   // const payload = useMemo(() => buildSummaryPayload(tree, entries, focus,
+   //                                                   period), [focus, period, rev]);
+   // const { data, loading, error } = useAsync(
+   //   () => fetchExecutiveSummary(payload), [payload.scope.code, payload.period, rev]);
+   //
+   // Server side, the prompt should be pinned to the payload only: no free
+   // browsing, cite the office comments it leans on, and refuse to invent
+   // numbers that are not in `children` or `trend`.
+   ---------------------------------------------------------------------------
+   ========================================================================== */
+
+/** Live, pure, no network. Shape matches ExecutiveSummaryRequest above. */
+function buildSummaryPayload(){
+  const path = S.focus, period = S.period;
+  const periods = historyPeriods();
+  const rollup = p => ({
+    code: codeOf(p),
+    title: p.length ? (nodeAt(p)?.title||'') : 'All lines of effort',
+    level: p.length ? LEVELS[p.length-1] : 'OVERALL',
+    maturity: valueOf(p,period),
+    percent: pctOf(valueOf(p,period)),
+    status: statusOf(p,period),
+    offices: [...officesUnder(p)],
+  });
+  const series = seriesOf(path,periods);
+  const fc = forecastNext(series,periods,S.seasonal);
+  const nextP = PERIODS[PERIOD_IDX[period]+1];
+  let imos=0,tasks=0,inds=0;
+  const count = p => {
+    const kids = childrenOf(p);
+    kids.forEach((_,i)=>{
+      const d=p.length+1;
+      if(d===2) imos++; else if(d===3) tasks++; else if(d===4) inds++;
+      if(d<4) count(p.concat(i));
+    });
+  };
+  count(path);
+  return {
+    scope: rollup(path),
+    period,
+    children: childrenOf(path).map((_,i)=>rollup(path.concat(i))),
+    trend:{
+      periods: periods.map(p=>p.id),
+      series,
+      slope: f2(fc.slope),
+      r2: f2(fc.r2),
+      forecast: (fc.ok&&nextP) ? {period:nextP.id,point:f2(fc.next),low:f2(fc.lo),high:f2(fc.hi)} : null,
+      seasonalOffsets: fc.season ? fc.season.map(f2) : null,
+    },
+    comments: commentsUnder(path,period),
+    descendantCounts:{imos,tasks,indicators:inds},
+    audience:'commander',
+    maxWords:180,
+  };
+}
+
+/* =============================================================================
+   [10] LOGIN VIEW
+   ========================================================================== */
+const $ = s => document.querySelector(s);
+const el = (tag,cls,txt)=>{ const n=document.createElement(tag); if(cls)n.className=cls;
+  if(txt!=null)n.textContent=txt; return n; };
+
+function initLogin(){
+  const sel = $('#inRole');
+  sel.appendChild(el('option','', 'Select office'));
+  sel.firstChild.value='';
+  OFFICE_GROUPS.forEach(g=>{
+    const og = document.createElement('optgroup'); og.label = g.group;
+    g.items.forEach(o=>{
+      const op = el('option','',`${o.id} — ${o.name}`); op.value=o.id; og.appendChild(op);
+    });
+    sel.appendChild(og);
+  });
+  sel.addEventListener('change',()=>{
+    const v=sel.value;
+    $('#roleHint').textContent = v===ADMIN_ROLE
+      ? 'MANAGING OFFICE // FULL OBJECTIVE AUTHORITY'
+      : (v ? `REPORTING OFFICE // ${OFFICE_NAME[v].toUpperCase()}` : '');
+  });
+
+  $('#loginForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    const name=$('#inName').value.trim(), role=$('#inRole').value, pass=$('#inPass').value;
+    const err = m => {
+      const b=$('#loginErr'); b.textContent=m; b.classList.remove('hidden');
+      const w=$('#loginWrap'); w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake');
+    };
+    if(!name) return err('OPERATOR NAME REQUIRED');
+    if(!role) return err('OFFICE SELECTION REQUIRED');
+    const expect = role===ADMIN_ROLE ? PASS_ADMIN : PASS_DEFAULT;
+    if(pass!==expect) return err('ACCESS CODE REJECTED');
+    $('#loginErr').classList.add('hidden');
+    S.user={name,role};
+    enterApp();
+  });
+}
+
+function enterApp(){
+  $('#login').classList.add('hidden');
+  $('#main').classList.remove('hidden');
+  const {name,role}=S.user;
+  $('#uNm').textContent=name;
+  $('#uRl').textContent = `${role} · ${role===ADMIN_ROLE?'MANAGING OFFICE':'REPORTING OFFICE'}`;
+  $('#uAv').textContent = role;
+  $('#uAv').style.fontSize = role.length>3 ? '9px' : '11px';
+  S.focus=[]; S.hover=null;
+  renderPeriods(); renderAll();
+}
+
+/* =============================================================================
+   [11] PIE (nested drill-down) VIEW
+   ========================================================================== */
+const NS='http://www.w3.org/2000/svg';
+const svgEl = (t,attrs)=>{ const n=document.createElementNS(NS,t);
+  for(const k in (attrs||{})) n.setAttribute(k,attrs[k]); return n; };
+
+function defsFor(svg){
+  const defs = svgEl('defs');
+  defs.innerHTML = `
+    <radialGradient id="coreG" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#12283f"/><stop offset="70%" stop-color="#080f1c"/>
+      <stop offset="100%" stop-color="#04070d"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowS" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>`;
+  svg.appendChild(defs);
+}
+/** Per-slice gradient so slices read as lit volumes rather than flat wedges. */
+function sliceGrad(defs,id,c,c2,mid){
+  const [x1,y1]=polar(RING.r1,mid), [x2,y2]=polar(RING.r0*0.5,mid);
+  const g = svgEl('linearGradient',{id,gradientUnits:'userSpaceOnUse',
+    x1:f2(x1),y1:f2(y1),x2:f2(x2),y2:f2(y2)});
+  g.appendChild(svgEl('stop',{offset:'0%','stop-color':c,'stop-opacity':'1'}));
+  g.appendChild(svgEl('stop',{offset:'100%','stop-color':c2,'stop-opacity':'.92'}));
+  defs.appendChild(g);
+  return `url(#${id})`;
+}
+
+function renderPie(){
+  const svg = $('#pie');
+  svg.innerHTML='';
+  defsFor(svg);
+  const defs = svg.querySelector('defs');
+  const period = S.period;
+
+  // static furniture: outer tick ring + rotating scan arc
+  const deco = svgEl('g',{opacity:'.5'});
+  deco.appendChild(svgEl('circle',{cx:CX,cy:CY,r:428,fill:'none',
+    stroke:'rgba(120,190,255,.16)','stroke-width':'1'}));
+  for(let a=0;a<360;a+=5){
+    const long = a%45===0;
+    const [x1,y1]=polar(long?414:421,a), [x2,y2]=polar(432,a);
+    deco.appendChild(svgEl('line',{x1:f2(x1),y1:f2(y1),x2:f2(x2),y2:f2(y2),
+      stroke:long?'rgba(120,210,255,.5)':'rgba(120,190,255,.2)','stroke-width':long?1.4:1}));
+  }
+  const scan = svgEl('circle',{cx:CX,cy:CY,r:441,fill:'none',stroke:'rgba(79,227,255,.5)',
+    'stroke-width':'1.6','stroke-dasharray':'150 2620','stroke-linecap':'round'});
+  scan.innerHTML = `<animateTransform attributeName="transform" type="rotate"
+      from="0 ${CX} ${CY}" to="360 ${CX} ${CY}" dur="14s" repeatCount="indefinite"/>`;
+  deco.appendChild(scan);
+  svg.appendChild(deco);
+
+  const gKids  = svgEl('g',{id:'gKids'});     // children band (hover reveal)
+  const gRing  = svgEl('g',{id:'gRing'});     // current level
+  const gLbl   = svgEl('g',{id:'gLbl','pointer-events':'none'});
+  const gCore  = svgEl('g',{id:'gCore','pointer-events':'none'});
+  svg.append(gKids,gRing,gLbl,gCore);
+
+  // ---------------- indicator leaf: single ring + fitted caption -----------
+  if(S.focus.length===4){
+    renderLeaf(svg,gRing,gCore,defs);
+    renderHud();
+    return;
+  }
+
+  const slices = layout(S.focus,period);
+  const kids = childrenOf(S.focus);
+  if(!kids.length){
+    gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:CORE+40,fill:'url(#coreG)',
+      stroke:'rgba(120,190,255,.2)'}));
+    const t = svgEl('text',{x:CX,y:CY,'text-anchor':'middle','dominant-baseline':'central',
+      fill:'#5d7391','font-family':'ui-monospace,monospace','font-size':'22','letter-spacing':'4'});
+    t.textContent='NO SUBORDINATE OBJECTIVES';
+    gCore.appendChild(t);
+    renderHud();
+    return;
+  }
+
+  slices.forEach((s,i)=>{
+    const p = S.focus.concat(i);
+    const {c,c2} = sliceColor(p,period);
+    const hot = S.hover===i;
+    const pad = Math.min(GAP, (s.a1-s.a0)/4);
+    const a0=s.a0+pad/2, a1=s.a1-pad/2;
+    const g = hot ? geom(a0-0.35,a1+0.35,RING.r0-6,RING.r1+18,1,EXPLODE)
+                  : geom(a0,a1,RING.r0,RING.r1,1,0);
+    const fill = sliceGrad(defs,`sg${i}`,c,c2,s.mid);
+
+    const path = svgEl('path',{d:arcPath(g.r0,g.r1,g.a0,g.a1),fill,
+      stroke:hot?'rgba(255,255,255,.55)':'rgba(4,8,15,.85)','stroke-width':hot?2:2.5,
+      'fill-rule':'evenodd'});
+    if(g.push) path.setAttribute('transform',pushT(s.mid,g.push));
+    if(hot) path.setAttribute('filter','url(#glowS)');
+    path.dataset.i=i;
+    gRing.appendChild(path);
+
+    // ---- children band, only under the hovered slice --------------------
+    if(hot && S.focus.length<3){
+      const sub = layout(p,period,a0,a1);
+      sub.forEach((k,j)=>{
+        const kp = p.concat(j);
+        const kc = sliceColor(kp,period);
+        const kpad = Math.min(0.7,(k.a1-k.a0)/4);
+        const kpath = svgEl('path',{
+          d:arcPath(KIDS.r0,KIDS.r1,k.a0+kpad/2,k.a1-kpad/2),
+          fill:kc.c,opacity:'0','stroke':'rgba(4,8,15,.8)','stroke-width':'1.5',
+          'fill-rule':'evenodd'});
+        kpath.setAttribute('transform',pushT(s.mid,EXPLODE*0.45));
+        kpath.dataset.i=i;                 // clicking a child band drills the parent
+        gKids.appendChild(kpath);
+        // staggered reveal
+        const an = svgEl('animate',{attributeName:'opacity',from:'0',to:'.92',
+          dur:'.26s',begin:`${j*0.028}s`,fill:'freeze'});
+        kpath.appendChild(an);
+      });
+      // radial guide marking the hovered span
+      const guide = svgEl('path',{d:arcPath(KIDS.r1+8,KIDS.r1+9.5,a0,a1),
+        fill:'rgba(79,227,255,.5)','pointer-events':'none'});
+      gKids.appendChild(guide);
+    }
+
+    // ---- slice label ----------------------------------------------------
+    const sweep = a1-a0;
+    if(sweep>13){
+      const rMid = (g.r0+g.r1)/2 + (hot?4:0);
+      const [lx,ly] = polar(rMid,s.mid);
+      const off = hot ? pushXY(s.mid,EXPLODE) : [0,0];
+      const gg = svgEl('g',{transform:`translate(${f2(lx+off[0])},${f2(ly+off[1])})`});
+      const code = svgEl('text',{'text-anchor':'middle',y:'-6',
+        fill:'rgba(255,255,255,.96)','font-family':'ui-monospace,monospace',
+        'font-size': sweep>26?'25':'20','letter-spacing':'1.5','font-weight':'600'});
+      code.textContent = codeOf(p).replace('Indicator','IND').replace('Task','TSK');
+      gg.appendChild(code);
+      const pv = pctOf(s.v);
+      const val = svgEl('text',{'text-anchor':'middle',y: sweep>26?'22':'18',
+        fill:'rgba(255,255,255,.72)','font-family':'ui-monospace,monospace',
+        'font-size': sweep>26?'19':'16'});
+      val.textContent = pv==null ? '—' : pv+'%';
+      gg.appendChild(val);
+      gLbl.appendChild(gg);
+    }
+  });
+
+  // ---------------- centre core ------------------------------------------
+  drawCore(gCore);
+
+  // ---------------- interaction ------------------------------------------
+  gRing.addEventListener('pointerover',e=>{
+    const i = e.target.dataset && e.target.dataset.i;
+    if(i!=null && !S.animating) setHover(+i);
+  });
+  gKids.addEventListener('pointerover',e=>{
+    const i = e.target.dataset && e.target.dataset.i;
+    if(i!=null && !S.animating) setHover(+i);
+  });
+  const click = e=>{
+    const i = e.target.dataset && e.target.dataset.i;
+    if(i!=null && !S.animating) drillInto(+i);
+  };
+  gRing.addEventListener('click',click);
+  gKids.addEventListener('click',click);
+
+  renderHud();
+}
+const pushXY = (mid,d)=>{ const a=(mid-90)*Math.PI/180; return [Math.cos(a)*d,Math.sin(a)*d]; };
+const pushT  = (mid,d)=>{ const [x,y]=pushXY(mid,d); return `translate(${f2(x)},${f2(y)})`; };
+
+function drawCore(gCore){
+  const period=S.period, v=valueOf(S.focus,period), pv=pctOf(v);
+  const st=STATUS[statusOf(S.focus,period)];
+  gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:CORE+16,fill:'none',
+    stroke:'rgba(120,190,255,.13)'}));
+  gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:CORE,fill:'url(#coreG)',
+    stroke:st.c,'stroke-opacity':'.55','stroke-width':'1.6'}));
+  // maturity arc around the core
+  const sweepDeg = (v==null?0:v/MAX_RATING)*360;
+  if(sweepDeg>0.5){
+    gCore.appendChild(svgEl('path',{d:arcPath(CORE+5,CORE+11,0,sweepDeg),
+      fill:st.c,opacity:'.85','fill-rule':'evenodd',filter:'url(#glowS)'}));
+  }
+  const label = S.focus.length ? codeOf(S.focus) : 'OVERALL';
+  const t1 = svgEl('text',{x:CX,y:CY-34,'text-anchor':'middle',fill:'#8fa5c4',
+    'font-family':'ui-monospace,monospace','font-size':'19','letter-spacing':'4'});
+  t1.textContent = label.toUpperCase();
+  const t2 = svgEl('text',{x:CX,y:CY+16,'text-anchor':'middle',fill:'#eaf6ff',
+    'font-family':'ui-monospace,monospace','font-size':'60','font-weight':'600'});
+  t2.textContent = pv==null?'—':pv+'%';
+  const t3 = svgEl('text',{x:CX,y:CY+50,'text-anchor':'middle',fill:st.c,
+    'font-family':'ui-monospace,monospace','font-size':'15','letter-spacing':'3'});
+  t3.textContent = st.label;
+  const t4 = svgEl('text',{x:CX,y:CY+76,'text-anchor':'middle',fill:'#5d7391',
+    'font-family':'ui-monospace,monospace','font-size':'14','letter-spacing':'2'});
+  t4.textContent = v==null?'NOT ASSESSED':`${f2(v)} / ${MAX_RATING} MATURITY`;
+  gCore.append(t1,t2,t3,t4);
+}
+
+/**
+ * Indicator leaf. One ring for the indicator, with its name written beside it
+ * and shrunk to fit whatever length the managing office typed.
+ */
+function renderLeaf(svg,gRing,gCore,defs){
+  const period=S.period, p=S.focus, ind=nodeAt(p), task=taskOfPath(p);
+  const v=valueOf(p,period), pv=pctOf(v), st=STATUS[statusOf(p,period)];
+  const cx=336, r1=196, r0=132;
+  const ring = svgEl('g',{transform:`translate(${cx-CX},0)`});
+  ring.appendChild(svgEl('circle',{cx:CX,cy:CY,r:r1+22,fill:'none',stroke:'rgba(120,190,255,.14)'}));
+  ring.appendChild(svgEl('path',{d:arcPath(r0,r1,0,360),fill:'rgba(255,255,255,.05)','fill-rule':'evenodd'}));
+  const sweep=(v==null?0:v/MAX_RATING)*360;
+  if(sweep>0.5) ring.appendChild(svgEl('path',{d:arcPath(r0,r1,0,sweep),fill:st.c,
+    opacity:'.92','fill-rule':'evenodd',filter:'url(#glow)'}));
+  ring.appendChild(svgEl('circle',{cx:CX,cy:CY,r:r0-8,fill:'url(#coreG)',
+    stroke:st.c,'stroke-opacity':'.45'}));
+  const a=svgEl('text',{x:CX,y:CY-6,'text-anchor':'middle',fill:'#eaf6ff',
+    'font-family':'ui-monospace,monospace','font-size':'54','font-weight':'600'});
+  a.textContent = pv==null?'—':pv+'%';
+  const b=svgEl('text',{x:CX,y:CY+34,'text-anchor':'middle',fill:st.c,
+    'font-family':'ui-monospace,monospace','font-size':'15','letter-spacing':'3'});
+  b.textContent = st.label;
+  const c=svgEl('text',{x:CX,y:CY+62,'text-anchor':'middle',fill:'#5d7391',
+    'font-family':'ui-monospace,monospace','font-size':'14','letter-spacing':'2'});
+  c.textContent = v==null?'NOT ASSESSED':`${f2(v)} / ${MAX_RATING}`;
+  ring.append(a,b,c);
+  gRing.appendChild(ring);
+
+  // caption block to the right, auto-fitted
+  const bx=592, bw=354;
+  const g=svgEl('g');
+  const code=svgEl('text',{x:bx,y:326,fill:'#4fe3ff','font-family':'ui-monospace,monospace',
+    'font-size':'20','letter-spacing':'3.5'});
+  code.textContent=codeOf(p).toUpperCase();
+  g.appendChild(code);
+  g.appendChild(svgEl('line',{x1:bx,y1:344,x2:bx+bw,y2:344,stroke:'rgba(120,190,255,.28)'}));
+  gRing.appendChild(g);
+  fitTextBlock(gRing, ind?ind.title:'', bx, 396, bw, 190, 40, 15, '#eaf6ff', 600);
+  const sub=svgEl('text',{x:bx,y:626,fill:'#8fa5c4','font-family':'ui-monospace,monospace','font-size':'14'});
+  sub.textContent = `UNDER ${codeOf(p.slice(0,3)).toUpperCase()}`;
+  gRing.appendChild(sub);
+  fitTextBlock(gRing, task?task.title:'', bx, 656, bw, 74, 19, 12, '#8fa5c4', 400);
+  const offs=svgEl('text',{x:bx,y:754,fill:'#5d7391','font-family':'ui-monospace,monospace',
+    'font-size':'14','letter-spacing':'1.5'});
+  offs.textContent = task && task.offices.length ? `OFFICES  ${task.offices.join(' · ')}` : 'NO OFFICE ASSIGNED';
+  gRing.appendChild(offs);
+}
+
+/**
+ * Word-wraps `text` into a box, shrinking the font until it fits. Used by the
+ * indicator leaf so any title length stays neat.
+ */
+function fitTextBlock(parent,text,x,y,maxW,maxH,startSize,minSize,fill,weight){
+  const meas = svgEl('text',{x:-9999,y:-9999,'font-family':'system-ui,sans-serif',
+    'font-weight':weight});
+  parent.appendChild(meas);
+  const words = String(text||'').split(/\s+/).filter(Boolean);
+  const width = (s,fs)=>{ meas.setAttribute('font-size',fs); meas.textContent=s;
+    try{ return meas.getComputedTextLength(); }catch(e){ return s.length*fs*0.54; } };
+  let size=startSize, lines=[words.join(' ')];
+  for(; size>=minSize; size-=1){
+    const lh = size*1.28;
+    lines=[]; let cur='';
+    for(const w of words){
+      const t = cur?cur+' '+w:w;
+      if(width(t,size)<=maxW || !cur) cur=t; else { lines.push(cur); cur=w; }
+    }
+    if(cur) lines.push(cur);
+    if(lines.length*lh<=maxH && lines.every(l=>width(l,size)<=maxW+1)) break;
+  }
+  size=Math.max(size,minSize);
+  meas.remove();
+  const lh=size*1.28;
+  lines.forEach((l,i)=>{
+    const t=svgEl('text',{x,y:f2(y+i*lh),fill,'font-family':'system-ui,sans-serif',
+      'font-size':f2(size),'font-weight':weight});
+    t.textContent=l; parent.appendChild(t);
+  });
+}
+
+function setHover(i){
+  if(S.hover===i) return;
+  S.hover=i; renderPie();
+}
+
+/* ---- drill down / up with the expanding-circle transition --------------- */
+function drillInto(i){
+  const target = S.focus.concat(i);
+  if(target.length>4) return;
+  if(target.length<4 && !childrenOf(target).length){ // nothing beneath: still focus it
+    S.focus=target; S.hover=null; renderAll(); return;
+  }
+  animateFocus(target,'down');
+}
+function goTo(path){
+  if(path.length===S.focus.length && path.every((v,i)=>v===S.focus[i])) return;
+  animateFocus(path, path.length>S.focus.length ? 'down':'up');
+}
+
+/**
+ * The "inception" move: the children of the clicked slice fly out of their
+ * inner band and become the full circle, while the old level fades outward.
+ */
+function animateFocus(target,dir){
+  const svg=$('#pie');
+  const from=S.focus.slice();
+  const period=S.period;
+  const kids=childrenOf(target);
+
+  if(target.length===4 || !kids.length){        // leaf: quick fade
+    S.animating=true;
+    svg.style.transition='opacity .18s'; svg.style.opacity='0';
+    setTimeout(()=>{
+      S.focus=target; S.hover=null; S.animating=false;
+      renderAll(); svg.style.opacity='1';
+      setTimeout(()=>svg.style.transition='',200);
+    },170);
+    return;
+  }
+
+  S.animating=true;
+  // where the incoming slices start
+  let startSpan;
+  if(dir==='down'){
+    const idx=target[target.length-1];
+    const sl=layout(from,period)[idx];
+    startSpan={a0:sl.a0,a1:sl.a1,r0:KIDS.r0,r1:KIDS.r1,push:EXPLODE*0.45,
+               mid:(sl.a0+sl.a1)/2};
+  }else{
+    startSpan=null;                              // coming back up: fan in from wide
+  }
+  const endLay=layout(target,period);
+
+  // build a scratch layer
+  svg.innerHTML=''; defsFor(svg);
+  const defs=svg.querySelector('defs');
+  const g=svgEl('g'); svg.appendChild(g);
+  const core=svgEl('g',{opacity:'0'}); svg.appendChild(core);
+  const items=endLay.map((s,i)=>{
+    const p=target.concat(i);
+    const {c,c2}=sliceColor(p,period);
+    const pad=Math.min(GAP,(s.a1-s.a0)/4);
+    const to=geom(s.a0+pad/2,s.a1-pad/2,RING.r0,RING.r1,1,0);
+    let fr;
+    if(startSpan){
+      const sub=layout(target,period,startSpan.a0,startSpan.a1)[i];
+      fr=geom(sub.a0,sub.a1,startSpan.r0,startSpan.r1,.55,startSpan.push);
+    }else{
+      fr=geom(to.a0-14,to.a1+14,RING.r0+86,RING.r1+120,0,0);
+    }
+    const path=svgEl('path',{d:arcPath(fr.r0,fr.r1,fr.a0,fr.a1),
+      fill:sliceGrad(defs,`ag${i}`,c,c2,s.mid),opacity:String(fr.op),
+      stroke:'rgba(4,8,15,.85)','stroke-width':'2','fill-rule':'evenodd'});
+    g.appendChild(path);
+    return {path,fr,to,mid:s.mid};
+  });
+  // old level flies outward and fades
+  if(dir==='down'){
+    const oldLay=layout(from,period);
+    oldLay.forEach((s,i)=>{
+      if(i===target[target.length-1]) return;
+      const p=from.concat(i); const {c,c2}=sliceColor(p,period);
+      const fr=geom(s.a0,s.a1,RING.r0,RING.r1,.85,0);
+      const to=geom(s.a0-6,s.a1+6,RING.r0+120,RING.r1+150,0,0);
+      const path=svgEl('path',{d:arcPath(fr.r0,fr.r1,fr.a0,fr.a1),fill:c,opacity:'.85',
+        'fill-rule':'evenodd'});
+      g.insertBefore(path,g.firstChild);
+      items.push({path,fr,to,mid:s.mid});
+    });
+  }
+  drawCore(core);
+
+  const T0=performance.now(), DUR=dir==='down'?680:520;
+  (function frame(now){
+    const t=clamp((now-T0)/DUR,0,1), e=easeInOut(t);
+    for(const it of items){
+      const gg=lerpGeom(it.fr,it.to,e);
+      it.path.setAttribute('d',arcPath(gg.r0,gg.r1,gg.a0,gg.a1));
+      it.path.setAttribute('opacity',f2(gg.op));
+      it.path.setAttribute('transform', gg.push>0.01 ? pushT(it.mid,gg.push) : '');
+    }
+    core.setAttribute('opacity',f2(easeOut(t)));
+    if(t<1) requestAnimationFrame(frame);
+    else{
+      S.focus=target; S.hover=null; S.animating=false; renderAll();
+    }
+  })(T0);
+
+  // the rest of the dashboard follows immediately
+  S.focus=target; S.hover=null;
+  renderCrumbs(); renderTrend(); renderExecFrame();
+}
+
+/* ---- breadcrumbs + hover read-out -------------------------------------- */
+function renderCrumbs(){
+  const box=$('#crumbs'); box.innerHTML='';
+  const mk=(label,path,on)=>{
+    const b=el('button',`crumb${on?' on':''}`,label); b.type='button';
+    b.addEventListener('click',()=>{ if(!S.animating) goTo(path); });
+    box.appendChild(b);
+  };
+  mk('OVERALL',[],S.focus.length===0);
+  S.focus.forEach((_,d)=>{
+    box.appendChild(el('span','crumb-sep','/'));
+    const p=S.focus.slice(0,d+1);
+    mk(codeOf(p).toUpperCase(),p,d===S.focus.length-1);
+  });
+  const lv = S.focus.length<4 ? LEVELS[S.focus.length] : 'Indicator';
+  const tag = el('span','eyebrow',`· ${S.focus.length===4?'LEAF':lv.toUpperCase()+' RING'}`);
+  tag.style.marginLeft='6px';
+  box.appendChild(tag);
+}
+
+function renderHud(){
+  const hud=$('#hud'); hud.innerHTML='';
+  const period=S.period;
+  const path = S.hover!=null ? S.focus.concat(S.hover) : S.focus;
+  const isHover = S.hover!=null;
+
+  if(!isHover && S.focus.length<4){
+    const idle=el('div','hud-idle');
+    idle.innerHTML = `ANGLE = MATURITY &nbsp;·&nbsp; FILL = `
+      + (S.colorMode==='status'?'STATUS':'MATURITY');
+    hud.appendChild(idle);
+  }
+
+  const node = path.length ? nodeAt(path) : null;
+  const v=valueOf(path,period), pv=pctOf(v), st=STATUS[statusOf(path,period)];
+  hud.appendChild(el('div','hud-code',(path.length?codeOf(path):'OVERALL').toUpperCase()));
+  hud.appendChild(el('div','hud-title',node?node.title:'All lines of effort'));
+
+  const bar=el('div','hud-bar'); const fill=el('div');
+  fill.style.width=(pv||0)+'%';
+  fill.style.background=`linear-gradient(90deg,${st.c2},${st.c})`;
+  fill.style.boxShadow=`0 0 14px ${st.c}88`;
+  bar.appendChild(fill); hud.appendChild(bar);
+
+  const pill=el('span','pill',st.label);
+  pill.style.color=st.c; pill.style.borderColor=st.c+'66'; pill.style.background=st.c+'14';
+  const pw=el('div'); pw.appendChild(pill); hud.appendChild(pw);
+
+  const kv=(k,val)=>{
+    const r=el('div','hud-kv'); r.appendChild(el('span','',k));
+    r.appendChild(el('b','',val)); hud.appendChild(r);
+  };
+  kv('MATURITY', v==null?'NOT ASSESSED':`${f2(v)} / ${MAX_RATING}  (${pv}%)`);
+  const lvl = path.length===0?'OVERALL':LEVELS[path.length-1].toUpperCase();
+  kv('LEVEL', lvl);
+  if(path.length<4){
+    const kids=childrenOf(path);
+    kv(`SUBORDINATE ${(LEVELS[path.length]||'').toUpperCase()}S`, String(kids.length));
+  }
+  const periods=historyPeriods();
+  const fc=forecastNext(seriesOf(path,periods),periods,S.seasonal);
+  if(fc.ok){
+    const arrow = fc.slope>0.04?'▲':(fc.slope<-0.04?'▼':'▬');
+    kv('QUARTERLY DELTA', `${arrow} ${fc.slope>0?'+':''}${f2(fc.slope)}`);
+  }
+
+  const offs=[...officesUnder(path)];
+  if(offs.length){
+    hud.appendChild(el('div','eyebrow','Assigned offices'));
+    const c=el('div','chips');
+    offs.forEach(o=>c.appendChild(el('span','chip',o)));
+    hud.appendChild(c);
+  }
+
+  const cms=commentsUnder(path,period);
+  if(cms.length){
+    hud.appendChild(el('div','eyebrow',`Office comments · ${period}`));
+    const box=el('div','hud-note');
+    cms.slice(0,6).forEach(c=>{
+      const w=el('div'); w.style.marginBottom='9px';
+      w.appendChild(el('span','who',`${c.office} · ${c.code}`));
+      w.appendChild(document.createTextNode(c.text));
+      box.appendChild(w);
+    });
+    hud.appendChild(box);
+  }
+}
+
+/* =============================================================================
+   [12] TREND / FORECAST VIEW
+   -----------------------------------------------------------------------------
+   Main line = the node the pie is showing. Dim lines = the slices in that pie
+   (one level down), for composition. The forecast band is drawn for the main
+   line only.
+   ========================================================================== */
+const TW=1200, TH=400, TM={l:52,r:132,t:22,b:46};
+const CHILD_HUES=[188,204,150,42,268,12,320,96,228,58,168,286];
+
+function renderTrend(){
+  const svg=$('#trend'); svg.innerHTML='';
+  const periods=historyPeriods();
+  const nextP=PERIODS[PERIOD_IDX[S.period]+1];
+  const cols=periods.length + (nextP?1:0);
+  const iw=TW-TM.l-TM.r, ih=TH-TM.t-TM.b;
+  const X = i => TM.l + (cols<=1?iw/2:(i/(cols-1))*iw);
+  const Y = v => TM.t + ih - (clamp(v,0,MAX_RATING)/MAX_RATING)*ih;
+
+  const defs=svgEl('defs');
+  defs.innerHTML=`
+    <linearGradient id="mainFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4fe3ff" stop-opacity=".26"/>
+      <stop offset="100%" stop-color="#4fe3ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="tglow" x="-30%" y="-60%" width="160%" height="260%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>`;
+  svg.appendChild(defs);
+
+  // grid
+  const grid=svgEl('g');
+  for(let v=0;v<=MAX_RATING;v++){
+    const y=Y(v);
+    grid.appendChild(svgEl('line',{x1:TM.l,y1:f2(y),x2:TW-TM.r,y2:f2(y),
+      stroke:v===0?'rgba(120,190,255,.3)':'rgba(120,190,255,.09)'}));
+    const t=svgEl('text',{x:TM.l-12,y:f2(y+4),'text-anchor':'end',fill:'#5d7391',
+      'font-family':'ui-monospace,monospace','font-size':'12'});
+    t.textContent=v; grid.appendChild(t);
+  }
+  for(let i=0;i<cols;i++){
+    const p = i<periods.length ? periods[i] : nextP;
+    const x=X(i), isF = i>=periods.length;
+    grid.appendChild(svgEl('line',{x1:f2(x),y1:TM.t,x2:f2(x),y2:TM.t+ih,
+      stroke:'rgba(120,190,255,.055)'}));
+    const t=svgEl('text',{x:f2(x),y:TH-TM.b+22,'text-anchor':'middle',
+      fill:isF?'#4fe3ff':'#5d7391','font-family':'ui-monospace,monospace','font-size':'12',
+      'letter-spacing':'1'});
+    t.textContent=p.short; grid.appendChild(t);
+    if(isF){
+      const f=svgEl('text',{x:f2(x),y:TH-TM.b+38,'text-anchor':'middle',fill:'#33586e',
+        'font-family':'ui-monospace,monospace','font-size':'9','letter-spacing':'2'});
+      f.textContent='FORECAST'; grid.appendChild(f);
+    }
+  }
+  svg.appendChild(grid);
+
+  const series=seriesOf(S.focus,periods);
+  const fc=forecastNext(series,periods,S.seasonal);
+  const kids=childrenOf(S.focus);
+  const legend=[];
+
+  // ---- component lines: one per slice in the current pie, de-emphasised --
+  const gComp=svgEl('g');
+  kids.forEach((k,i)=>{
+    const cs=seriesOf(S.focus.concat(i),periods);
+    const d=lineD(cs,X,Y);
+    if(!d) return;
+    const hue=CHILD_HUES[i%CHILD_HUES.length];
+    const col=`hsl(${hue} 78% 62%)`;
+    const hot = S.hover===i;
+    gComp.appendChild(svgEl('path',{d,fill:'none',stroke:col,
+      'stroke-width':hot?2.6:1.4,opacity:hot?.95:.34,'stroke-linejoin':'round',
+      'stroke-linecap':'round'}));
+    legend.push({col,label:codeOf(S.focus.concat(i)).toUpperCase(),w:2,dash:false,dim:!hot});
+  });
+  svg.appendChild(gComp);
+
+  // ---- forecast wedge (main line only) ----------------------------------
+  const lastI = lastIdx(series);
+  if(fc.ok && nextP && lastI>=0){
+    const xs=X(lastI), ys=Y(series[lastI]), xf=X(cols-1);
+    const band=svgEl('path',{
+      d:`M${f2(xs)},${f2(ys)}L${f2(xf)},${f2(Y(fc.hi))}L${f2(xf)},${f2(Y(fc.lo))}Z`,
+      fill:'rgba(79,227,255,.15)',stroke:'rgba(79,227,255,.3)','stroke-width':'1'});
+    svg.appendChild(band);
+    svg.appendChild(svgEl('line',{x1:f2(xs),y1:f2(ys),x2:f2(xf),y2:f2(Y(fc.next)),
+      stroke:'#4fe3ff','stroke-width':'2.6','stroke-dasharray':'7 6',opacity:'.95'}));
+    [['hi',fc.hi],['lo',fc.lo]].forEach(([,v])=>{
+      svg.appendChild(svgEl('line',{x1:f2(xf-9),y1:f2(Y(v)),x2:f2(xf+9),y2:f2(Y(v)),
+        stroke:'rgba(79,227,255,.75)','stroke-width':'1.6'}));
+    });
+    // trend regression line, faint
+    const fd=lineD(fc.fit,X,Y);
+    if(fd) svg.appendChild(svgEl('path',{d:fd,fill:'none',stroke:'#ffc247',
+      'stroke-width':'1.3','stroke-dasharray':'3 5',opacity:'.5'}));
+    legend.push({col:'#ffc247',label:'REGRESSION TREND',w:1.3,dash:true,dim:true});
+    legend.push({col:'#4fe3ff',label:`FORECAST ${nextP.short} · ${f2(fc.next)} [${f2(fc.lo)}–${f2(fc.hi)}]`,
+      w:2.6,dash:true,dim:false});
+  }
+
+  // ---- main line --------------------------------------------------------
+  const md=lineD(series,X,Y);
+  if(md){
+    const area = md+`L${f2(X(lastI))},${f2(Y(0))}L${f2(X(firstIdx(series)))},${f2(Y(0))}Z`;
+    svg.appendChild(svgEl('path',{d:area,fill:'url(#mainFill)',stroke:'none'}));
+    svg.appendChild(svgEl('path',{d:md,fill:'none',stroke:'#8ceeff','stroke-width':'3.4',
+      'stroke-linejoin':'round','stroke-linecap':'round',filter:'url(#tglow)'}));
+    series.forEach((v,i)=>{
+      if(v==null) return;
+      svg.appendChild(svgEl('circle',{cx:f2(X(i)),cy:f2(Y(v)),r:'4.6',fill:'#05070d',
+        stroke:'#8ceeff','stroke-width':'2.4'}));
+    });
+    if(fc.ok&&nextP){
+      svg.appendChild(svgEl('circle',{cx:f2(X(cols-1)),cy:f2(Y(fc.next)),r:'6',
+        fill:'#4fe3ff',opacity:'.95',filter:'url(#tglow)'}));
+    }
+    const nm = S.focus.length?codeOf(S.focus).toUpperCase():'OVERALL';
+    legend.unshift({col:'#8ceeff',label:nm+' (ACTUAL)',w:3.4,dash:false,dim:false});
+  }else{
+    const t=svgEl('text',{x:TW/2,y:TH/2,'text-anchor':'middle',fill:'#5d7391',
+      'font-family':'ui-monospace,monospace','font-size':'15','letter-spacing':'3'});
+    t.textContent='NO ASSESSED DATA IN RANGE'; svg.appendChild(t);
+  }
+
+  // right-edge captions, anchored low so they never sit under the forecast wedge
+  const cap=svgEl('text',{x:TW-TM.r+18,y:TM.t+12,fill:'#5d7391',
+    'font-family':'ui-monospace,monospace','font-size':'10','letter-spacing':'2'});
+  cap.textContent='MATURITY 0–5'; svg.appendChild(cap);
+  if(fc.ok){
+    const rows=[`R²  ${f2(fc.r2)}`,`N   ${fc.n}`];
+    if(fc.season) rows.push('SEASONAL ON');
+    rows.forEach((txt,i)=>{
+      const t=svgEl('text',{x:TW-TM.r+18,y:f2(TM.t+ih-((rows.length-1-i)*16)),fill:'#33586e',
+        'font-family':'ui-monospace,monospace','font-size':'10','letter-spacing':'1.5'});
+      t.textContent=txt; svg.appendChild(t);
+    });
+  }
+
+  // legend + scope tag
+  const lg=$('#trendLegend'); lg.innerHTML='';
+  legend.forEach(L=>{
+    const r=el('div','lg'); const i=el('i');
+    i.style.borderTopColor=L.col; i.style.borderTopWidth=Math.max(2,L.w)+'px';
+    if(L.dash) i.style.borderTopStyle='dashed';
+    r.style.opacity=L.dim?'.62':'1';
+    r.append(i,el('span','',L.label)); lg.appendChild(r);
+  });
+  const scope = S.focus.length? codeOf(S.focus).toUpperCase() : 'OVERALL';
+  const nextLv = S.focus.length<4 ? (LEVELS[S.focus.length]||'').toUpperCase() : '';
+  $('#trendScope').textContent = S.focus.length===4
+    ? `${scope} · INDICATOR SERIES`
+    : `${scope} · WITH ${nextLv} COMPONENTS`;
+}
+const firstIdx = a => a.findIndex(v=>v!=null);
+function lastIdx(a){ for(let i=a.length-1;i>=0;i--) if(a[i]!=null) return i; return -1; }
+/** Polyline through non-null points (gaps are bridged so a line stays readable). */
+function lineD(arr,X,Y){
+  const pts=[]; arr.forEach((v,i)=>{ if(v!=null) pts.push([X(i),Y(v)]); });
+  if(pts.length<1) return '';
+  if(pts.length===1) return `M${f2(pts[0][0]-5)},${f2(pts[0][1])}L${f2(pts[0][0]+5)},${f2(pts[0][1])}`;
+  return pts.map((p,i)=>`${i?'L':'M'}${f2(p[0])},${f2(p[1])}`).join('');
+}
+
+/* ---- executive summary frame (rendering only) --------------------------- */
+function renderExecFrame(){
+  const period=S.period, path=S.focus;
+  const node = path.length?nodeAt(path):null;
+  $('#execCode').textContent = path.length?codeOf(path).toUpperCase():'OVERALL';
+  $('#execTitle').textContent = node?node.title:'All lines of effort';
+  $('#execScopeTag').textContent = `${period} · AI SUMMARY NOT WIRED`;
+
+  const v=valueOf(path,period), st=STATUS[statusOf(path,period)];
+  const periods=historyPeriods();
+  const fc=forecastNext(seriesOf(path,periods),periods,S.seasonal);
+  const cms=commentsUnder(path,period);
+  const box=$('#execMetrics'); box.innerHTML='';
+  const m=(k,val,col)=>{
+    const d=el('div','metric'); const a=el('div','v',val);
+    if(col) a.style.color=col; d.appendChild(a); d.appendChild(el('div','k',k)); box.appendChild(d);
+  };
+  m('MATURITY', v==null?'—':pctOf(v)+'%', st.c);
+  m('STATUS', st.label.split(' ')[0], st.c);
+  m('Δ / QTR', fc.ok?`${fc.slope>0?'+':''}${f2(fc.slope)}`:'—',
+    fc.ok?(fc.slope>=0?'#2fe08a':'#ff4d63'):null);
+  m('COMMENTS', String(cms.length));
+
+  const t=$('#execText'); t.innerHTML='';
+  const e=el('div','exec-empty');
+  e.innerHTML =
+    `<span class="k">// EXECUTIVE SUMMARY — RESERVED</span><br>`
+   +`<span class="k">// </span>buildSummaryPayload() is live for this scope: `
+   +`${cms.length} comment${cms.length===1?'':'s'}, `
+   +`${childrenOf(path).length} child node${childrenOf(path).length===1?'':'s'}, `
+   +`${periods.length} quarter${periods.length===1?'':'s'} of series.<br>`
+   +`<span class="k">// </span>Implement fetchExecutiveSummary() (see section [9]) and render here.`;
+  t.appendChild(e);
+}
+
+/* =============================================================================
+   [13] DATA TAB — A9 ADMIN VIEW
+   ========================================================================== */
+function renderDataBar(){
+  const bar=$('#dataBar'); bar.innerHTML='';
+  const isAdmin = S.user.role===ADMIN_ROLE;
+  const tag=el('div','panel'); tag.style.padding='11px 16px'; tag.style.flex='1 1 320px';
+  tag.innerHTML = isAdmin
+    ? `<div class="eyebrow">Objective architecture · ${S.period}</div>
+       <div style="font-size:13.5px;margin-top:4px">${S.user.name} · ${OFFICE_NAME[ADMIN_ROLE]}</div>`
+    : `<div class="eyebrow">Assigned tasks · ${S.period}</div>
+       <div style="font-size:13.5px;margin-top:4px">${S.user.role} · ${OFFICE_NAME[S.user.role]}</div>`;
+  bar.appendChild(tag);
+
+  if(isAdmin){
+    const add=el('button','btn','+ ADD LOE'); add.type='button';
+    add.addEventListener('click',()=>{ S.tree.push(newLoe()); save(); renderData(); renderReports(); });
+    bar.appendChild(add);
+    const rs=el('button','btn','RESET DEMO DATA'); rs.type='button';
+    rs.addEventListener('click',()=>{
+      if(confirm('Replace the current objective tree and all assessments with the demo data set?')){
+        resetToDemo(); renderAll();
+      }
+    });
+    bar.appendChild(rs);
+    const ex=el('button','btn','EXPORT JSON'); ex.type='button';
+    ex.addEventListener('click',exportJson);
+    bar.appendChild(ex);
+  }
+}
+
+function renderData(){
+  renderDataBar();
+  const root=$('#dataRoot'); root.innerHTML='';
+  if(S.user.role===ADMIN_ROLE) renderAdminTree(root); else renderOfficeTasks(root);
+}
+
+function renderAdminTree(root){
+  const panel=el('section','panel');
+  panel.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
+                 +'<span class="corner bl"></span><span class="corner br"></span>';
+  const h=el('div','panel-h'); h.appendChild(el('h2','','Lines of Effort'));
+  const sp=el('div','spacer'); h.appendChild(sp);
+  h.appendChild(el('span','eyebrow',`${S.period} ROLLUP`));
+  panel.appendChild(h);
+  const tree=el('div','tree'); panel.appendChild(tree);
+  root.appendChild(panel);
+
+  if(!S.tree.length){ tree.appendChild(el('div','empty','NO LINES OF EFFORT DEFINED')); return; }
+
+  S.tree.forEach((loe,li)=>{
+    const path=[li];
+    const nd=el('div','node loe');
+    nd.appendChild(nodeHeader(path,loe,'loe',()=>{
+      S.tree.splice(li,1); pruneEntries(); save(); renderData(); renderReports();
+    }));
+    const kids=el('div','node-kids');
+
+    loe.imos.forEach((imo,mi)=>{
+      const ip=[li,mi];
+      const ind=el('div','node');
+      ind.appendChild(nodeHeader(ip,imo,'imo',()=>{
+        loe.imos.splice(mi,1); pruneEntries(); save(); renderData(); renderReports();
+      }));
+      const ik=el('div','node-kids');
+
+      imo.tasks.forEach((task,ti)=>{
+        const tp=[li,mi,ti];
+        const tn=el('div','node');
+        tn.appendChild(nodeHeader(tp,task,'task',()=>{
+          imo.tasks.splice(ti,1); pruneEntries(); save(); renderData(); renderReports();
+        }));
+        const tk=el('div','node-kids');
+
+        // office assignment — task level only
+        const ob=el('div');
+        ob.appendChild(el('div','eyebrow','Assigned offices'));
+        const offs=el('div','offs');
+        TASKABLE.forEach(o=>{
+          const b=el('button',`off${task.offices.includes(o)?' on':''}`,o);
+          b.type='button'; b.title=OFFICE_NAME[o];
+          b.addEventListener('click',()=>{
+            const k=task.offices.indexOf(o);
+            if(k<0) task.offices.push(o); else task.offices.splice(k,1);
+            save(); renderData(); renderReports();
+          });
+          offs.appendChild(b);
+        });
+        ob.appendChild(offs);
+        const rep = task.offices.filter(o=>S.entries?.[S.period]?.[o]?.ind &&
+          task.indicators.some(x=>S.entries[S.period][o].ind[x.id]!=null));
+        ob.appendChild(el('div','cov',
+          task.offices.length
+            ? `REPORTED ${S.period}: ${rep.length}/${task.offices.length}` +
+              (rep.length?`  ·  ${rep.join(' ')}`:'')
+            : 'NO OFFICE ASSIGNED'));
+        tk.appendChild(ob);
+
+        task.indicators.forEach((i2,ii)=>{
+          const ip2=[li,mi,ti,ii];
+          const n2=el('div','node');
+          n2.appendChild(nodeHeader(ip2,i2,'ind',()=>{
+            task.indicators.splice(ii,1); pruneEntries(); save(); renderData(); renderReports();
+          }));
+          tk.appendChild(n2);
+        });
+        const ar=el('div','addrow');
+        ar.appendChild(addBtn('+ ADD INDICATOR',()=>{
+          task.indicators.push(newIndicator()); save(); renderData(); renderReports();
+        }));
+        tk.appendChild(ar);
+        tn.appendChild(tk); ik.appendChild(tn);
+      });
+
+      const ar2=el('div','addrow');
+      ar2.appendChild(addBtn('+ ADD TASK',()=>{
+        imo.tasks.push(newTask()); save(); renderData(); renderReports();
+      }));
+      ik.appendChild(ar2);
+      ind.appendChild(ik); kids.appendChild(ind);
+    });
+
+    const ar3=el('div','addrow');
+    ar3.appendChild(addBtn('+ ADD IMO',()=>{
+      loe.imos.push(newImo()); save(); renderData(); renderReports();
+    }));
+    kids.appendChild(ar3);
+    nd.appendChild(kids);
+    tree.appendChild(nd);
+  });
+
+  const ar4=el('div','addrow');
+  ar4.appendChild(addBtn('+ ADD LOE',()=>{
+    S.tree.push(newLoe()); save(); renderData(); renderReports();
+  }));
+  tree.appendChild(ar4);
+}
+
+function addBtn(label,fn){
+  const b=el('button','btn-add',label); b.type='button';
+  b.addEventListener('click',fn); return b;
+}
+
+/** Code chip + title input + rollup bar + delete, for the admin tree. */
+function nodeHeader(path,node,kind,onDel){
+  const h=el('div','node-h');
+  h.appendChild(el('span',`code ${kind}`,codeOf(path)));
+  const ti=el('input','ti'); ti.value=node.title;
+  ti.addEventListener('input',()=>{ node.title=ti.value; queueSave(); });
+  ti.addEventListener('change',()=>{ save(); renderReports(); });
+  h.appendChild(ti);
+
+  const v=valueOf(path,S.period), st=STATUS[statusOf(path,S.period)];
+  const sw=el('div','sw'); sw.style.background=st.c;
+  sw.style.boxShadow=`0 0 10px ${st.c}77`; sw.title=st.label;
+  h.appendChild(sw);
+  const mini=el('div','mini'); const f=el('i');
+  f.style.width=(pctOf(v)||0)+'%';
+  f.style.background=`linear-gradient(90deg,${st.c2},${st.c})`;
+  mini.appendChild(f); h.appendChild(mini);
+  h.appendChild(el('div','pct', v==null?'—':pctOf(v)+'%'));
+
+  const d=el('button','btn-del','×'); d.type='button'; d.title='Delete';
+  d.addEventListener('click',()=>{
+    if(confirm(`Delete ${codeOf(path)} and everything beneath it?`)) onDel();
+  });
+  h.appendChild(d);
+  return h;
+}
+let _saveT;
+function queueSave(){ clearTimeout(_saveT); _saveT=setTimeout(save,420); }
+
+function exportJson(){
+  const blob=new Blob([JSON.stringify({tree:S.tree,entries:S.entries,v:1},null,2)],
+    {type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`c1aa-assessment-${S.period}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* =============================================================================
+   [14] DATA TAB — OFFICE VIEW
+   -----------------------------------------------------------------------------
+   Only the tasks assigned to the signed-in office, with a 0-5 rating and a
+   status colour per indicator, and one comment per task per quarter.
+   ========================================================================== */
+function renderOfficeTasks(root){
+  const role=S.user.role, period=S.period;
+  const mine=[];
+  S.tree.forEach((loe,li)=>loe.imos.forEach((imo,mi)=>imo.tasks.forEach((t,ti)=>{
+    if(t.offices.includes(role)) mine.push({task:t,path:[li,mi,ti],loe,imo});
+  })));
+
+  const panel=el('section','panel');
+  panel.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
+                 +'<span class="corner bl"></span><span class="corner br"></span>';
+  const h=el('div','panel-h');
+  h.appendChild(el('h2','',`${role} Task Assessment`));
+  h.appendChild(el('div','spacer'));
+  h.appendChild(el('span','eyebrow',`${mine.length} TASK${mine.length===1?'':'S'} · ${period}`));
+  panel.appendChild(h);
+  const body=el('div'); body.style.padding='16px'; panel.appendChild(body);
+  root.appendChild(panel);
+
+  if(!mine.length){
+    body.appendChild(el('div','empty',
+      `NO TASKS ASSIGNED TO ${role}\nTHE MANAGING OFFICE (A9) ASSIGNS TASKS`));
+    return;
+  }
+
+  mine.forEach(({task,path,loe,imo})=>{
+    const card=el('div','card');
+    const ch=el('div','card-h');
+    ch.appendChild(el('span','code task',codeOf(path)));
+    const tt=el('div'); tt.style.flex='1 1 240px';
+    tt.appendChild(el('div','',task.title));
+    tt.firstChild.style.fontSize='14.5px';
+    tt.appendChild(el('div','ctx',
+      `${codeOf(path.slice(0,1))} ${loe.title.toUpperCase()}  ·  ${codeOf(path.slice(0,2))} ${imo.title.toUpperCase()}`));
+    ch.appendChild(tt);
+    if(task.offices.length>1){
+      const c=el('div','chips');
+      task.offices.forEach(o=>{
+        const p=el('span','chip',o);
+        if(o===role){ p.style.color='#e2f9ff'; p.style.borderColor='rgba(79,227,255,.55)';
+          p.style.background='rgba(79,227,255,.14)'; }
+        c.appendChild(p);
+      });
+      ch.appendChild(c);
+    }
+    card.appendChild(ch);
+
+    const cb=el('div','card-b');
+    task.indicators.forEach((ind,ii)=>{
+      const ipath=path.concat(ii);
+      const e=ent(S.entries,period,role);
+      const cur=e.ind[ind.id];
+      const row=el('div','irow');
+
+      const nm=el('div','nm');
+      nm.appendChild(el('span','c',codeOf(ipath)));
+      nm.appendChild(document.createTextNode(ind.title));
+      row.appendChild(nm);
+
+      const sw=el('div','slider-wrap');
+      const r=document.createElement('input');
+      r.type='range'; r.min='0'; r.max=String(MAX_RATING); r.step='1';
+      r.value=String(cur?cur.r:0);
+      sw.appendChild(r);
+      const tk=el('div','ticks');
+      for(let n=0;n<=MAX_RATING;n++) tk.appendChild(el('span','',String(n)));
+      sw.appendChild(tk);
+      row.appendChild(sw);
+
+      const val=el('div','ratev', cur?String(cur.r):'0');
+      if(!cur){ val.style.color='#5d7391'; val.style.borderColor='rgba(120,190,255,.16)'; }
+      row.appendChild(val);
+
+      const pick=el('div','stat-pick');
+      const paint=()=>{
+        const c=e.ind[ind.id];
+        [...pick.children].forEach(b=>{
+          const on = c && c.s===b.dataset.s;
+          b.classList.toggle('on',!!on);
+          b.style.color = STATUS[b.dataset.s].c;
+        });
+      };
+      STATUS_ORDER.forEach(sk=>{
+        const b=el('button','sp'); b.type='button'; b.dataset.s=sk;
+        b.title=STATUS[sk].label;
+        b.style.background=`linear-gradient(150deg,${STATUS[sk].c},${STATUS[sk].c2})`;
+        b.addEventListener('click',()=>{
+          const c=e.ind[ind.id]||(e.ind[ind.id]={r:+r.value,s:'gray'});
+          c.s=sk; paint(); queueSave(); renderReports();
+        });
+        pick.appendChild(b);
+      });
+      paint();
+      row.appendChild(pick);
+
+      r.addEventListener('input',()=>{
+        const c=e.ind[ind.id]||(e.ind[ind.id]={r:0,s:'gray'});
+        c.r=+r.value;
+        if(c.s==='gray') { c.s = statusFromRating(c.r,0.5); paint(); }
+        val.textContent=r.value; val.style.color=''; val.style.borderColor='';
+        queueSave(); renderReports();
+      });
+      cb.appendChild(row);
+    });
+
+    const cw=el('div'); cw.style.paddingTop='12px';
+    cw.appendChild(el('div','eyebrow','Comment'));
+    const ta=el('textarea','cmt');
+    ta.value = S.entries?.[period]?.[role]?.cmt?.[task.id] || '';
+    ta.addEventListener('input',()=>{
+      ent(S.entries,period,role).cmt[task.id]=ta.value; queueSave();
+    });
+    ta.addEventListener('change',()=>{ save(); renderReports(); });
+    cw.appendChild(ta);
+    cb.appendChild(cw);
+
+    card.appendChild(cb);
+    body.appendChild(card);
+  });
+}
+
+/* =============================================================================
+   [15] SHELL / ROUTING / BOOT
+   ========================================================================== */
+function renderPeriods(){
+  const pop=$('#perPop'); pop.innerHTML='';
+  YEARS.forEach(y=>{
+    const row=el('div','per-row');
+    row.appendChild(el('div','per-yr',`${y})`));
+    [1,2,3,4].forEach(q=>{
+      const id=`${y}Q${q}`;
+      const fut = PERIOD_IDX[id]>PERIOD_IDX[CURRENT_PERIOD];
+      const b=el('button',`q${S.period===id?' on':''}${fut?' fut':''}`,`Q${q}`);
+      b.type='button';
+      b.addEventListener('click',()=>{
+        S.period=id; pop.classList.add('hidden'); renderAll();
+      });
+      row.appendChild(b);
+    });
+    pop.appendChild(row);
+  });
+  $('#perLbl').textContent = PERIODS[PERIOD_IDX[S.period]].label;
+}
+
+function renderReports(){
+  renderCrumbs(); renderPie(); renderTrend(); renderExecFrame();
+}
+function renderAll(){
+  renderPeriods();
+  if(S.tab==='reports'){
+    $('#tabReports').classList.remove('hidden');
+    $('#tabData').classList.add('hidden');
+    renderReports();
+  }else{
+    $('#tabReports').classList.add('hidden');
+    $('#tabData').classList.remove('hidden');
+    renderData();
+  }
+}
+
+function initShell(){
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      document.querySelectorAll('.tab-btn').forEach(x=>x.classList.toggle('on',x===b));
+      S.tab=b.dataset.tab; renderAll();
+    });
+  });
+  $('#perBtn').addEventListener('click',e=>{
+    e.stopPropagation(); $('#perPop').classList.toggle('hidden');
+  });
+  document.addEventListener('click',e=>{
+    const pop=$('#perPop');
+    if(pop && !pop.classList.contains('hidden') && !e.target.closest('.per')) pop.classList.add('hidden');
+  });
+  // one-time: leaving the chart clears the hover reveal
+  $('#pie').addEventListener('pointerleave',()=>{ if(!S.animating) setHover(null); });
+  $('#colorSeg').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    S.colorMode=b.dataset.cm;
+    [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
+    renderPie();
+  });
+  $('#seasonSeg').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    S.seasonal = b.dataset.se==='1';
+    [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
+    renderTrend(); renderHud(); renderExecFrame();
+  });
+  $('#btnOut').addEventListener('click',()=>{
+    S.user=null;
+    $('#main').classList.add('hidden');
+    $('#login').classList.remove('hidden');
+    $('#inPass').value=''; $('#loginErr').classList.add('hidden');
+  });
+  $('#btnPayload').addEventListener('click',async ()=>{
+    const txt=JSON.stringify(buildSummaryPayload(),null,2);
+    const b=$('#btnPayload'), old=b.textContent;
+    try{ await navigator.clipboard.writeText(txt); b.textContent='COPIED'; }
+    catch(err){ console.log(txt); b.textContent='LOGGED TO CONSOLE'; }
+    setTimeout(()=>b.textContent=old,1400);
+  });
+  document.addEventListener('keydown',e=>{
+    if(!S.user || S.tab!=='reports') return;
+    if((e.key==='Escape'||e.key==='Backspace') && S.focus.length && !S.animating){
+      if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+      e.preventDefault(); goTo(S.focus.slice(0,-1));
+    }
+  });
+}
+
+(function boot(){
+  if(!load()) resetToDemo();
+  initLogin();
+  initShell();
+  // Convenience for the proof of concept: prefill nothing, but keep the demo
+  // tree hot so the reports tab is populated the moment anyone signs in.
+})();
+</script>
+</body>
+</html>
