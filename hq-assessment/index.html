@@ -308,7 +308,10 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .hud-idle{color:var(--ink-faint);font-family:var(--mono);font-size:11px;line-height:1.9;letter-spacing:.04em}
 
 /* ==================== REPORTS: trend =============================== */
-#trend{width:100%;height:auto;display:block}
+#trend{width:100%;height:auto;display:block;touch-action:none;user-select:none;
+  -webkit-user-select:none}
+#brushHit{cursor:crosshair}
+.rangebox{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .legend{display:flex;flex-wrap:wrap;gap:7px 16px;padding:12px 18px 16px}
 .lg{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;
   letter-spacing:.1em;color:var(--ink-dim)}
@@ -617,6 +620,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
               <h2>Trend &amp; Forecast</h2>
               <span class="eyebrow" id="trendScope"></span>
               <div class="spacer"></div>
+              <div class="rangebox" id="rangeBox"></div>
               <div class="seg" id="seasonSeg">
                 <button data-se="1" class="on" type="button">SEASONAL</button>
                 <button data-se="0" type="button">LINEAR</button>
@@ -782,6 +786,10 @@ const S = {
   animating:false,
   adminView:'structure',      // A9 data tab: 'structure' | 'submissions'
   officeView:'opr',           // office data tab: 'opr' | 'ocr'
+  /** Brushed history window, inclusive period indices. null = every quarter. */
+  range:/** @type {{a:number,b:number}|null} */(null),
+  /** Live drag state while brushing the trend chart. */
+  brush:/** @type {any} */(null),
   tree:/** @type {any[]} */([]),
   entries:/** @type {any} */({}),
   ocr:/** @type {any} */({}),
@@ -1362,6 +1370,37 @@ function ocrNotesUnder(path, period){
 /** Periods from the start of record through the selected period. */
 const historyPeriods = () => PERIODS.slice(0,PERIOD_IDX[S.period]+1);
 
+/* ---- brushed history window --------------------------------------------- */
+/**
+ * The inclusive index window the executive has brushed on the trend chart,
+ * clamped to the periods actually on the axis. With nothing brushed this is the
+ * whole record, so every consumer can treat it uniformly.
+ * @returns {{a:number,b:number,all:boolean}}
+ */
+function fitWindow(){
+  const last = PERIOD_IDX[S.period];
+  const live = S.brush || S.range;
+  if(!live) return {a:0,b:last,all:true};
+  const a = clamp(Math.min(live.a,live.b),0,last);
+  const b = clamp(Math.max(live.a,live.b),0,last);
+  return {a,b,all:(a===0&&b===last)};
+}
+const inWindow = (i,w)=>i>=w.a && i<=w.b;
+/** Same series with excluded quarters blanked, so the fit ignores them. */
+const maskSeries = (series,w)=>series.map((v,i)=>inWindow(i,w)?v:null);
+/**
+ * Everything the trend, the read-out, the summary box and the AI payload need
+ * for one node, all honouring the brushed window.
+ */
+function fitFor(path){
+  const periods = historyPeriods();
+  const series = seriesOf(path,periods);
+  const w = fitWindow();
+  const masked = maskSeries(series,w);
+  const fc = forecastNext(masked,periods,S.seasonal);
+  return {periods,series,masked,w,fc};
+}
+
 /* =============================================================================
    WRITE PATH — the only way data enters `entries`
    ========================================================================== */
@@ -1622,7 +1661,10 @@ function sliceColor(path,period){
    }
    export interface TrendBlock {
      periods: string[];             // ['25Q1','25Q2',...]
-     series: (number|null)[];       // aligned to periods
+     series: (number|null)[];       // every quarter on the axis
+     fitWindow: { from: string; to: string } | null;   // brushed on the chart
+     fitSeries: (number|null)[];    // series with excluded quarters blanked
+     n: number;                     // observations the fit actually used
      slope: number;                 // maturity points per quarter
      r2: number;
      forecast: { period: string; point: number; low: number; high: number } | null;
@@ -1703,8 +1745,7 @@ function buildSummaryPayload(){
     opr: [...officesUnder(p,'opr')],
     ocr: [...officesUnder(p,'ocr')],
   });
-  const series = seriesOf(path,periods);
-  const fc = forecastNext(series,periods,S.seasonal);
+  const {series,masked,w:win,fc} = fitFor(path);
   const nextP = PERIODS[PERIOD_IDX[period]+1];
   let imos=0,tasks=0,inds=0;
   const count = p => {
@@ -1723,6 +1764,10 @@ function buildSummaryPayload(){
     trend:{
       periods: periods.map(p=>p.id),
       series,
+      // the executive brushed this window on the chart; the fit uses it only
+      fitWindow: win.all ? null : {from:periods[win.a].id, to:periods[win.b].id},
+      fitSeries: win.all ? series : masked,
+      n: fc.n,
       slope: f2(fc.slope),
       r2: f2(fc.r2),
       forecast: (fc.ok&&nextP) ? {period:nextP.id,point:f2(fc.next),low:f2(fc.lo),high:f2(fc.hi)} : null,
@@ -2225,7 +2270,8 @@ function renderHud(){
   if(!isHover && S.focus.length<4){
     const idle=el('div','hud-idle');
     idle.innerHTML = `ANGLE = MATURITY &nbsp;·&nbsp; FILL = `
-      + (S.colorMode==='status'?'STATUS':'MATURITY');
+      + (S.colorMode==='status'?'STATUS':'MATURITY')
+      + `<br>DRAG THE TREND TO SET THE FIT WINDOW`;
     hud.appendChild(idle);
   }
 
@@ -2255,11 +2301,11 @@ function renderHud(){
     const kids=childrenOf(path);
     kv(`SUBORDINATE ${(LEVELS[path.length]||'').toUpperCase()}S`, String(kids.length));
   }
-  const periods=historyPeriods();
-  const fc=forecastNext(seriesOf(path,periods),periods,S.seasonal);
+  const {fc,w:win}=fitFor(path);
   if(fc.ok){
     const arrow = fc.slope>0.04?'▲':(fc.slope<-0.04?'▼':'▬');
     kv('QUARTERLY DELTA', `${arrow} ${fc.slope>0?'+':''}${f2(fc.slope)}`);
+    if(!win.all) kv('FIT WINDOW', `${PERIODS[win.a].short}–${PERIODS[win.b].short}`);
   }
 
   [['opr','OPR'],['ocr','OCR']].forEach(([line,label])=>{
@@ -2299,14 +2345,23 @@ function renderHud(){
 const TW=1200, TH=400, TM={l:52,r:132,t:22,b:46};
 const CHILD_HUES=[188,204,150,42,268,12,320,96,228,58,168,286];
 
-function renderTrend(){
-  const svg=$('#trend'); svg.innerHTML='';
+/** Geometry of the trend plot, shared by the renderer and the brush. */
+function trendGeom(){
   const periods=historyPeriods();
   const nextP=PERIODS[PERIOD_IDX[S.period]+1];
   const cols=periods.length + (nextP?1:0);
   const iw=TW-TM.l-TM.r, ih=TH-TM.t-TM.b;
-  const X = i => TM.l + (cols<=1?iw/2:(i/(cols-1))*iw);
-  const Y = v => TM.t + ih - (clamp(v,0,MAX_RATING)/MAX_RATING)*ih;
+  return {periods,nextP,cols,iw,ih,
+    X: i => TM.l + (cols<=1?iw/2:(i/(cols-1))*iw),
+    Y: v => TM.t + ih - (clamp(v,0,MAX_RATING)/MAX_RATING)*ih};
+}
+
+function renderTrend(){
+  const svg=$('#trend'); svg.innerHTML='';
+  const G=trendGeom();
+  const {periods,nextP,cols,iw,ih,X,Y}=G;
+  const w=fitWindow();
+  const halfCol = cols>1 ? (iw/(cols-1))/2 : iw/2;
 
   const defs=svgEl('defs');
   defs.innerHTML=`
@@ -2317,8 +2372,24 @@ function renderTrend(){
     <filter id="tglow" x="-30%" y="-60%" width="160%" height="260%">
       <feGaussianBlur stdDeviation="5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>`;
+    </filter>
+    <pattern id="excl" width="7" height="7" patternUnits="userSpaceOnUse"
+             patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="7" stroke="#5d7391" stroke-opacity=".22" stroke-width="1"/>
+    </pattern>`;
   svg.appendChild(defs);
+
+  // ---- excluded regions, drawn under everything --------------------------
+  if(!w.all){
+    const lo=X(w.a)-halfCol, hi=X(w.b)+halfCol;
+    [[TM.l,Math.max(TM.l,lo)],[Math.min(TW-TM.r,hi),TW-TM.r]].forEach(([x0,x1])=>{
+      if(x1-x0<=0.5) return;
+      svg.appendChild(svgEl('rect',{x:f2(x0),y:TM.t,width:f2(x1-x0),height:ih,
+        fill:'url(#excl)'}));
+      svg.appendChild(svgEl('rect',{x:f2(x0),y:TM.t,width:f2(x1-x0),height:ih,
+        fill:'rgba(5,7,13,.55)'}));
+    });
+  }
 
   // grid
   const grid=svgEl('g');
@@ -2348,7 +2419,8 @@ function renderTrend(){
   svg.appendChild(grid);
 
   const series=seriesOf(S.focus,periods);
-  const fc=forecastNext(series,periods,S.seasonal);
+  const masked=maskSeries(series,w);
+  const fc=forecastNext(masked,periods,S.seasonal);
   const kids=childrenOf(S.focus);
   const legend=[];
 
@@ -2356,12 +2428,18 @@ function renderTrend(){
   const gComp=svgEl('g');
   kids.forEach((k,i)=>{
     const cs=seriesOf(S.focus.concat(i),periods);
-    const d=lineD(cs,X,Y);
-    if(!d) return;
     const hue=CHILD_HUES[i%CHILD_HUES.length];
     const col=`hsl(${hue} 78% 62%)`;
     const hot = S.hover===i;
-    gComp.appendChild(svgEl('path',{d,fill:'none',stroke:col,
+    // full series faint, the brushed part at normal weight
+    const dAll=lineD(cs,X,Y);
+    if(!dAll) return;
+    if(!w.all){
+      gComp.appendChild(svgEl('path',{d:dAll,fill:'none',stroke:col,
+        'stroke-width':1.2,opacity:hot?.30:.12,'stroke-linejoin':'round'}));
+    }
+    const dIn=lineD(maskSeries(cs,w),X,Y);
+    if(dIn) gComp.appendChild(svgEl('path',{d:dIn,fill:'none',stroke:col,
       'stroke-width':hot?2.6:1.4,opacity:hot?.95:.34,'stroke-linejoin':'round',
       'stroke-linecap':'round'}));
     legend.push({col,label:codeOf(S.focus.concat(i)).toUpperCase(),w:2,dash:false,dim:!hot});
@@ -2369,9 +2447,10 @@ function renderTrend(){
   svg.appendChild(gComp);
 
   // ---- forecast wedge (main line only) ----------------------------------
-  const lastI = lastIdx(series);
+  // the wedge springs from the last quarter inside the brushed window
+  const lastI = lastIdx(masked);
   if(fc.ok && nextP && lastI>=0){
-    const xs=X(lastI), ys=Y(series[lastI]), xf=X(cols-1);
+    const xs=X(lastI), ys=Y(masked[lastI]), xf=X(cols-1);
     const band=svgEl('path',{
       d:`M${f2(xs)},${f2(ys)}L${f2(xf)},${f2(Y(fc.hi))}L${f2(xf)},${f2(Y(fc.lo))}Z`,
       fill:'rgba(79,227,255,.15)',stroke:'rgba(79,227,255,.3)','stroke-width':'1'});
@@ -2392,16 +2471,29 @@ function renderTrend(){
   }
 
   // ---- main line --------------------------------------------------------
-  const md=lineD(series,X,Y);
+  const md=lineD(masked,X,Y);
+  const mdAll=lineD(series,X,Y);
+  if(mdAll){
+    // excluded quarters stay visible but clearly out of the calculation
+    if(!w.all){
+      svg.appendChild(svgEl('path',{d:mdAll,fill:'none',stroke:'#8ceeff',
+        'stroke-width':'1.6',opacity:'.20','stroke-linejoin':'round'}));
+    }
+  }
   if(md){
-    const area = md+`L${f2(X(lastI))},${f2(Y(0))}L${f2(X(firstIdx(series)))},${f2(Y(0))}Z`;
+    const fi=firstIdx(masked);
+    const area = md+`L${f2(X(lastIdx(masked)))},${f2(Y(0))}L${f2(X(fi))},${f2(Y(0))}Z`;
     svg.appendChild(svgEl('path',{d:area,fill:'url(#mainFill)',stroke:'none'}));
     svg.appendChild(svgEl('path',{d:md,fill:'none',stroke:'#8ceeff','stroke-width':'3.4',
       'stroke-linejoin':'round','stroke-linecap':'round',filter:'url(#tglow)'}));
+  }
+  if(mdAll){
     series.forEach((v,i)=>{
       if(v==null) return;
-      svg.appendChild(svgEl('circle',{cx:f2(X(i)),cy:f2(Y(v)),r:'4.6',fill:'#05070d',
-        stroke:'#8ceeff','stroke-width':'2.4'}));
+      const on=inWindow(i,w);
+      svg.appendChild(svgEl('circle',{cx:f2(X(i)),cy:f2(Y(v)),r:on?'4.6':'3',
+        fill:'#05070d',stroke:'#8ceeff','stroke-width':on?'2.4':'1.4',
+        opacity:on?'1':'.35'}));
     });
     if(fc.ok&&nextP){
       svg.appendChild(svgEl('circle',{cx:f2(X(cols-1)),cy:f2(Y(fc.next)),r:'6',
@@ -2409,6 +2501,7 @@ function renderTrend(){
     }
     const nm = S.focus.length?codeOf(S.focus).toUpperCase():'OVERALL';
     legend.unshift({col:'#8ceeff',label:nm+' (ACTUAL)',w:3.4,dash:false,dim:false});
+    if(!w.all) legend.push({col:'#5d7391',label:'EXCLUDED FROM FIT',w:1.6,dash:false,dim:true});
   }else{
     const t=svgEl('text',{x:TW/2,y:TH/2,'text-anchor':'middle',fill:'#5d7391',
       'font-family':'ui-monospace,monospace','font-size':'15','letter-spacing':'3'});
@@ -2429,6 +2522,33 @@ function renderTrend(){
     });
   }
 
+  // ---- brush: selection band, edge handles, and the drag surface ---------
+  const gB=svgEl('g',{id:'gBrush'});
+  const lo=X(w.a)-halfCol, hi=X(w.b)+halfCol;
+  if(!w.all || S.brush){
+    gB.appendChild(svgEl('rect',{x:f2(lo),y:TM.t,width:f2(hi-lo),height:ih,
+      fill:'rgba(79,227,255,.05)',stroke:'rgba(79,227,255,.45)','stroke-width':'1',
+      'pointer-events':'none'}));
+    [lo,hi].forEach(x=>{
+      gB.appendChild(svgEl('line',{x1:f2(x),y1:TM.t,x2:f2(x),y2:TM.t+ih,
+        stroke:'#4fe3ff','stroke-width':'2','pointer-events':'none'}));
+      gB.appendChild(svgEl('rect',{x:f2(x-3),y:TM.t+ih/2-13,width:'6',height:'26',rx:'3',
+        fill:'#4fe3ff',opacity:'.9','pointer-events':'none'}));
+    });
+    const n=(w.b-w.a)+1;
+    const lb=svgEl('text',{x:f2((lo+hi)/2),y:TM.t-6,'text-anchor':'middle',fill:'#4fe3ff',
+      'font-family':'ui-monospace,monospace','font-size':'11','letter-spacing':'1.6',
+      'pointer-events':'none'});
+    lb.textContent=`${periods[w.a].short} – ${periods[w.b].short} · ${n} QTR`;
+    gB.appendChild(lb);
+  }
+  // invisible surface that receives the drag
+  const hit=svgEl('rect',{x:TM.l,y:TM.t,width:f2(iw),height:f2(ih),
+    fill:'transparent',id:'brushHit'});
+  hit.style.cursor = S.brush ? 'grabbing' : 'crosshair';
+  gB.appendChild(hit);
+  svg.appendChild(gB);
+
   // legend + scope tag
   const lg=$('#trendLegend'); lg.innerHTML='';
   legend.forEach(L=>{
@@ -2443,6 +2563,85 @@ function renderTrend(){
   $('#trendScope').textContent = S.focus.length===4
     ? `${scope} · INDICATOR SERIES`
     : `${scope} · WITH ${nextLv} COMPONENTS`;
+
+  // window read-out + reset control in the panel header
+  const rb=$('#rangeBox'); rb.innerHTML='';
+  const n=(w.b-w.a)+1, pts=fc.n;
+  const tag=el('span','eyebrow', w.all
+    ? `FIT: ALL ${periods.length} QTR · N=${pts}`
+    : `FIT: ${periods[w.a].short}–${periods[w.b].short} · ${n} QTR · N=${pts}`);
+  if(!w.all) tag.style.color='var(--cy)';
+  rb.appendChild(tag);
+  if(!w.all){
+    const rs=el('button','btn btn-sm','FULL RANGE'); rs.type='button';
+    rs.addEventListener('click',()=>{
+      S.range=null; renderTrend(); renderHud(); renderExecFrame();
+    });
+    rb.appendChild(rs);
+  }
+  if(fc.n<2){
+    const warn=el('span','eyebrow','SELECT 2+ QUARTERS WITH DATA TO FORECAST');
+    warn.style.color='var(--amber)';
+    rb.appendChild(warn);
+  }
+}
+
+/* ---- brush interaction --------------------------------------------------- */
+/** Period index under a pointer event, snapped to the nearest column. */
+function brushIndexAt(evt){
+  const svg=$('#trend'), r=svg.getBoundingClientRect();
+  if(!r.width) return 0;
+  const vx=(evt.clientX-r.left)*(TW/r.width);
+  const G=trendGeom();
+  const last=PERIOD_IDX[S.period];
+  if(G.cols<=1) return 0;
+  const step=(G.iw)/(G.cols-1);
+  return clamp(Math.round((vx-TM.l)/step),0,last);
+}
+function initBrush(){
+  const svg=$('#trend');
+  let downX=null, moved=false;
+
+  svg.addEventListener('pointerdown',e=>{
+    if(!e.target || e.target.id!=='brushHit') return;
+    const i=brushIndexAt(e);
+    const w=fitWindow();
+    downX=e.clientX; moved=false;
+    // grabbing near an edge of an existing window resizes it
+    if(!w.all){
+      const G=trendGeom();
+      const step=G.cols>1?(G.iw/(G.cols-1)):G.iw;
+      const near=(idx)=>Math.abs(brushIndexAt(e)-idx)*step<step*0.75;
+      if(near(w.a) && !near(w.b)){ S.brush={a:w.b,b:i}; }
+      else if(near(w.b) && !near(w.a)){ S.brush={a:w.a,b:i}; }
+      else S.brush={a:i,b:i};
+    }else S.brush={a:i,b:i};
+    svg.setPointerCapture(e.pointerId);
+    renderTrend();
+  });
+
+  svg.addEventListener('pointermove',e=>{
+    if(!S.brush) return;
+    if(downX!=null && Math.abs(e.clientX-downX)>3) moved=true;
+    const i=brushIndexAt(e);
+    if(i!==S.brush.b){ S.brush.b=i; renderTrend(); }
+  });
+
+  const finish=e=>{
+    if(!S.brush) return;
+    const b=S.brush; S.brush=null;
+    const a=Math.min(b.a,b.b), z=Math.max(b.a,b.b);
+    // a click with no drag, or a single column, clears the window
+    if(!moved || z-a<1) S.range=null;
+    else S.range={a,b:z};
+    downX=null; moved=false;
+    renderTrend(); renderHud(); renderExecFrame();
+  };
+  svg.addEventListener('pointerup',finish);
+  svg.addEventListener('pointercancel',finish);
+  svg.addEventListener('dblclick',()=>{
+    S.range=null; renderTrend(); renderHud(); renderExecFrame();
+  });
 }
 const firstIdx = a => a.findIndex(v=>v!=null);
 function lastIdx(a){ for(let i=a.length-1;i>=0;i--) if(a[i]!=null) return i; return -1; }
@@ -2463,8 +2662,7 @@ function renderExecFrame(){
   $('#execScopeTag').textContent = `${period} · AI SUMMARY NOT WIRED`;
 
   const v=valueOf(path,period), st=STATUS[statusOf(path,period)];
-  const periods=historyPeriods();
-  const fc=forecastNext(seriesOf(path,periods),periods,S.seasonal);
+  const {periods,fc,w:win}=fitFor(path);
   const cms=commentsUnder(path,period);
   const box=$('#execMetrics'); box.innerHTML='';
   const m=(k,val,col)=>{
@@ -2484,7 +2682,9 @@ function renderExecFrame(){
    +`<span class="k">// </span>buildSummaryPayload() is live for this scope: `
    +`${cms.length} comment${cms.length===1?'':'s'}, `
    +`${childrenOf(path).length} child node${childrenOf(path).length===1?'':'s'}, `
-   +`${periods.length} quarter${periods.length===1?'':'s'} of series.<br>`
+   +`${win.all?periods.length:(win.b-win.a+1)} quarter`
+   +`${(win.all?periods.length:(win.b-win.a+1))===1?'':'s'} of series`
+   +`${win.all?'':` (${PERIODS[win.a].short}–${PERIODS[win.b].short} selected)`}.<br>`
    +`<span class="k">// </span>Implement fetchExecutiveSummary() (see section [9]) and render here.`;
   t.appendChild(e);
 }
@@ -3470,6 +3670,7 @@ function initShell(){
     const pop=$('#perPop');
     if(pop && !pop.classList.contains('hidden') && !e.target.closest('.per')) pop.classList.add('hidden');
   });
+  initBrush();
   // one-time: leaving the chart clears the hover reveal
   $('#pie').addEventListener('pointerleave',()=>{ if(!S.animating) setHover(null); });
   $('#colorSeg').addEventListener('click',e=>{
