@@ -347,11 +347,14 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .card-h{padding:13px 16px;border-bottom:1px solid var(--edge);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .card-b{padding:6px 16px 16px}
 .ctx{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--ink-faint)}
-.irow{display:grid;grid-template-columns:minmax(160px,1.35fr) minmax(220px,2fr) auto auto;
-  gap:16px;align-items:center;padding:13px 0;border-bottom:1px dashed rgba(120,190,255,.11)}
-.irow:last-child{border-bottom:0}
+.iblock{padding:14px 0;border-bottom:1px dashed rgba(120,190,255,.13)}
+.iblock:last-child{border-bottom:0}
+.irow{display:grid;grid-template-columns:minmax(170px,1.35fr) minmax(220px,2fr) auto auto;
+  gap:16px;align-items:center}
 .irow .nm{font-size:13px;line-height:1.4}
-.irow .nm .c{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--ink-faint);display:block}
+.irow .nm .t{margin-top:5px}
+.icmt{padding-top:10px}
+.icmt .cmt{min-height:52px}
 .slider-wrap{position:relative}
 input[type=range]{
   -webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:20px;outline:none;
@@ -634,11 +637,12 @@ const CHILD_KEY = {1:'imos',2:'tasks',3:'indicators'};
      Indicator  { id, title }
 
    entries : { [periodId]: { [office]: { ind:{[indId]:{r:number,s:StatusKey}},
-                                        cmt:{[taskId]:string} } } }
+                                        cmt:{[indId]:string} } } }
 
-   Ratings live on indicators (the leaves) so every level of the pie is a real
-   rollup. Offices are assigned at task level only; when several offices hold
-   the same task their indicator ratings are averaged.
+   Offices only ever adjust the indicator level: rating, status and comment are
+   all keyed by indicator id. Every level above an indicator is a pure rollup,
+   never a direct input. Offices are assigned at task level only; when several
+   offices hold the same task their indicator ratings are averaged.
    ========================================================================== */
 const LS_KEY = 'c1aa.assessment.v1';
 
@@ -688,15 +692,35 @@ const newTask      = ()=>({id:uid('tsk'),title:'New task',offices:[],indicators:
 const newImo       = ()=>({id:uid('imo'),title:'New intermediate military objective',tasks:[newTask()]});
 const newLoe       = ()=>({id:uid('loe'),title:'New line of effort',imos:[newImo()]});
 
-/** Every entry that references removed nodes is dropped. */
+/** Every entry that references removed indicators is dropped. */
 function pruneEntries(){
-  const inds=new Set(), tasks=new Set();
-  walkTasks((t)=>{ tasks.add(t.id); t.indicators.forEach(i=>inds.add(i.id)); });
+  const inds=new Set();
+  walkTasks((t)=>t.indicators.forEach(i=>inds.add(i.id)));
   for(const p in S.entries) for(const off in S.entries[p]){
     const e = S.entries[p][off];
     for(const k in e.ind) if(!inds.has(k)) delete e.ind[k];
-    for(const k in e.cmt) if(!tasks.has(k)) delete e.cmt[k];
+    for(const k in e.cmt) if(!inds.has(k)) delete e.cmt[k];
   }
+}
+
+/**
+ * Comments used to be keyed by task id. Anything saved under a task id is
+ * moved onto that task's first indicator so nothing is lost on upgrade.
+ */
+function migrateTaskComments(){
+  const firstInd = {};                       // taskId -> first indicator id
+  walkTasks((t)=>{ if(t.indicators[0]) firstInd[t.id]=t.indicators[0].id; });
+  let moved=0;
+  for(const p in S.entries) for(const off in S.entries[p]){
+    const cmt = S.entries[p][off].cmt||{};
+    for(const k in cmt){
+      if(!firstInd[k]) continue;             // already an indicator id
+      const to = firstInd[k];
+      if(!cmt[to]) cmt[to]=cmt[k];
+      delete cmt[k]; moved++;
+    }
+  }
+  return moved;
 }
 
 /* =============================================================================
@@ -817,12 +841,14 @@ function seedEntries(tree){
         }
       });
     });
-    // a comment on the current period for most tasks, for the AI payload
+    // indicator-level comments on the current period, for the AI payload
     task.offices.forEach(off=>{
-      if(rnd()<0.72){
-        const e = ent(entries,CURRENT_PERIOD,off);
-        e.cmt[task.id] = pickComment(rnd,task.title);
-      }
+      task.indicators.forEach(ind=>{
+        if(rnd()<0.5){
+          const e = ent(entries,CURRENT_PERIOD,off);
+          e.cmt[ind.id] = pickComment(rnd,ind.title);
+        }
+      });
     });
   },tree);
   return entries;
@@ -964,22 +990,23 @@ function officesUnder(path){
   };
   rec(path); return out;
 }
-/** Current-period comments beneath a node: {office, task, text}. */
+/** Current-period indicator comments beneath a node. */
 function commentsUnder(path, period){
   const out=[];
   const rec = p => {
-    if(p.length===3){
-      const t = nodeAt(p); if(!t) return;
-      t.offices.forEach(off=>{
-        const c = S.entries?.[period]?.[off]?.cmt?.[t.id];
-        if(c && c.trim()) out.push({office:off,code:codeOf(p),task:t.title,text:c.trim()});
+    if(p.length===4){
+      const task=taskOfPath(p), ind=nodeAt(p);
+      if(!task||!ind) return;
+      task.offices.forEach(off=>{
+        const c = S.entries?.[period]?.[off]?.cmt?.[ind.id];
+        if(c && c.trim()) out.push({office:off,code:codeOf(p),task:task.title,
+          indicator:ind.title,text:c.trim()});
       });
       return;
     }
-    if(p.length>3) return;
     childrenOf(p).forEach((_,i)=>rec(p.concat(i)));
   };
-  rec(path.slice(0,3)); return out;
+  rec(path); return out;
 }
 /** Periods from the start of record through the selected period. */
 const historyPeriods = () => PERIODS.slice(0,PERIOD_IDX[S.period]+1);
@@ -1155,7 +1182,11 @@ function sliceColor(path,period){
      seasonalOffsets: number[] | null;   // Q1..Q4, additive
    }
    export interface OfficeComment {
-     office: string; code: string; task: string; text: string;
+     office: string;      // reporting office, e.g. 'A4'
+     code: string;        // 'Indicator 1.1.1.2' — comments are indicator level
+     task: string;        // parent task title, for context
+     indicator: string;   // indicator title
+     text: string;
    }
    export interface ExecutiveSummaryRequest {
      scope: NodeRollup;
@@ -2224,15 +2255,19 @@ function renderOfficeTasks(root){
     card.appendChild(ch);
 
     const cb=el('div','card-b');
+    if(!task.indicators.length) cb.appendChild(el('div','empty','NO INDICATORS DEFINED'));
     task.indicators.forEach((ind,ii)=>{
       const ipath=path.concat(ii);
       const e=ent(S.entries,period,role);
       const cur=e.ind[ind.id];
+      const block=el('div','iblock');
       const row=el('div','irow');
 
       const nm=el('div','nm');
-      nm.appendChild(el('span','c',codeOf(ipath)));
-      nm.appendChild(document.createTextNode(ind.title));
+      const cw2=el('div');
+      cw2.appendChild(el('span','code ind',codeOf(ipath)));
+      nm.appendChild(cw2);
+      nm.appendChild(el('div','t',ind.title));
       row.appendChild(nm);
 
       const sw=el('div','slider-wrap');
@@ -2278,19 +2313,22 @@ function renderOfficeTasks(root){
         val.textContent=r.value; val.style.color=''; val.style.borderColor='';
         queueSave(); renderReports();
       });
-      cb.appendChild(row);
-    });
+      block.appendChild(row);
 
-    const cw=el('div'); cw.style.paddingTop='12px';
-    cw.appendChild(el('div','eyebrow','Comment'));
-    const ta=el('textarea','cmt');
-    ta.value = S.entries?.[period]?.[role]?.cmt?.[task.id] || '';
-    ta.addEventListener('input',()=>{
-      ent(S.entries,period,role).cmt[task.id]=ta.value; queueSave();
+      // comment sits on the indicator, alongside its rating and status
+      const cw=el('div','icmt');
+      cw.appendChild(el('div','eyebrow','Comment'));
+      const ta=el('textarea','cmt');
+      ta.value = S.entries?.[period]?.[role]?.cmt?.[ind.id] || '';
+      ta.addEventListener('input',()=>{
+        ent(S.entries,period,role).cmt[ind.id]=ta.value; queueSave();
+      });
+      ta.addEventListener('change',()=>{ save(); renderReports(); });
+      cw.appendChild(ta);
+      block.appendChild(cw);
+
+      cb.appendChild(block);
     });
-    ta.addEventListener('change',()=>{ save(); renderReports(); });
-    cw.appendChild(ta);
-    cb.appendChild(cw);
 
     card.appendChild(cb);
     body.appendChild(card);
@@ -2388,6 +2426,7 @@ function initShell(){
 
 (function boot(){
   if(!load()) resetToDemo();
+  else if(migrateTaskComments()) save();     // lift any task-level comments
   initLogin();
   initShell();
   // Convenience for the proof of concept: prefill nothing, but keep the demo
