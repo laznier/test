@@ -25,9 +25,14 @@
     [10] LOGIN VIEW
     [11] PIE (nested drill-down) VIEW
     [12] TREND / FORECAST VIEW
-    [13] DATA TAB — A9 ADMIN VIEW
-    [14] DATA TAB — OFFICE VIEW
-    [15] SHELL / ROUTING / BOOT
+    [13]  DATA TAB — shared indicator controls
+    [13a] DATA TAB — OPR VIEW    (rating, status, comment of record)
+    [13b] DATA TAB — OCR VIEW    (read-only rating, comments to the OPR)
+    [13c] DATA TAB — A9 STRUCTURE   (tree + OPR/OCR assignment)
+    [13d] DATA TAB — A9 SUBMISSIONS (inheritance + override)
+    [14]  ALERTS TAB
+    [14b] MANAGEMENT TAB — A9 only (suspenses, locks, participation)
+    [15]  SHELL / ROUTING / BOOT
 
   PORTING TO TypeScript + widget.tsx
     Sections [3]-[9] are pure functions over plain data with JSDoc types; they
@@ -35,6 +40,8 @@
     annotations already spelled out in the JSDoc.
     Sections [10]-[15] are the DOM layer and map to components as follows:
         LoginScreen        <- section [10]
+        AlertsTab          <- section [14]    props: { alerts, onRead, onJump }
+        ManagementTab      <- section [14b]   props: { locks, participation }
         NestedPie          <- section [11]   props: { tree, period, focusPath,
                                                      colorMode, onFocus }
         TrendForecast      <- section [12]   props: { series, components,
@@ -379,7 +386,96 @@ input[type=range]::-moz-range-thumb{
   line-height:1.55;outline:none}
 .cmt:focus{border-color:var(--edge-hot);box-shadow:0 0 0 3px rgba(79,227,255,.09)}
 .empty{padding:46px 22px;text-align:center;color:var(--ink-faint);font-family:var(--mono);
-  font-size:12px;letter-spacing:.06em;line-height:1.9}
+  font-size:12px;letter-spacing:.06em;line-height:1.9;white-space:pre-line}
+
+/* ---- OPR / OCR lines ---------------------------------------------------- */
+.chip.opr{color:#bfe6ff;border-color:rgba(79,227,255,.34);background:rgba(79,227,255,.10)}
+.chip.opr.me{color:#eafaff;border-color:rgba(79,227,255,.75);background:rgba(79,227,255,.20)}
+.chip.opr.missing{color:#ffb3bf;border-color:rgba(255,77,99,.45);background:rgba(255,77,99,.10)}
+.chip.ocr{color:#d9c8ff;border-color:rgba(160,130,255,.34);background:rgba(160,130,255,.10)}
+.off.opr.on{border-color:rgba(79,227,255,.7);background:rgba(79,227,255,.18);color:#e6fbff}
+.off.ocr.on{border-color:rgba(170,140,255,.7);background:rgba(170,140,255,.18);color:#efe6ff}
+.asn{padding:2px 0 10px}
+.asn-line{margin-bottom:9px}
+.ind-node{border-color:rgba(47,224,138,.22)}
+
+/* ---- slider ghost (previous quarter) ------------------------------------ */
+.slider-wrap{position:relative;padding-top:16px}
+.ghost{position:absolute;top:12px;width:2px;height:22px;margin-left:-1px;
+  background:rgba(255,255,255,.42);border-radius:2px;pointer-events:none;z-index:0}
+.ghost::after{content:"";position:absolute;left:-4px;top:6px;width:10px;height:10px;
+  border-radius:50%;background:rgba(255,255,255,.20);
+  border:1px solid rgba(255,255,255,.45)}
+.ghost-lb{position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:rgba(255,255,255,.5);
+  white-space:nowrap}
+input[type=range].ro{opacity:.5;cursor:not-allowed}
+input[type=range]:disabled::-webkit-slider-thumb{background:#8fa5c4;border-color:#5d7391;
+  box-shadow:none;cursor:not-allowed}
+.ratev.ro{color:var(--ink-dim);border-color:var(--edge)}
+.sp:disabled{opacity:.4;cursor:not-allowed}
+.opr-row{padding:4px 0 2px}
+
+/* ---- OCR note list ------------------------------------------------------ */
+.ocrbox{margin-top:12px;padding:12px 14px;border-radius:10px;
+  border:1px solid rgba(160,130,255,.20);background:rgba(160,130,255,.045)}
+.ocr-none{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--ink-faint);
+  padding:4px 0 2px}
+.ocr-note{padding:9px 0;border-bottom:1px dashed rgba(160,130,255,.16)}
+.ocr-note:last-child{border-bottom:0;padding-bottom:2px}
+.ocr-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.ocr-hd .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:#c9b3ff}
+.ocr-hd .when,.when{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);
+  letter-spacing:.06em}
+.ocr-txt{font-size:13px;line-height:1.55}
+.ocr-rec{margin-top:5px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  color:#ffd98a}
+
+/* ---- save row ----------------------------------------------------------- */
+.saverow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:13px}
+.btn-save{border-color:rgba(47,224,138,.5);
+  background:linear-gradient(180deg,rgba(47,224,138,.20),rgba(47,224,138,.07));
+  color:#d7ffe9;font-family:var(--mono);letter-spacing:.12em}
+.btn-save:hover{background:linear-gradient(180deg,rgba(47,224,138,.32),rgba(47,224,138,.12))}
+.btn-save:disabled,.btn:disabled{opacity:.4;cursor:not-allowed}
+.dirty{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--amber)}
+.dirtycard{border-color:rgba(255,194,71,.42);box-shadow:0 0 0 1px rgba(255,194,71,.12)}
+.misscard{border-color:rgba(255,77,99,.38);background:rgba(255,77,99,.035)}
+.subline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:7px 0;
+  border-bottom:1px dashed rgba(120,190,255,.10);font-size:12.5px}
+.subline:last-child{border-bottom:0}
+.subline b{font-family:var(--mono);font-weight:500}
+.subcmt{font-size:12px;color:var(--ink-dim);flex:1 1 240px;min-width:160px}
+.banner{margin-bottom:14px;padding:10px 14px;border-radius:9px;font-family:var(--mono);
+  font-size:10.5px;letter-spacing:.14em}
+.banner.lk{border:1px solid rgba(123,138,158,.4);background:rgba(123,138,158,.10);color:#b9c6d8}
+.banner.warn{border:1px solid rgba(255,194,71,.42);background:rgba(255,194,71,.09);color:#ffdc9b}
+.pill.ok{color:#7ff0b6;border-color:rgba(47,224,138,.42);background:rgba(47,224,138,.10)}
+.pill.inh{color:#ffd98a;border-color:rgba(255,194,71,.42);background:rgba(255,194,71,.10)}
+.pill.none{color:#ffb3bf;border-color:rgba(255,77,99,.42);background:rgba(255,77,99,.10)}
+.pill.lk{color:#b9c6d8;border-color:rgba(123,138,158,.42);background:rgba(123,138,158,.10)}
+.pill.un{color:#7ff0b6;border-color:rgba(47,224,138,.42);background:rgba(47,224,138,.10)}
+.locks{display:flex;gap:6px}
+
+/* ---- alerts ------------------------------------------------------------- */
+.badge{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;
+  margin-left:7px;border-radius:9px;background:var(--st-red);color:#fff;
+  font-family:var(--mono);font-size:9.5px;box-shadow:0 0 10px rgba(255,77,99,.6)}
+.alert{border:1px solid var(--edge);border-left-width:3px;border-radius:10px;
+  padding:13px 15px;margin-bottom:11px;background:rgba(255,255,255,.014)}
+.alert.unread{background:rgba(79,227,255,.05);border-color:var(--edge-hot)}
+.alert-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
+.alert-t{font-size:14px;line-height:1.4;margin-bottom:5px}
+.alert-b{font-size:12.5px;line-height:1.6;color:var(--ink-dim);white-space:pre-line;
+  margin-top:7px;padding:9px 12px;border-radius:8px;background:rgba(0,0,0,.26)}
+
+/* ---- management --------------------------------------------------------- */
+.mgmt-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0;
+  border-bottom:1px dashed rgba(120,190,255,.12)}
+.mgmt-row:last-child{border-bottom:0}
+.mgmt-row>div:first-child{flex:1 1 220px}
+input[type=date].ctl{padding:10px 12px}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
 .sync{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:#7ff0b6;opacity:0;transition:opacity .3s}
 .sync.on{opacity:1}
 
@@ -448,9 +544,11 @@ input[type=range]::-moz-range-thumb{
         <div class="per-pop hidden" id="perPop"></div>
       </div>
 
-      <div class="tabs">
+      <div class="tabs" id="tabs">
         <button class="tab-btn on" data-tab="reports" type="button">REPORTS</button>
         <button class="tab-btn" data-tab="data" type="button">DATA</button>
+        <button class="tab-btn" data-tab="alerts" type="button">ALERTS<span class="badge hidden" id="alertBadge">0</span></button>
+        <button class="tab-btn hidden" data-tab="mgmt" id="tabMgmt" type="button">MANAGEMENT</button>
       </div>
 
       <div class="spacer"></div>
@@ -536,6 +634,16 @@ input[type=range]::-moz-range-thumb{
       <div id="tabData" class="hidden">
         <div class="dbar" id="dataBar"></div>
         <div id="dataRoot"></div>
+      </div>
+
+      <!-- ============================ ALERTS ============================= -->
+      <div id="tabAlerts" class="hidden">
+        <div id="alertsRoot"></div>
+      </div>
+
+      <!-- ========================== MANAGEMENT =========================== -->
+      <div id="tabMgmtPane" class="hidden">
+        <div id="mgmtRoot"></div>
       </div>
     </main>
   </section>
@@ -633,16 +741,32 @@ const CHILD_KEY = {1:'imos',2:'tasks',3:'indicators'};
    tree  : Loe[]
      Loe        { id, title, imos:  Imo[] }
      Imo        { id, title, tasks: Task[] }
-     Task       { id, title, offices: string[], indicators: Indicator[] }
-     Indicator  { id, title }
+     Task       { id, title, indicators: Indicator[] }
+     Indicator  { id, title, opr: string[], ocr: string[] }
 
-   entries : { [periodId]: { [office]: { ind:{[indId]:{r:number,s:StatusKey}},
-                                        cmt:{[indId]:string} } } }
+   Offices are assigned at the indicator level, on two lines:
+     OPR  office of primary responsibility — owns the rating, status and the
+          comment that reaches the reports tab. Several OPRs are averaged.
+     OCR  office of coordination — cannot touch the rating. Sends comments and
+          recommendations to the OPR, which raise an alert.
 
-   Offices only ever adjust the indicator level: rating, status and comment are
-   all keyed by indicator id. Every level above an indicator is a pure rollup,
-   never a direct input. Offices are assigned at task level only; when several
-   offices hold the same task their indicator ratings are averaged.
+   entries : { [periodId]: { [office]: { ind:{ [indId]:{
+                 r:number, s:StatusKey, cmt:string,
+                 by:string, ts:string, override?:string } } } } }
+                                       // OPR submissions, written only on save
+
+   ocr     : { [periodId]: { [indId]: OcrNote[] } }
+                 OcrNote { id, office, user, comment, rec, ts }
+
+   alerts  : Alert[]
+                 Alert { id, to, ts, kind, indId, indCode, fromOffice,
+                         fromUser, title, body, read }
+
+   locks   : { [periodId]: { ocrDate, oprDate, ocrLocked, oprLocked,
+                             ocrReported, oprReported } }
+
+   Nothing autosaves. Edits live in S.draft (memory only) until the office hits
+   save on that indicator, which is the only path into `entries`.
    ========================================================================== */
 const LS_KEY = 'c1aa.assessment.v1';
 
@@ -656,8 +780,15 @@ const S = {
   colorMode:'status',         // 'status' | 'maturity'
   seasonal:true,
   animating:false,
+  adminView:'structure',      // A9 data tab: 'structure' | 'submissions'
+  officeView:'opr',           // office data tab: 'opr' | 'ocr'
   tree:/** @type {any[]} */([]),
   entries:/** @type {any} */({}),
+  ocr:/** @type {any} */({}),
+  alerts:/** @type {any[]} */([]),
+  locks:/** @type {any} */({}),
+  /** Unsaved edits. Memory only — never persisted, never read by the rollups. */
+  draft:/** @type {any} */({}),
 };
 
 let _uid = 0;
@@ -665,7 +796,8 @@ const uid = p => `${p}_${(++_uid).toString(36)}${Math.floor(Math.random()*1e6).t
 
 function save(){
   try{
-    localStorage.setItem(LS_KEY,JSON.stringify({tree:S.tree,entries:S.entries,v:1}));
+    localStorage.setItem(LS_KEY,JSON.stringify({
+      tree:S.tree, entries:S.entries, ocr:S.ocr, alerts:S.alerts, locks:S.locks, v:3}));
     flashSync();
   }catch(e){ /* proof of concept: storage is best effort */ }
 }
@@ -676,6 +808,7 @@ function load(){
     const d = JSON.parse(raw);
     if(!d || !Array.isArray(d.tree) || !d.tree.length) return false;
     S.tree = d.tree; S.entries = d.entries||{};
+    S.ocr = d.ocr||{}; S.alerts = d.alerts||[]; S.locks = d.locks||{};
     return true;
   }catch(e){ return false; }
 }
@@ -687,40 +820,129 @@ function flashSync(){
 }
 
 /* ---- tree mutation (managing office only) -------------------------------- */
-const newIndicator = ()=>({id:uid('ind'),title:'New indicator'});
-const newTask      = ()=>({id:uid('tsk'),title:'New task',offices:[],indicators:[newIndicator()]});
+const newIndicator = ()=>({id:uid('ind'),title:'New indicator',opr:[],ocr:[]});
+const newTask      = ()=>({id:uid('tsk'),title:'New task',indicators:[newIndicator()]});
 const newImo       = ()=>({id:uid('imo'),title:'New intermediate military objective',tasks:[newTask()]});
 const newLoe       = ()=>({id:uid('loe'),title:'New line of effort',imos:[newImo()]});
 
-/** Every entry that references removed indicators is dropped. */
+/** Indicators always carry both office lines, whatever the save's vintage. */
+const oprOf = ind => (ind && Array.isArray(ind.opr)) ? ind.opr : [];
+const ocrOf = ind => (ind && Array.isArray(ind.ocr)) ? ind.ocr : [];
+
+function walkIndicators(fn){
+  S.tree.forEach((l,li)=>l.imos.forEach((m,mi)=>m.tasks.forEach((t,ti)=>
+    t.indicators.forEach((ind,ii)=>fn(ind,[li,mi,ti,ii],t)))));
+}
+
+/** Every record that references a removed indicator is dropped. */
 function pruneEntries(){
   const inds=new Set();
   walkTasks((t)=>t.indicators.forEach(i=>inds.add(i.id)));
   for(const p in S.entries) for(const off in S.entries[p]){
     const e = S.entries[p][off];
-    for(const k in e.ind) if(!inds.has(k)) delete e.ind[k];
-    for(const k in e.cmt) if(!inds.has(k)) delete e.cmt[k];
+    for(const k in (e.ind||{})) if(!inds.has(k)) delete e.ind[k];
   }
+  for(const p in S.ocr) for(const k in S.ocr[p]) if(!inds.has(k)) delete S.ocr[p][k];
+  S.alerts = S.alerts.filter(a=>!a.indId || inds.has(a.indId));
 }
 
 /**
- * Comments used to be keyed by task id. Anything saved under a task id is
- * moved onto that task's first indicator so nothing is lost on upgrade.
+ * Upgrades older saves in place.
+ *  v1 -> comments were keyed by task id; move them onto the first indicator.
+ *  v2 -> offices were assigned on the task; copy them onto each of its
+ *        indicators as OPR, and fold `cmt` into the per-indicator entry.
  */
-function migrateTaskComments(){
-  const firstInd = {};                       // taskId -> first indicator id
+function migrateSave(){
+  let changed = 0;
+  const firstInd = {};
   walkTasks((t)=>{ if(t.indicators[0]) firstInd[t.id]=t.indicators[0].id; });
-  let moved=0;
+
+  // comments keyed by task id -> first indicator
   for(const p in S.entries) for(const off in S.entries[p]){
-    const cmt = S.entries[p][off].cmt||{};
+    const cmt = S.entries[p][off].cmt;
+    if(!cmt) continue;
     for(const k in cmt){
-      if(!firstInd[k]) continue;             // already an indicator id
-      const to = firstInd[k];
-      if(!cmt[to]) cmt[to]=cmt[k];
-      delete cmt[k]; moved++;
+      const to = firstInd[k] || k;
+      const e = S.entries[p][off];
+      e.ind = e.ind||{};
+      if(e.ind[to]) { if(!e.ind[to].cmt){ e.ind[to].cmt = cmt[k]; changed++; } }
+      else { e.ind[to] = {r:0,s:'gray',cmt:cmt[k]}; changed++; }
     }
+    delete S.entries[p][off].cmt; changed++;
   }
-  return moved;
+
+  // task-level offices -> indicator OPR
+  walkTasks((t)=>{
+    if(!Array.isArray(t.offices)) return;
+    t.indicators.forEach(ind=>{
+      if(!Array.isArray(ind.opr) || !ind.opr.length){ ind.opr = t.offices.slice(); changed++; }
+      if(!Array.isArray(ind.ocr)) ind.ocr = [];
+    });
+    delete t.offices; changed++;
+  });
+  // any indicator still missing its office lines
+  walkIndicators((ind)=>{
+    if(!Array.isArray(ind.opr)){ ind.opr=[]; changed++; }
+    if(!Array.isArray(ind.ocr)){ ind.ocr=[]; changed++; }
+  });
+  return changed;
+}
+
+/* ---- alerts -------------------------------------------------------------- */
+const ALERT = {
+  ocr_note   :{label:'OCR COMMENT',        c:'#3aa2ff'},
+  a9_override:{label:'A9 RATING OVERRIDE', c:'#ffc247'},
+  no_input   :{label:'NON-PARTICIPATION',  c:'#ff4d63'},
+  locked     :{label:'PERIOD LOCKED',      c:'#7b8a9e'},
+};
+/**
+ * Files an alert. A9 receives a copy of everything, so the managing office can
+ * track every comment in the system without being an OPR or OCR anywhere.
+ */
+function pushAlert(a){
+  const base = {id:uid('alt'), ts:new Date().toISOString(), read:false, period:S.period};
+  const to = Array.isArray(a.to) ? a.to : [a.to];
+  const targets = [...new Set([...to, ADMIN_ROLE])];
+  targets.forEach(t=>S.alerts.push(Object.assign({},base,a,{id:uid('alt'),to:t})));
+}
+const alertsFor = role => S.alerts.filter(a=>a.to===role)
+  .sort((x,y)=>String(y.ts).localeCompare(String(x.ts)));
+const unreadFor = role => alertsFor(role).filter(a=>!a.read).length;
+
+/* ---- locks --------------------------------------------------------------- */
+function lockRec(period){
+  S.locks[period] = S.locks[period] || {ocrDate:'',oprDate:'',
+    ocrLocked:false,oprLocked:false,ocrReported:false,oprReported:false};
+  return S.locks[period];
+}
+const datePassed = d => !!d && new Date(d+'T23:59:59') < new Date();
+const isOcrLocked = period => { const l=lockRec(period); return l.ocrLocked || datePassed(l.ocrDate); };
+const isOprLocked = period => { const l=lockRec(period); return l.oprLocked || datePassed(l.oprDate); };
+
+/* ---- drafts (memory only, never persisted) ------------------------------- */
+function draftFor(period, office, indId){
+  S.draft[period] = S.draft[period]||{};
+  S.draft[period][office] = S.draft[period][office]||{};
+  if(!S.draft[period][office][indId]){
+    const eff = effectiveInd(indId, office, period);
+    S.draft[period][office][indId] = {
+      r: eff ? eff.r : 0,
+      s: eff ? eff.s : 'gray',
+      cmt: (eff && !eff.inherited) ? (eff.cmt||'') : '',
+    };
+  }
+  return S.draft[period][office][indId];
+}
+const dropDraft = (period, office, indId)=>{
+  if(S.draft[period] && S.draft[period][office]) delete S.draft[period][office][indId];
+};
+/** A draft differs from what is saved. */
+function draftDirty(period, office, indId){
+  const d = S.draft?.[period]?.[office]?.[indId];
+  if(!d) return false;
+  const sv = S.entries?.[period]?.[office]?.ind?.[indId];
+  if(!sv) return d.r!==0 || d.s!=='gray' || !!(d.cmt||'').trim();
+  return sv.r!==d.r || sv.s!==d.s || (sv.cmt||'')!==(d.cmt||'');
 }
 
 /* =============================================================================
@@ -802,14 +1024,34 @@ const SEED_TREE = [
   ]},
 ];
 
+/**
+ * The seed keeps the OPR list on the task for brevity; it is copied onto every
+ * indicator, and one coordinating office is picked deterministically so the
+ * OCR flow has something to show on first open.
+ */
 function buildSeedTree(){
+  const rnd = mulberry32(90210);
+  const pickOcr = (opr, idx) => {
+    const pool = TASKABLE.filter(o=>!opr.includes(o));
+    const out=[pool[Math.floor(rnd()*pool.length)]];
+    if(idx%3===0){
+      const b = pool[Math.floor(rnd()*pool.length)];
+      if(b && b!==out[0]) out.push(b);
+    }
+    return out;
+  };
+  let n=0;
   return SEED_TREE.map(l=>({
     id:uid('loe'), title:l.title,
     imos:l.imos.map(m=>({
       id:uid('imo'), title:m.title,
       tasks:m.tasks.map(t=>({
-        id:uid('tsk'), title:t.title, offices:t.offices.slice(),
-        indicators:t.indicators.map(n=>({id:uid('ind'),title:n})),
+        id:uid('tsk'), title:t.title,
+        indicators:t.indicators.map(name=>({
+          id:uid('ind'), title:name,
+          opr:t.offices.slice(),
+          ocr:pickOcr(t.offices, n++),
+        })),
       })),
     })),
   }));
@@ -825,38 +1067,87 @@ function seedEntries(tree){
   const entries = {};
   const upto = PERIOD_IDX[CURRENT_PERIOD];
   const seasonal = [0.30,-0.18,-0.34,0.22];        // Q1..Q4 offset
-  walkTasks((task)=>{
+  tree.forEach(l=>l.imos.forEach(m=>m.tasks.forEach(task=>{
     task.indicators.forEach(ind=>{
       const start = 0.6 + rnd()*1.7;
       const slope = 0.10 + rnd()*0.34;
-      task.offices.forEach(off=>{
+      oprOf(ind).forEach(off=>{
         const bias = (rnd()-0.5)*0.7;              // office-to-office spread
         for(let i=0;i<=upto;i++){
           if(i<2 && rnd()<0.18) continue;          // sparse early reporting
+          // leave some current-quarter inputs unfilled so the managing office
+          // has something to chase and inheritance is exercised on first open
+          if(i===upto && rnd()<0.20) continue;
           const p = PERIODS[i];
           const v = start + slope*i + seasonal[p.q-1] + bias + (rnd()-0.5)*0.5;
-          const r = clamp(Math.round(v),0,MAX_RATING);   // integers: slider step is 1
+          const r = clamp(Math.round(v*10)/10,0,MAX_RATING);   // slider step is 0.1
           const e = ent(entries,p.id,off);
-          e.ind[ind.id] = {r, s:statusFromRating(r,rnd())};
+          e.ind[ind.id] = {
+            r, s:statusFromRating(r,rnd()),
+            cmt: (i===upto && rnd()<0.55) ? pickComment(rnd,ind.title) : '',
+            by:`${off} action officer`, ts:`20${p.y}-0${p.q}-15T12:00:00Z`,
+          };
         }
       });
     });
-    // indicator-level comments on the current period, for the AI payload
-    task.offices.forEach(off=>{
-      task.indicators.forEach(ind=>{
-        if(rnd()<0.5){
-          const e = ent(entries,CURRENT_PERIOD,off);
-          e.cmt[ind.id] = pickComment(rnd,ind.title);
-        }
-      });
-    });
-  },tree);
+  })));
   return entries;
 }
 function ent(entries,p,off){
   entries[p] = entries[p]||{};
-  entries[p][off] = entries[p][off]||{ind:{},cmt:{}};
+  entries[p][off] = entries[p][off]||{ind:{}};
+  entries[p][off].ind = entries[p][off].ind||{};
   return entries[p][off];
+}
+
+const OCR_COMMENTS = [
+  'Coordination complete on our side. No objection to the proposed rating.',
+  'Our supporting milestone slipped two weeks; recommend the rating not advance this quarter.',
+  'We hold contrary data on this indicator. Recommend a joint review before the board.',
+  'Recommend raising the rating. Our records show the objective was met ahead of schedule.',
+  'Dependency on our office is now resolved. Recommend reflecting that in the next update.',
+  'Request the OPR capture the resourcing caveat in the narrative for the commander.',
+];
+const OCR_RECS = [
+  'Hold at current rating pending joint review.',
+  'Advance one increment.',
+  'No change recommended.',
+  'Raise to reflect completed coordination.',
+  'Reduce until the supporting milestone closes.',
+];
+
+/** OCR notes on the current period, each of which also files an OPR alert. */
+function seedOcrAndAlerts(tree){
+  const rnd = mulberry32(4242);
+  const ocr = {}, alerts = [];
+  let n = 0;
+  tree.forEach((l,li)=>l.imos.forEach((m,mi)=>m.tasks.forEach((t,ti)=>
+    t.indicators.forEach((ind,ii)=>{
+      ocrOf(ind).forEach(off=>{
+        if(rnd()>0.45) return;
+        n++;
+        const user = `${off} action officer`;
+        const note = {
+          id:`ocrseed${n}`, office:off, user,
+          comment: OCR_COMMENTS[Math.floor(rnd()*OCR_COMMENTS.length)],
+          rec: rnd()<0.7 ? OCR_RECS[Math.floor(rnd()*OCR_RECS.length)] : '',
+          ts:`2026-07-${String(10+(n%18)).padStart(2,'0')}T09:00:00Z`,
+        };
+        ocr[CURRENT_PERIOD] = ocr[CURRENT_PERIOD]||{};
+        (ocr[CURRENT_PERIOD][ind.id] = ocr[CURRENT_PERIOD][ind.id]||[]).push(note);
+        const code = `Indicator ${li+1}.${mi+1}.${ti+1}.${ii+1}`;
+        [...new Set([...oprOf(ind), ADMIN_ROLE])].forEach(to=>{
+          alerts.push({
+            id:`altseed${n}_${to}`, to, ts:note.ts, kind:'ocr_note', read:false,
+            period:CURRENT_PERIOD, indId:ind.id, indCode:code,
+            fromOffice:off, fromUser:user,
+            title:`${off} commented on ${code}`,
+            body:note.comment + (note.rec?`  //  Recommendation: ${note.rec}`:''),
+          });
+        });
+      });
+    }))));
+  return {ocr, alerts};
 }
 function statusFromRating(r,x){
   if(r<1.0) return 'red';
@@ -880,6 +1171,12 @@ const pickComment = (rnd,t)=>COMMENT_BANK[Math.floor(rnd()*COMMENT_BANK.length)]
 function resetToDemo(){
   S.tree = buildSeedTree();
   S.entries = seedEntries(S.tree);
+  const {ocr, alerts} = seedOcrAndAlerts(S.tree);
+  S.ocr = ocr; S.alerts = alerts;
+  S.locks = {}; S.draft = {};
+  // a realistic pair of suspenses for the open quarter
+  const l = lockRec(CURRENT_PERIOD);
+  l.ocrDate = '2026-09-15'; l.oprDate = '2026-09-30';
   S.focus = []; S.hover = null;
   save();
 }
@@ -924,23 +1221,54 @@ function childrenOf(path){
 }
 function taskOfPath(path){ return path.length>=3 ? nodeAt(path.slice(0,3)) : null; }
 
-/* ---- leaf value: average of the assigned offices that reported ---------- */
-function indicatorValue(indId, task, period){
+/* ---- leaf value: average of the OPR offices only ------------------------- */
+/**
+ * What one OPR office's submission for an indicator effectively is.
+ * When that office did not report for the period, the most recent earlier
+ * submission carries forward, flagged `inherited` so the managing office can
+ * see it is not a fresh input. OCR offices never contribute a rating.
+ * @returns {{r:number,s:StatusKey,cmt:string,by:string,ts:string,
+ *            inherited:boolean,from:string|null,override:string|undefined}|null}
+ */
+function effectiveInd(indId, office, period){
+  const saved = S.entries?.[period]?.[office]?.ind?.[indId];
+  if(saved) return Object.assign({inherited:false,from:null,cmt:''},saved);
+  for(let i=PERIOD_IDX[period]-1;i>=0;i--){
+    const p = PERIODS[i].id;
+    const prev = S.entries?.[p]?.[office]?.ind?.[indId];
+    if(prev) return Object.assign({},prev,{inherited:true,from:p});
+  }
+  return null;
+}
+/** The previous quarter's saved rating, for the ghost marker on the slider. */
+function prevQuarterRating(indId, office, period){
+  const i = PERIOD_IDX[period]-1;
+  if(i<0) return null;
+  const prev = S.entries?.[PERIODS[i].id]?.[office]?.ind?.[indId];
+  return prev ? prev.r : null;
+}
+function indicatorValue(indId, ind, period){
   const vals=[];
-  for(const off of task.offices){
-    const r = S.entries?.[period]?.[off]?.ind?.[indId]?.r;
-    if(typeof r === 'number') vals.push(r);
+  for(const off of oprOf(ind)){
+    const e = effectiveInd(indId,off,period);
+    if(e && typeof e.r === 'number') vals.push(e.r);
   }
   return mean(vals);
 }
-function indicatorStatus(indId, task, period){
+function indicatorStatus(indId, ind, period){
   const ords=[];
-  for(const off of task.offices){
-    const s = S.entries?.[period]?.[off]?.ind?.[indId]?.s;
-    if(s && s!=='gray') ords.push(STATUS[s].ord);
+  for(const off of oprOf(ind)){
+    const e = effectiveInd(indId,off,period);
+    if(e && e.s && e.s!=='gray') ords.push(STATUS[e.s].ord);
   }
   const m = mean(ords);
   return m==null ? 'gray' : STATUS_ORDER[clamp(Math.round(m),1,4)];
+}
+/** True when no OPR office filed a fresh submission for this period. */
+function indicatorUnfilled(ind, period){
+  const opr = oprOf(ind);
+  if(!opr.length) return true;
+  return !opr.some(off=>S.entries?.[period]?.[off]?.ind?.[ind.id]);
 }
 
 /**
@@ -951,9 +1279,8 @@ function indicatorStatus(indId, task, period){
 function valueOf(path, period){
   const depth = path.length;
   if(depth===4){
-    const task = taskOfPath(path);
     const ind = nodeAt(path);
-    return (task&&ind) ? indicatorValue(ind.id,task,period) : null;
+    return ind ? indicatorValue(ind.id,ind,period) : null;
   }
   const kids = childrenOf(path);
   if(!kids.length) return null;
@@ -967,8 +1294,8 @@ function valueOf(path, period){
 /** @returns {StatusKey} */
 function statusOf(path, period){
   if(path.length===4){
-    const task = taskOfPath(path), ind = nodeAt(path);
-    return (task&&ind) ? indicatorStatus(ind.id,task,period) : 'gray';
+    const ind = nodeAt(path);
+    return ind ? indicatorStatus(ind.id,ind,period) : 'gray';
   }
   const kids = childrenOf(path);
   const ords=[];
@@ -981,27 +1308,51 @@ function statusOf(path, period){
 }
 const pctOf = v => v==null ? null : Math.round((v/MAX_RATING)*100);
 
-/** Offices contributing anywhere beneath a node. */
-function officesUnder(path){
+/** Offices on a given line anywhere beneath a node. `line` is 'opr' | 'ocr'. */
+function officesUnder(path, line){
   const out = new Set();
   const rec = p => {
-    if(p.length>=3){ const t=taskOfPath(p); if(t) t.offices.forEach(o=>out.add(o)); return; }
+    if(p.length===4){
+      const ind=nodeAt(p); if(!ind) return;
+      (line==='ocr'?ocrOf(ind):oprOf(ind)).forEach(o=>out.add(o));
+      return;
+    }
     childrenOf(p).forEach((_,i)=>rec(p.concat(i)));
   };
   rec(path); return out;
 }
-/** Current-period indicator comments beneath a node. */
+/**
+ * Current-period OPR comments beneath a node. Only OPR comments reach the
+ * reports tab; OCR notes are coordination traffic and are read via ocrNotes().
+ */
 function commentsUnder(path, period){
   const out=[];
   const rec = p => {
     if(p.length===4){
-      const task=taskOfPath(p), ind=nodeAt(p);
-      if(!task||!ind) return;
-      task.offices.forEach(off=>{
-        const c = S.entries?.[period]?.[off]?.cmt?.[ind.id];
-        if(c && c.trim()) out.push({office:off,code:codeOf(p),task:task.title,
-          indicator:ind.title,text:c.trim()});
+      const ind=nodeAt(p); if(!ind) return;
+      oprOf(ind).forEach(off=>{
+        const e = S.entries?.[period]?.[off]?.ind?.[ind.id];
+        const c = e && e.cmt;
+        if(c && c.trim()) out.push({office:off,code:codeOf(p),
+          task:(taskOfPath(p)||{}).title||'',indicator:ind.title,text:c.trim()});
       });
+      return;
+    }
+    childrenOf(p).forEach((_,i)=>rec(p.concat(i)));
+  };
+  rec(path); return out;
+}
+/** OCR coordination notes on one indicator for a period. */
+const ocrNotes = (indId, period)=>(S.ocr?.[period]?.[indId]||[])
+  .slice().sort((a,b)=>String(a.ts).localeCompare(String(b.ts)));
+/** Every OCR note beneath a node — the managing office tracks all of them. */
+function ocrNotesUnder(path, period){
+  const out=[];
+  const rec = p => {
+    if(p.length===4){
+      const ind=nodeAt(p); if(!ind) return;
+      ocrNotes(ind.id,period).forEach(n=>out.push(Object.assign({code:codeOf(p),
+        indicator:ind.title},n)));
       return;
     }
     childrenOf(p).forEach((_,i)=>rec(p.concat(i)));
@@ -1010,6 +1361,99 @@ function commentsUnder(path, period){
 }
 /** Periods from the start of record through the selected period. */
 const historyPeriods = () => PERIODS.slice(0,PERIOD_IDX[S.period]+1);
+
+/* =============================================================================
+   WRITE PATH — the only way data enters `entries`
+   ========================================================================== */
+/**
+ * Commits one indicator's draft for one office. Confirms first when it would
+ * replace a submission that is already saved for the period.
+ * @returns {boolean} whether the save happened
+ */
+function saveIndicator(period, office, ind, code, opts){
+  const d = S.draft?.[period]?.[office]?.[ind.id];
+  if(!d) return false;
+  const existing = S.entries?.[period]?.[office]?.ind?.[ind.id];
+  if(existing && !(opts&&opts.skipConfirm)){
+    const was = `${r1(existing.r)} / ${MAX_RATING} · ${STATUS[existing.s].label}`;
+    const now = `${r1(d.r)} / ${MAX_RATING} · ${STATUS[d.s].label}`;
+    if(!confirm(`${code} already has a saved submission for ${period}.\n\n`
+      +`Saved:   ${was}\nReplace with: ${now}\n\nOverwrite it?`)) return false;
+  }
+  const e = ent(S.entries,period,office);
+  e.ind[ind.id] = {r:d.r, s:d.s, cmt:(d.cmt||'').trim(),
+    by:`${S.user.name} (${office})`, ts:new Date().toISOString()};
+  dropDraft(period,office,ind.id);
+  save();
+  return true;
+}
+
+/**
+ * The managing office writes on an OPR's behalf. The OPR offices are alerted,
+ * because a rating attributed to them has changed without their action.
+ */
+function a9Override(period, ind, code, r, s){
+  const opr = oprOf(ind);
+  if(!opr.length) return false;
+  const prior = opr.map(o=>{ const e=effectiveInd(ind.id,o,period);
+    return e?`${o} ${r1(e.r)}${e.inherited?' (inherited)':''}`:`${o} none`; }).join(', ');
+  if(!confirm(`Override ${code} for ${period} on behalf of ${opr.join(', ')}?\n\n`
+    +`Currently: ${prior}\nNew: ${r1(r)} / ${MAX_RATING} · ${STATUS[s].label}\n\n`
+    +`This replaces the OPR submission and alerts ${opr.join(', ')}.`)) return false;
+  opr.forEach(off=>{
+    const e = ent(S.entries,period,off);
+    const keep = e.ind[ind.id] || {};
+    e.ind[ind.id] = {r, s, cmt:keep.cmt||'',
+      by:`${S.user.name} (${ADMIN_ROLE})`, ts:new Date().toISOString(),
+      override:`${ADMIN_ROLE} override by ${S.user.name}`};
+  });
+  pushAlert({to:opr, kind:'a9_override', indId:ind.id, indCode:code,
+    fromOffice:ADMIN_ROLE, fromUser:S.user.name,
+    title:`${ADMIN_ROLE} set ${code} to ${r1(r)} / ${MAX_RATING}`,
+    body:`The managing office recorded ${r1(r)} / ${MAX_RATING} (${STATUS[s].label}) `
+        +`for ${period} on your behalf. Previous: ${prior}.`});
+  save();
+  return true;
+}
+
+/**
+ * Offices that owed something for a period and never filed it. OPR owes a
+ * rating; OCR owes at least one coordination note.
+ */
+function participation(period){
+  const oprMissing = {}, ocrMissing = {}, oprAll = new Set(), ocrAll = new Set();
+  walkIndicators((ind,path)=>{
+    const code = codeOf(path);
+    oprOf(ind).forEach(o=>{
+      oprAll.add(o);
+      if(!S.entries?.[period]?.[o]?.ind?.[ind.id]) (oprMissing[o]=oprMissing[o]||[]).push(code);
+    });
+    ocrOf(ind).forEach(o=>{
+      ocrAll.add(o);
+      if(!ocrNotes(ind.id,period).some(n=>n.office===o)) (ocrMissing[o]=ocrMissing[o]||[]).push(code);
+    });
+  });
+  return {oprMissing, ocrMissing, oprAll:[...oprAll], ocrAll:[...ocrAll]};
+}
+
+/** Locking a line files the non-participation report to the managing office. */
+function lockLine(period, line){
+  const l = lockRec(period);
+  const p = participation(period);
+  const miss = line==='ocr' ? p.ocrMissing : p.oprMissing;
+  const names = Object.keys(miss).sort();
+  if(line==='ocr'){ l.ocrLocked = true; l.ocrReported = true; }
+  else { l.oprLocked = true; l.oprReported = true; }
+  pushAlert({to:ADMIN_ROLE, kind:'no_input', period,
+    fromOffice:ADMIN_ROLE, fromUser:S.user.name,
+    title:`${line.toUpperCase()} input locked for ${period}`
+         +` — ${names.length} office${names.length===1?'':'s'} did not participate`,
+    body: names.length
+      ? names.map(o=>`${o}: ${miss[o].length} indicator${miss[o].length===1?'':'s'} `
+          +`(${miss[o].slice(0,4).join(', ')}${miss[o].length>4?', …':''})`).join('\n')
+      : `Every assigned ${line.toUpperCase()} office participated.`});
+  save();
+}
 
 /** Series of a node across periods. @returns {(number|null)[]} */
 const seriesOf = (path,periods) => periods.map(p=>valueOf(path,p.id));
@@ -1091,6 +1535,8 @@ const GAP = 0.9;                      // inter-slice gap, degrees
 
 const polar = (r,deg)=>{ const a=(deg-90)*Math.PI/180; return [CX+r*Math.cos(a),CY+r*Math.sin(a)]; };
 const f2 = n => Math.round(n*100)/100;
+/** Ratings are entered in 0.1 steps, so always show one decimal. */
+const r1 = n => (Math.round(n*10)/10).toFixed(1);
 
 /** Annular sector path. Handles the full-circle case with an even-odd donut. */
 function arcPath(r0,r1,a0,a1){
@@ -1171,7 +1617,8 @@ function sliceColor(path,period){
      maturity: number | null;       // 0..5
      percent: number | null;        // 0..100
      status: StatusKey;
-     offices: string[];             // contributing offices
+     opr: string[];                 // offices of primary responsibility
+     ocr: string[];                 // offices of coordination
    }
    export interface TrendBlock {
      periods: string[];             // ['25Q1','25Q2',...]
@@ -1182,12 +1629,16 @@ function sliceColor(path,period){
      seasonalOffsets: number[] | null;   // Q1..Q4, additive
    }
    export interface OfficeComment {
-     office: string;      // reporting office, e.g. 'A4'
+     office: string;      // OPR office that saved it, e.g. 'A4'
      code: string;        // 'Indicator 1.1.1.2' — comments are indicator level
      task: string;        // parent task title, for context
      indicator: string;   // indicator title
      text: string;
    }
+   // OCR coordination traffic is deliberately NOT in the summary payload: only
+   // the OPR's saved comment is the office's position of record. Pass
+   // ocrNotesUnder(focus, period) as a separate field if a future prompt should
+   // weigh dissenting coordination views.
    export interface ExecutiveSummaryRequest {
      scope: NodeRollup;
      period: string;                // '26Q3'
@@ -1249,7 +1700,8 @@ function buildSummaryPayload(){
     maturity: valueOf(p,period),
     percent: pctOf(valueOf(p,period)),
     status: statusOf(p,period),
-    offices: [...officesUnder(p)],
+    opr: [...officesUnder(p,'opr')],
+    ocr: [...officesUnder(p,'ocr')],
   });
   const series = seriesOf(path,periods);
   const fc = forecastNext(series,periods,S.seasonal);
@@ -1333,7 +1785,12 @@ function enterApp(){
   $('#uRl').textContent = `${role} · ${role===ADMIN_ROLE?'MANAGING OFFICE':'REPORTING OFFICE'}`;
   $('#uAv').textContent = role;
   $('#uAv').style.fontSize = role.length>3 ? '9px' : '11px';
-  S.focus=[]; S.hover=null;
+  S.focus=[]; S.hover=null; S.tab='reports';
+  S.adminView='structure';
+  // land a reporting office on whichever line it actually holds
+  S.officeView = (role!==ADMIN_ROLE && !myIndicators('opr').length
+    && myIndicators('ocr').length) ? 'ocr' : 'opr';
+  S.draft={};
   renderPeriods(); renderAll();
 }
 
@@ -1584,8 +2041,14 @@ function renderLeaf(svg,gRing,gCore,defs){
   fitTextBlock(gRing, task?task.title:'', bx, 656, bw, 74, 19, 12, '#8fa5c4', 400);
   const offs=svgEl('text',{x:bx,y:754,fill:'#5d7391','font-family':'ui-monospace,monospace',
     'font-size':'14','letter-spacing':'1.5'});
-  offs.textContent = task && task.offices.length ? `OFFICES  ${task.offices.join(' · ')}` : 'NO OFFICE ASSIGNED';
+  offs.textContent = oprOf(ind).length ? `OPR  ${oprOf(ind).join(' · ')}` : 'NO OPR ASSIGNED';
   gRing.appendChild(offs);
+  if(ocrOf(ind).length){
+    const oc=svgEl('text',{x:bx,y:780,fill:'#8b7fb8','font-family':'ui-monospace,monospace',
+      'font-size':'14','letter-spacing':'1.5'});
+    oc.textContent = `OCR  ${ocrOf(ind).join(' · ')}`;
+    gRing.appendChild(oc);
+  }
 }
 
 /**
@@ -1799,17 +2262,22 @@ function renderHud(){
     kv('QUARTERLY DELTA', `${arrow} ${fc.slope>0?'+':''}${f2(fc.slope)}`);
   }
 
-  const offs=[...officesUnder(path)];
-  if(offs.length){
-    hud.appendChild(el('div','eyebrow','Assigned offices'));
+  [['opr','OPR'],['ocr','OCR']].forEach(([line,label])=>{
+    const offs=[...officesUnder(path,line)];
+    if(!offs.length) return;
+    hud.appendChild(el('div','eyebrow',label));
     const c=el('div','chips');
-    offs.forEach(o=>c.appendChild(el('span','chip',o)));
+    offs.forEach(o=>{
+      const ch=el('span',`chip ${line}`,o);
+      ch.title=OFFICE_NAME[o]||o;
+      c.appendChild(ch);
+    });
     hud.appendChild(c);
-  }
+  });
 
   const cms=commentsUnder(path,period);
   if(cms.length){
-    hud.appendChild(el('div','eyebrow',`Office comments · ${period}`));
+    hud.appendChild(el('div','eyebrow',`OPR comments · ${period}`));
     const box=el('div','hud-note');
     cms.slice(0,6).forEach(c=>{
       const w=el('div'); w.style.marginBottom='9px';
@@ -2022,26 +2490,51 @@ function renderExecFrame(){
 }
 
 /* =============================================================================
-   [13] DATA TAB — A9 ADMIN VIEW
+   [13] DATA TAB — shared indicator controls
    ========================================================================== */
 function renderDataBar(){
   const bar=$('#dataBar'); bar.innerHTML='';
   const isAdmin = S.user.role===ADMIN_ROLE;
-  const tag=el('div','panel'); tag.style.padding='11px 16px'; tag.style.flex='1 1 320px';
+  const tag=el('div','panel'); tag.style.padding='11px 16px'; tag.style.flex='1 1 300px';
   tag.innerHTML = isAdmin
     ? `<div class="eyebrow">Objective architecture · ${S.period}</div>
        <div style="font-size:13.5px;margin-top:4px">${S.user.name} · ${OFFICE_NAME[ADMIN_ROLE]}</div>`
-    : `<div class="eyebrow">Assigned tasks · ${S.period}</div>
+    : `<div class="eyebrow">Indicator input · ${S.period}</div>
        <div style="font-size:13.5px;margin-top:4px">${S.user.role} · ${OFFICE_NAME[S.user.role]}</div>`;
   bar.appendChild(tag);
 
+  // view switch
+  const seg=el('div','seg');
+  const views = isAdmin
+    ? [['structure','STRUCTURE'],['submissions','SUBMISSIONS']]
+    : [['opr','AS OPR'],['ocr','AS OCR']];
+  const key = isAdmin ? 'adminView' : 'officeView';
+  views.forEach(([v,label])=>{
+    let txt=label;
+    if(!isAdmin){
+      const n = v==='opr' ? myIndicators('opr').length : myIndicators('ocr').length;
+      txt = `${label} · ${n}`;
+    }
+    const b=el('button','',txt); b.type='button';
+    if(S[key]===v) b.classList.add('on');
+    b.addEventListener('click',()=>{ S[key]=v; renderData(); });
+    seg.appendChild(b);
+  });
+  bar.appendChild(seg);
+
+  // lock state read-out
+  const lo=isOprLocked(S.period), lc=isOcrLocked(S.period);
+  const lk=el('div','locks');
+  [['OPR',lo],['OCR',lc]].forEach(([n,locked])=>{
+    const p=el('span',`pill ${locked?'lk':'un'}`,`${n} ${locked?'LOCKED':'OPEN'}`);
+    lk.appendChild(p);
+  });
+  bar.appendChild(lk);
+
   if(isAdmin){
-    const add=el('button','btn','+ ADD LOE'); add.type='button';
-    add.addEventListener('click',()=>{ S.tree.push(newLoe()); save(); renderData(); renderReports(); });
-    bar.appendChild(add);
     const rs=el('button','btn','RESET DEMO DATA'); rs.type='button';
     rs.addEventListener('click',()=>{
-      if(confirm('Replace the current objective tree and all assessments with the demo data set?')){
+      if(confirm('Replace the objective tree, all assessments, coordination notes and alerts with the demo data set?')){
         resetToDemo(); renderAll();
       }
     });
@@ -2055,15 +2548,347 @@ function renderDataBar(){
 function renderData(){
   renderDataBar();
   const root=$('#dataRoot'); root.innerHTML='';
-  if(S.user.role===ADMIN_ROLE) renderAdminTree(root); else renderOfficeTasks(root);
+  if(S.user.role===ADMIN_ROLE){
+    if(S.adminView==='submissions') renderAdminSubmissions(root); else renderAdminTree(root);
+  }else{
+    if(S.officeView==='ocr') renderOcrView(root); else renderOprView(root);
+  }
 }
 
+/** Every indicator where the signed-in office sits on the given line. */
+function myIndicators(line){
+  const role=S.user.role, out=[];
+  walkIndicators((ind,path,task)=>{
+    const on = line==='ocr' ? ocrOf(ind) : oprOf(ind);
+    if(on.includes(role)) out.push({ind,path,task});
+  });
+  return out;
+}
+
+/**
+ * 0-5 slider in 0.1 steps, with the previous quarter's saved rating drawn
+ * behind the thumb at reduced opacity so the OPR can see what it is changing
+ * away from.
+ */
+function ratingSlider(value, prev, onInput, disabled){
+  const wrap=el('div','slider-wrap');
+  const r=document.createElement('input');
+  r.type='range'; r.min='0'; r.max=String(MAX_RATING); r.step='0.1';
+  r.value=String(value); r.disabled=!!disabled;
+  if(disabled) r.classList.add('ro');
+
+  if(prev!=null){
+    const g=el('div','ghost');
+    g.style.left=`calc(${(prev/MAX_RATING)*100}% )`;
+    g.title=`Previous quarter: ${r1(prev)}`;
+    const lb=el('span','ghost-lb',r1(prev));
+    g.appendChild(lb);
+    wrap.appendChild(g);
+  }
+  wrap.appendChild(r);
+  const tk=el('div','ticks');
+  for(let n=0;n<=MAX_RATING;n++) tk.appendChild(el('span','',String(n)));
+  wrap.appendChild(tk);
+  if(onInput) r.addEventListener('input',()=>onInput(Math.round(+r.value*10)/10));
+  return {wrap, input:r};
+}
+
+/** The 5 status swatches. */
+function statusPicker(current, onPick, disabled){
+  const pick=el('div','stat-pick');
+  STATUS_ORDER.forEach(sk=>{
+    const b=el('button','sp'); b.type='button'; b.dataset.s=sk;
+    b.title=STATUS[sk].label;
+    b.style.background=`linear-gradient(150deg,${STATUS[sk].c},${STATUS[sk].c2})`;
+    b.style.color=STATUS[sk].c;
+    if(sk===current) b.classList.add('on');
+    if(disabled) b.disabled=true; else b.addEventListener('click',()=>onPick(sk));
+    pick.appendChild(b);
+  });
+  return pick;
+}
+
+/** Read-only list of OCR coordination notes on an indicator. */
+function ocrNoteList(indId, period, heading){
+  const notes=ocrNotes(indId,period);
+  const box=el('div','ocrbox');
+  box.appendChild(el('div','eyebrow',
+    heading || `OCR coordination · ${notes.length} note${notes.length===1?'':'s'}`));
+  if(!notes.length){
+    box.appendChild(el('div','ocr-none','NO COORDINATION NOTES'));
+    return box;
+  }
+  notes.forEach(n=>{
+    const w=el('div','ocr-note');
+    const hd=el('div','ocr-hd');
+    hd.appendChild(el('span','who',`${n.office} · ${n.user}`));
+    hd.appendChild(el('span','when',String(n.ts).slice(0,10)));
+    w.appendChild(hd);
+    w.appendChild(el('div','ocr-txt',n.comment));
+    if(n.rec) w.appendChild(el('div','ocr-rec',`RECOMMENDATION: ${n.rec}`));
+    box.appendChild(w);
+  });
+  return box;
+}
+
+/** Context line: LOE / IMO / Task above an indicator. */
+function ctxLine(path){
+  const l=nodeAt(path.slice(0,1)), m=nodeAt(path.slice(0,2)), t=nodeAt(path.slice(0,3));
+  return `${codeOf(path.slice(0,1))} ${(l?l.title:'').toUpperCase()}  ·  `
+       + `${codeOf(path.slice(0,2))} ${(m?m.title:'').toUpperCase()}  ·  `
+       + `${codeOf(path.slice(0,3))} ${(t?t.title:'').toUpperCase()}`;
+}
+
+/* =============================================================================
+   [13a] DATA TAB — OPR VIEW (office of primary responsibility)
+   -----------------------------------------------------------------------------
+   Owns the rating, the status and the comment of record. Nothing is written
+   until save is pressed on that indicator.
+   ========================================================================== */
+function renderOprView(root){
+  const role=S.user.role, period=S.period, mine=myIndicators('opr');
+  const locked=isOprLocked(period);
+
+  const panel=el('section','panel');
+  panel.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
+                 +'<span class="corner bl"></span><span class="corner br"></span>';
+  const h=el('div','panel-h');
+  h.appendChild(el('h2','',`${role} as OPR`));
+  h.appendChild(el('div','spacer'));
+  h.appendChild(el('span','eyebrow',
+    `${mine.length} INDICATOR${mine.length===1?'':'S'} · ${period}`));
+  panel.appendChild(h);
+  const body=el('div'); body.style.padding='16px'; panel.appendChild(body);
+  root.appendChild(panel);
+
+  if(locked){
+    const w=el('div','banner lk');
+    w.textContent=`OPR INPUT LOCKED FOR ${period}`;
+    body.appendChild(w);
+  }
+  if(!mine.length){
+    body.appendChild(el('div','empty',
+      `NO INDICATORS ASSIGNED TO ${role} AS OPR\nTHE MANAGING OFFICE (${ADMIN_ROLE}) ASSIGNS OPR AND OCR`));
+    return;
+  }
+
+  mine.forEach(({ind,path})=>{
+    const code=codeOf(path);
+    const d=draftFor(period,role,ind.id);
+    const saved=S.entries?.[period]?.[role]?.ind?.[ind.id];
+    const eff=effectiveInd(ind.id,role,period);
+    const prev=prevQuarterRating(ind.id,role,period);
+
+    const card=el('div','card');
+    const ch=el('div','card-h');
+    ch.appendChild(el('span','code ind',code));
+    const tt=el('div'); tt.style.flex='1 1 240px';
+    const nm=el('div','',ind.title); nm.style.fontSize='14.5px'; tt.appendChild(nm);
+    tt.appendChild(el('div','ctx',ctxLine(path)));
+    ch.appendChild(tt);
+
+    const co=el('div','chips');
+    oprOf(ind).forEach(o=>{
+      const p=el('span','chip opr',o); p.title=`OPR · ${OFFICE_NAME[o]||o}`;
+      if(o===role) p.classList.add('me');
+      co.appendChild(p);
+    });
+    ocrOf(ind).forEach(o=>{
+      const p=el('span','chip ocr',o); p.title=`OCR · ${OFFICE_NAME[o]||o}`;
+      co.appendChild(p);
+    });
+    ch.appendChild(co);
+
+    const state=el('span','pill '+(saved?'ok':(eff&&eff.inherited?'inh':'none')));
+    state.textContent = saved ? (saved.override?'OVERRIDDEN':'SAVED')
+      : (eff&&eff.inherited?`INHERITED ${eff.from}`:'NOT SUBMITTED');
+    ch.appendChild(state);
+    card.appendChild(ch);
+
+    const cb=el('div','card-b');
+
+    // ---- rating row
+    const row=el('div','irow opr-row');
+    const lbl=el('div','nm');
+    lbl.appendChild(el('div','t','Rating'));
+    lbl.appendChild(el('div','ctx',`0–${MAX_RATING} IN 0.1 STEPS`));
+    row.appendChild(lbl);
+
+    const val=el('div','ratev',r1(d.r));
+    const sl=ratingSlider(d.r,prev,(v)=>{
+      d.r=v; val.textContent=r1(v); markDirty(card,period,role,ind.id);
+    },locked);
+    row.appendChild(sl.wrap);
+    row.appendChild(val);
+    row.appendChild(statusPicker(d.s,(sk)=>{
+      d.s=sk; renderData();
+    },locked));
+    cb.appendChild(row);
+
+    // ---- OCR notes, so the OPR reads coordination before commenting
+    cb.appendChild(ocrNoteList(ind.id,period));
+
+    // ---- OPR comment of record
+    const cw=el('div','icmt');
+    cw.appendChild(el('div','eyebrow','OPR comment of record'));
+    const ta=el('textarea','cmt');
+    ta.value=d.cmt||''; ta.disabled=locked;
+    ta.addEventListener('input',()=>{ d.cmt=ta.value; markDirty(card,period,role,ind.id); });
+    cw.appendChild(ta);
+    cb.appendChild(cw);
+
+    // ---- save row
+    const sr=el('div','saverow');
+    const flag=el('span','dirty');
+    flag.textContent = draftDirty(period,role,ind.id) ? 'UNSAVED CHANGES' : '';
+    sr.appendChild(flag);
+    if(saved){
+      sr.appendChild(el('span','cov',
+        `LAST SAVED ${String(saved.ts||'').slice(0,10)} BY ${saved.by||'—'}`));
+    }
+    sr.appendChild(el('div','spacer'));
+    const rv=el('button','btn btn-sm','REVERT'); rv.type='button'; rv.disabled=locked;
+    rv.addEventListener('click',()=>{ dropDraft(period,role,ind.id); renderData(); });
+    sr.appendChild(rv);
+    const sv=el('button','btn btn-sm btn-save','SAVE INDICATOR'); sv.type='button';
+    sv.disabled=locked;
+    sv.addEventListener('click',()=>{
+      if(saveIndicator(period,role,ind,code)){ renderData(); renderReports(); }
+    });
+    sr.appendChild(sv);
+    cb.appendChild(sr);
+
+    card.appendChild(cb);
+    if(draftDirty(period,role,ind.id)) card.classList.add('dirtycard');
+    body.appendChild(card);
+  });
+}
+function markDirty(card,period,office,indId){
+  const on=draftDirty(period,office,indId);
+  card.classList.toggle('dirtycard',on);
+  const f=card.querySelector('.dirty');
+  if(f) f.textContent = on ? 'UNSAVED CHANGES' : '';
+}
+
+/* =============================================================================
+   [13b] DATA TAB — OCR VIEW (office of coordination)
+   -----------------------------------------------------------------------------
+   Reads the OPR's rating but cannot move it. Sends comments and
+   recommendations, which raise an alert on the OPR's alerts tab.
+   ========================================================================== */
+function renderOcrView(root){
+  const role=S.user.role, period=S.period, mine=myIndicators('ocr');
+  const locked=isOcrLocked(period);
+
+  const panel=el('section','panel');
+  panel.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
+                 +'<span class="corner bl"></span><span class="corner br"></span>';
+  const h=el('div','panel-h');
+  h.appendChild(el('h2','',`${role} as OCR`));
+  h.appendChild(el('div','spacer'));
+  h.appendChild(el('span','eyebrow',
+    `${mine.length} INDICATOR${mine.length===1?'':'S'} · ${period}`));
+  panel.appendChild(h);
+  const body=el('div'); body.style.padding='16px'; panel.appendChild(body);
+  root.appendChild(panel);
+
+  if(locked){
+    const w=el('div','banner lk');
+    w.textContent=`OCR COORDINATION LOCKED FOR ${period}`;
+    body.appendChild(w);
+  }
+  if(!mine.length){
+    body.appendChild(el('div','empty',
+      `NO INDICATORS ASSIGNED TO ${role} AS OCR\nTHE MANAGING OFFICE (${ADMIN_ROLE}) ASSIGNS OPR AND OCR`));
+    return;
+  }
+
+  mine.forEach(({ind,path})=>{
+    const code=codeOf(path);
+    const v=indicatorValue(ind.id,ind,period);
+    const st=STATUS[indicatorStatus(ind.id,ind,period)];
+
+    const card=el('div','card');
+    const ch=el('div','card-h');
+    ch.appendChild(el('span','code ind',code));
+    const tt=el('div'); tt.style.flex='1 1 240px';
+    const nm=el('div','',ind.title); nm.style.fontSize='14.5px'; tt.appendChild(nm);
+    tt.appendChild(el('div','ctx',ctxLine(path)));
+    ch.appendChild(tt);
+    const co=el('div','chips');
+    oprOf(ind).forEach(o=>{
+      const p=el('span','chip opr',o); p.title=`OPR · ${OFFICE_NAME[o]||o}`; co.appendChild(p);
+    });
+    ch.appendChild(co);
+    card.appendChild(ch);
+
+    const cb=el('div','card-b');
+
+    // ---- OPR rating, read only
+    const row=el('div','irow opr-row');
+    const lbl=el('div','nm');
+    lbl.appendChild(el('div','t','OPR rating'));
+    lbl.appendChild(el('div','ctx','READ ONLY'));
+    row.appendChild(lbl);
+    const sl=ratingSlider(v==null?0:v,prevQuarterRating(ind.id,oprOf(ind)[0],period),null,true);
+    row.appendChild(sl.wrap);
+    const val=el('div','ratev ro',v==null?'—':r1(v));
+    row.appendChild(val);
+    const pill=el('span','pill',st.label);
+    pill.style.color=st.c; pill.style.borderColor=st.c+'66'; pill.style.background=st.c+'14';
+    const pw=el('div'); pw.appendChild(pill); row.appendChild(pw);
+    cb.appendChild(row);
+
+    // ---- existing coordination traffic
+    cb.appendChild(ocrNoteList(ind.id,period));
+
+    // ---- new note
+    const nw=el('div','icmt');
+    nw.appendChild(el('div','eyebrow','Comment to the OPR'));
+    const ta=el('textarea','cmt'); ta.disabled=locked;
+    nw.appendChild(ta);
+    nw.appendChild(el('div','eyebrow','Recommendation'));
+    const rec=el('input','ti'); rec.style.width='100%'; rec.disabled=locked;
+    nw.appendChild(rec);
+    cb.appendChild(nw);
+
+    const sr=el('div','saverow');
+    sr.appendChild(el('div','spacer'));
+    const send=el('button','btn btn-sm btn-save','SEND TO OPR'); send.type='button';
+    send.disabled=locked;
+    send.addEventListener('click',()=>{
+      const comment=ta.value.trim(), r=rec.value.trim();
+      if(!comment && !r){ alert('Enter a comment or a recommendation first.'); return; }
+      const targets=oprOf(ind);
+      if(!confirm(`Send this coordination note on ${code} to ${targets.join(', ')||'no OPR assigned'}?\n\n`
+        +`It is filed on the record and raises an alert for the OPR.`)) return;
+      const note={id:uid('ocr'),office:role,user:S.user.name,comment,rec:r,
+        ts:new Date().toISOString()};
+      S.ocr[period]=S.ocr[period]||{};
+      (S.ocr[period][ind.id]=S.ocr[period][ind.id]||[]).push(note);
+      pushAlert({to:targets, kind:'ocr_note', indId:ind.id, indCode:code,
+        fromOffice:role, fromUser:S.user.name,
+        title:`${role} commented on ${code}`,
+        body:comment + (r?`  //  Recommendation: ${r}`:'')});
+      save(); renderData();
+    });
+    sr.appendChild(send);
+    cb.appendChild(sr);
+
+    card.appendChild(cb);
+    body.appendChild(card);
+  });
+}
+
+/* =============================================================================
+   [13c] DATA TAB — A9 STRUCTURE VIEW
+   ========================================================================== */
 function renderAdminTree(root){
   const panel=el('section','panel');
   panel.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
                  +'<span class="corner bl"></span><span class="corner br"></span>';
   const h=el('div','panel-h'); h.appendChild(el('h2','','Lines of Effort'));
-  const sp=el('div','spacer'); h.appendChild(sp);
+  h.appendChild(el('div','spacer'));
   h.appendChild(el('span','eyebrow',`${S.period} ROLLUP`));
   panel.appendChild(h);
   const tree=el('div','tree'); panel.appendChild(tree);
@@ -2072,59 +2897,67 @@ function renderAdminTree(root){
   if(!S.tree.length){ tree.appendChild(el('div','empty','NO LINES OF EFFORT DEFINED')); return; }
 
   S.tree.forEach((loe,li)=>{
-    const path=[li];
     const nd=el('div','node loe');
-    nd.appendChild(nodeHeader(path,loe,'loe',()=>{
+    nd.appendChild(nodeHeader([li],loe,'loe',()=>{
       S.tree.splice(li,1); pruneEntries(); save(); renderData(); renderReports();
     }));
     const kids=el('div','node-kids');
 
     loe.imos.forEach((imo,mi)=>{
-      const ip=[li,mi];
-      const ind=el('div','node');
-      ind.appendChild(nodeHeader(ip,imo,'imo',()=>{
+      const imoNode=el('div','node');
+      imoNode.appendChild(nodeHeader([li,mi],imo,'imo',()=>{
         loe.imos.splice(mi,1); pruneEntries(); save(); renderData(); renderReports();
       }));
       const ik=el('div','node-kids');
 
       imo.tasks.forEach((task,ti)=>{
-        const tp=[li,mi,ti];
         const tn=el('div','node');
-        tn.appendChild(nodeHeader(tp,task,'task',()=>{
+        tn.appendChild(nodeHeader([li,mi,ti],task,'task',()=>{
           imo.tasks.splice(ti,1); pruneEntries(); save(); renderData(); renderReports();
         }));
         const tk=el('div','node-kids');
 
-        // office assignment — task level only
-        const ob=el('div');
-        ob.appendChild(el('div','eyebrow','Assigned offices'));
-        const offs=el('div','offs');
-        TASKABLE.forEach(o=>{
-          const b=el('button',`off${task.offices.includes(o)?' on':''}`,o);
-          b.type='button'; b.title=OFFICE_NAME[o];
-          b.addEventListener('click',()=>{
-            const k=task.offices.indexOf(o);
-            if(k<0) task.offices.push(o); else task.offices.splice(k,1);
-            save(); renderData(); renderReports();
-          });
-          offs.appendChild(b);
-        });
-        ob.appendChild(offs);
-        const rep = task.offices.filter(o=>S.entries?.[S.period]?.[o]?.ind &&
-          task.indicators.some(x=>S.entries[S.period][o].ind[x.id]!=null));
-        ob.appendChild(el('div','cov',
-          task.offices.length
-            ? `REPORTED ${S.period}: ${rep.length}/${task.offices.length}` +
-              (rep.length?`  ·  ${rep.join(' ')}`:'')
-            : 'NO OFFICE ASSIGNED'));
-        tk.appendChild(ob);
-
-        task.indicators.forEach((i2,ii)=>{
-          const ip2=[li,mi,ti,ii];
-          const n2=el('div','node');
-          n2.appendChild(nodeHeader(ip2,i2,'ind',()=>{
+        task.indicators.forEach((ind,ii)=>{
+          const ip=[li,mi,ti,ii];
+          const n2=el('div','node ind-node');
+          n2.appendChild(nodeHeader(ip,ind,'ind',()=>{
             task.indicators.splice(ii,1); pruneEntries(); save(); renderData(); renderReports();
           }));
+          // office assignment — indicator level, two lines
+          const asn=el('div','asn');
+          [['opr','OPR — owns the rating'],['ocr','OCR — comments only']].forEach(([line,label])=>{
+            const wrap=el('div','asn-line');
+            wrap.appendChild(el('div','eyebrow',label));
+            const offs=el('div','offs');
+            const list = line==='ocr' ? ocrOf(ind) : oprOf(ind);
+            TASKABLE.forEach(o=>{
+              const b=el('button',`off ${line}${list.includes(o)?' on':''}`,o);
+              b.type='button'; b.title=OFFICE_NAME[o];
+              b.addEventListener('click',()=>{
+                const arr = line==='ocr' ? (ind.ocr=ocrOf(ind)) : (ind.opr=oprOf(ind));
+                const k=arr.indexOf(o);
+                if(k<0){
+                  arr.push(o);
+                  // an office cannot hold both lines on the same indicator
+                  const other = line==='ocr' ? (ind.opr=oprOf(ind)) : (ind.ocr=ocrOf(ind));
+                  const j=other.indexOf(o); if(j>=0) other.splice(j,1);
+                }else arr.splice(k,1);
+                save(); renderData(); renderReports();
+              });
+              offs.appendChild(b);
+            });
+            wrap.appendChild(offs);
+            asn.appendChild(wrap);
+          });
+          const opr=oprOf(ind);
+          const rep=opr.filter(o=>S.entries?.[S.period]?.[o]?.ind?.[ind.id]);
+          asn.appendChild(el('div','cov',
+            opr.length
+              ? `SUBMITTED ${S.period}: ${rep.length}/${opr.length}`
+                + (rep.length?`  ·  ${rep.join(' ')}`:'')
+                + `  ·  OCR NOTES: ${ocrNotes(ind.id,S.period).length}`
+              : 'NO OPR ASSIGNED — INDICATOR CANNOT BE ASSESSED'));
+          n2.appendChild(asn);
           tk.appendChild(n2);
         });
         const ar=el('div','addrow');
@@ -2140,7 +2973,7 @@ function renderAdminTree(root){
         imo.tasks.push(newTask()); save(); renderData(); renderReports();
       }));
       ik.appendChild(ar2);
-      ind.appendChild(ik); kids.appendChild(ind);
+      imoNode.appendChild(ik); kids.appendChild(imoNode);
     });
 
     const ar3=el('div','addrow');
@@ -2194,8 +3027,8 @@ let _saveT;
 function queueSave(){ clearTimeout(_saveT); _saveT=setTimeout(save,420); }
 
 function exportJson(){
-  const blob=new Blob([JSON.stringify({tree:S.tree,entries:S.entries,v:1},null,2)],
-    {type:'application/json'});
+  const blob=new Blob([JSON.stringify({tree:S.tree,entries:S.entries,ocr:S.ocr,
+    alerts:S.alerts,locks:S.locks,v:3},null,2)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=`c1aa-assessment-${S.period}.json`;
@@ -2203,136 +3036,374 @@ function exportJson(){
 }
 
 /* =============================================================================
-   [14] DATA TAB — OFFICE VIEW
+   [13d] DATA TAB — A9 SUBMISSIONS VIEW
    -----------------------------------------------------------------------------
-   Only the tasks assigned to the signed-in office, with a 0-5 rating and a
-   status colour per indicator, and one comment per task per quarter.
+   Every indicator for the period. Unfilled OPR inputs are highlighted and carry
+   the previous quarter's rating forward; the managing office can override and
+   save, which alerts the OPR offices.
    ========================================================================== */
-function renderOfficeTasks(root){
-  const role=S.user.role, period=S.period;
-  const mine=[];
-  S.tree.forEach((loe,li)=>loe.imos.forEach((imo,mi)=>imo.tasks.forEach((t,ti)=>{
-    if(t.offices.includes(role)) mine.push({task:t,path:[li,mi,ti],loe,imo});
-  })));
+function renderAdminSubmissions(root){
+  const period=S.period;
+  const rows=[];
+  walkIndicators((ind,path)=>rows.push({ind,path}));
+  const unfilled=rows.filter(r=>indicatorUnfilled(r.ind,period));
 
   const panel=el('section','panel');
   panel.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
                  +'<span class="corner bl"></span><span class="corner br"></span>';
   const h=el('div','panel-h');
-  h.appendChild(el('h2','',`${role} Task Assessment`));
+  h.appendChild(el('h2','','Submissions'));
   h.appendChild(el('div','spacer'));
-  h.appendChild(el('span','eyebrow',`${mine.length} TASK${mine.length===1?'':'S'} · ${period}`));
+  h.appendChild(el('span','eyebrow',
+    `${rows.length-unfilled.length}/${rows.length} SUBMITTED · ${unfilled.length} INHERITED · ${period}`));
   panel.appendChild(h);
   const body=el('div'); body.style.padding='16px'; panel.appendChild(body);
   root.appendChild(panel);
 
-  if(!mine.length){
-    body.appendChild(el('div','empty',
-      `NO TASKS ASSIGNED TO ${role}\nTHE MANAGING OFFICE (A9) ASSIGNS TASKS`));
-    return;
+  if(unfilled.length){
+    const w=el('div','banner warn');
+    w.textContent=`${unfilled.length} INDICATOR${unfilled.length===1?'':'S'} WITH NO OPR INPUT `
+      +`FOR ${period} — CARRYING THE PREVIOUS QUARTER FORWARD`;
+    body.appendChild(w);
   }
+  if(!rows.length){ body.appendChild(el('div','empty','NO INDICATORS DEFINED')); return; }
 
-  mine.forEach(({task,path,loe,imo})=>{
-    const card=el('div','card');
+  rows.forEach(({ind,path})=>{
+    const code=codeOf(path);
+    const miss=indicatorUnfilled(ind,period);
+    const v=indicatorValue(ind.id,ind,period);
+    const st=STATUS[indicatorStatus(ind.id,ind,period)];
+    const opr=oprOf(ind);
+
+    const card=el('div','card'+(miss?' misscard':''));
     const ch=el('div','card-h');
-    ch.appendChild(el('span','code task',codeOf(path)));
-    const tt=el('div'); tt.style.flex='1 1 240px';
-    tt.appendChild(el('div','',task.title));
-    tt.firstChild.style.fontSize='14.5px';
-    tt.appendChild(el('div','ctx',
-      `${codeOf(path.slice(0,1))} ${loe.title.toUpperCase()}  ·  ${codeOf(path.slice(0,2))} ${imo.title.toUpperCase()}`));
+    ch.appendChild(el('span','code ind',code));
+    const tt=el('div'); tt.style.flex='1 1 220px';
+    const nm=el('div','',ind.title); nm.style.fontSize='14.5px'; tt.appendChild(nm);
+    tt.appendChild(el('div','ctx',ctxLine(path)));
     ch.appendChild(tt);
-    if(task.offices.length>1){
-      const c=el('div','chips');
-      task.offices.forEach(o=>{
-        const p=el('span','chip',o);
-        if(o===role){ p.style.color='#e2f9ff'; p.style.borderColor='rgba(79,227,255,.55)';
-          p.style.background='rgba(79,227,255,.14)'; }
-        c.appendChild(p);
-      });
-      ch.appendChild(c);
-    }
+
+    const co=el('div','chips');
+    opr.forEach(o=>{
+      const has=!!S.entries?.[period]?.[o]?.ind?.[ind.id];
+      const p=el('span',`chip opr${has?'':' missing'}`,o);
+      p.title=`OPR · ${OFFICE_NAME[o]||o} · ${has?'submitted':'no input'}`;
+      co.appendChild(p);
+    });
+    ocrOf(ind).forEach(o=>{
+      const p=el('span','chip ocr',o); p.title=`OCR · ${OFFICE_NAME[o]||o}`; co.appendChild(p);
+    });
+    ch.appendChild(co);
+    const state=el('span','pill '+(miss?'inh':'ok'));
+    state.textContent = miss ? 'NO OPR INPUT' : 'SUBMITTED';
+    ch.appendChild(state);
     card.appendChild(ch);
 
     const cb=el('div','card-b');
-    if(!task.indicators.length) cb.appendChild(el('div','empty','NO INDICATORS DEFINED'));
-    task.indicators.forEach((ind,ii)=>{
-      const ipath=path.concat(ii);
-      const e=ent(S.entries,period,role);
-      const cur=e.ind[ind.id];
-      const block=el('div','iblock');
-      const row=el('div','irow');
 
-      const nm=el('div','nm');
-      const cw2=el('div');
-      cw2.appendChild(el('span','code ind',codeOf(ipath)));
-      nm.appendChild(cw2);
-      nm.appendChild(el('div','t',ind.title));
-      row.appendChild(nm);
-
-      const sw=el('div','slider-wrap');
-      const r=document.createElement('input');
-      r.type='range'; r.min='0'; r.max=String(MAX_RATING); r.step='1';
-      r.value=String(cur?cur.r:0);
-      sw.appendChild(r);
-      const tk=el('div','ticks');
-      for(let n=0;n<=MAX_RATING;n++) tk.appendChild(el('span','',String(n)));
-      sw.appendChild(tk);
-      row.appendChild(sw);
-
-      const val=el('div','ratev', cur?String(cur.r):'0');
-      if(!cur){ val.style.color='#5d7391'; val.style.borderColor='rgba(120,190,255,.16)'; }
-      row.appendChild(val);
-
-      const pick=el('div','stat-pick');
-      const paint=()=>{
-        const c=e.ind[ind.id];
-        [...pick.children].forEach(b=>{
-          const on = c && c.s===b.dataset.s;
-          b.classList.toggle('on',!!on);
-          b.style.color = STATUS[b.dataset.s].c;
-        });
-      };
-      STATUS_ORDER.forEach(sk=>{
-        const b=el('button','sp'); b.type='button'; b.dataset.s=sk;
-        b.title=STATUS[sk].label;
-        b.style.background=`linear-gradient(150deg,${STATUS[sk].c},${STATUS[sk].c2})`;
-        b.addEventListener('click',()=>{
-          const c=e.ind[ind.id]||(e.ind[ind.id]={r:+r.value,s:'gray'});
-          c.s=sk; paint(); queueSave(); renderReports();
-        });
-        pick.appendChild(b);
-      });
-      paint();
-      row.appendChild(pick);
-
-      r.addEventListener('input',()=>{
-        const c=e.ind[ind.id]||(e.ind[ind.id]={r:0,s:'gray'});
-        c.r=+r.value;
-        if(c.s==='gray') { c.s = statusFromRating(c.r,0.5); paint(); }
-        val.textContent=r.value; val.style.color=''; val.style.borderColor='';
-        queueSave(); renderReports();
-      });
-      block.appendChild(row);
-
-      // comment sits on the indicator, alongside its rating and status
-      const cw=el('div','icmt');
-      cw.appendChild(el('div','eyebrow','Comment'));
-      const ta=el('textarea','cmt');
-      ta.value = S.entries?.[period]?.[role]?.cmt?.[ind.id] || '';
-      ta.addEventListener('input',()=>{
-        ent(S.entries,period,role).cmt[ind.id]=ta.value; queueSave();
-      });
-      ta.addEventListener('change',()=>{ save(); renderReports(); });
-      cw.appendChild(ta);
-      block.appendChild(cw);
-
-      cb.appendChild(block);
+    // per-office read-out
+    if(!opr.length){
+      cb.appendChild(el('div','cov','NO OPR ASSIGNED — ASSIGN ONE IN THE STRUCTURE VIEW'));
+    }
+    opr.forEach(o=>{
+      const e=effectiveInd(ind.id,o,period);
+      const line=el('div','subline');
+      line.appendChild(el('span','chip opr',o));
+      if(!e){ line.appendChild(el('span','cov','NEVER SUBMITTED')); }
+      else{
+        const sw=el('span','sw'); sw.style.background=STATUS[e.s].c; line.appendChild(sw);
+        line.appendChild(el('b','',`${r1(e.r)} / ${MAX_RATING}`));
+        line.appendChild(el('span','cov',
+          e.inherited ? `INHERITED FROM ${e.from}`
+                      : `SAVED ${String(e.ts||'').slice(0,10)} BY ${e.by||'—'}`));
+        if(e.override) line.appendChild(el('span','pill inh','OVERRIDE'));
+        if(e.cmt) line.appendChild(el('span','subcmt',e.cmt));
+      }
+      cb.appendChild(line);
     });
+
+    // override control
+    if(opr.length){
+      const dk=`__a9__${ind.id}`;
+      const d=draftFor(period,dk,ind.id);
+      if(!S.draft[period][dk].__init){
+        d.r = v==null?0:v; d.s = st===STATUS.gray?'gray':indicatorStatus(ind.id,ind,period);
+        S.draft[period][dk].__init=true;
+      }
+      const row=el('div','irow opr-row');
+      const lbl=el('div','nm');
+      lbl.appendChild(el('div','t',ADMIN_ROLE+' override'));
+      lbl.appendChild(el('div','ctx','WRITES TO EVERY OPR AND ALERTS THEM'));
+      row.appendChild(lbl);
+      const val=el('div','ratev',f2(d.r));
+      const sl=ratingSlider(d.r,prevQuarterRating(ind.id,opr[0],period),(x)=>{
+        d.r=x; val.textContent=r1(x);
+      },false);
+      row.appendChild(sl.wrap);
+      row.appendChild(val);
+      row.appendChild(statusPicker(d.s,(sk)=>{ d.s=sk; renderData(); },false));
+      cb.appendChild(row);
+
+      const sr=el('div','saverow');
+      sr.appendChild(el('div','spacer'));
+      const ov=el('button','btn btn-sm btn-save','OVERRIDE & SAVE'); ov.type='button';
+      ov.addEventListener('click',()=>{
+        if(a9Override(period,ind,code,d.r,d.s)){
+          delete S.draft[period][dk];
+          renderData(); renderReports();
+        }
+      });
+      sr.appendChild(ov);
+      cb.appendChild(sr);
+    }
+
+    // all comments — the managing office tracks OPR and OCR alike
+    const oprC=opr.map(o=>({o,e:S.entries?.[period]?.[o]?.ind?.[ind.id]}))
+      .filter(x=>x.e && x.e.cmt && x.e.cmt.trim());
+    if(oprC.length){
+      const box=el('div','ocrbox');
+      box.appendChild(el('div','eyebrow','OPR comments of record'));
+      oprC.forEach(({o,e})=>{
+        const w=el('div','ocr-note');
+        const hd=el('div','ocr-hd');
+        hd.appendChild(el('span','who',`${o} · ${e.by||''}`));
+        hd.appendChild(el('span','when',String(e.ts||'').slice(0,10)));
+        w.appendChild(hd);
+        w.appendChild(el('div','ocr-txt',e.cmt));
+        box.appendChild(w);
+      });
+      cb.appendChild(box);
+    }
+    cb.appendChild(ocrNoteList(ind.id,period));
 
     card.appendChild(cb);
     body.appendChild(card);
   });
+}
+
+/* =============================================================================
+   [14] ALERTS TAB
+   ========================================================================== */
+function renderAlerts(){
+  const root=$('#alertsRoot'); root.innerHTML='';
+  const role=S.user.role;
+  const list=alertsFor(role);
+  const unread=list.filter(a=>!a.read).length;
+
+  const bar=el('div','dbar');
+  const tag=el('div','panel'); tag.style.padding='11px 16px'; tag.style.flex='1 1 300px';
+  tag.innerHTML=`<div class="eyebrow">Alerts · ${role}</div>
+    <div style="font-size:13.5px;margin-top:4px">${list.length} total · ${unread} unread`
+    +(role===ADMIN_ROLE?' · managing office receives a copy of every comment':'')+`</div>`;
+  bar.appendChild(tag);
+  if(unread){
+    const b=el('button','btn','MARK ALL READ'); b.type='button';
+    b.addEventListener('click',()=>{
+      S.alerts.forEach(a=>{ if(a.to===role) a.read=true; });
+      save(); renderAlerts(); renderTabBadges();
+    });
+    bar.appendChild(b);
+  }
+  root.appendChild(bar);
+
+  const panel=el('section','panel');
+  panel.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
+                 +'<span class="corner bl"></span><span class="corner br"></span>';
+  const h=el('div','panel-h'); h.appendChild(el('h2','','Inbox'));
+  h.appendChild(el('div','spacer'));
+  h.appendChild(el('span','eyebrow',`${list.length} ITEM${list.length===1?'':'S'}`));
+  panel.appendChild(h);
+  const body=el('div'); body.style.padding='14px'; panel.appendChild(body);
+  root.appendChild(panel);
+
+  if(!list.length){
+    body.appendChild(el('div','empty','NO ALERTS'));
+    return;
+  }
+
+  list.forEach(a=>{
+    const kind=ALERT[a.kind]||{label:a.kind.toUpperCase(),c:'#7b8a9e'};
+    const w=el('div','alert'+(a.read?'':' unread'));
+    w.style.borderLeftColor=kind.c;
+    const hd=el('div','alert-h');
+    const k=el('span','pill',kind.label);
+    k.style.color=kind.c; k.style.borderColor=kind.c+'66'; k.style.background=kind.c+'14';
+    hd.appendChild(k);
+    if(a.indCode) hd.appendChild(el('span','code ind',a.indCode));
+    if(a.period) hd.appendChild(el('span','cov',a.period));
+    hd.appendChild(el('div','spacer'));
+    hd.appendChild(el('span','when',String(a.ts).slice(0,16).replace('T',' ')));
+    w.appendChild(hd);
+    w.appendChild(el('div','alert-t',a.title||''));
+    if(a.fromOffice){
+      w.appendChild(el('div','cov',
+        `FROM ${a.fromOffice}${a.fromUser?' · '+a.fromUser:''}`));
+    }
+    if(a.body){ const b=el('div','alert-b'); b.textContent=a.body; w.appendChild(b); }
+    const ft=el('div','saverow');
+    ft.appendChild(el('div','spacer'));
+    if(a.indId){
+      const go=el('button','btn btn-sm','VIEW IN REPORTS'); go.type='button';
+      go.addEventListener('click',()=>{
+        const p=pathOfIndicator(a.indId);
+        if(!p){ alert('That indicator no longer exists.'); return; }
+        a.read=true; save();
+        S.focus=p; S.hover=null; S.tab='reports';
+        document.querySelectorAll('.tab-btn').forEach(x=>
+          x.classList.toggle('on',x.dataset.tab==='reports'));
+        renderAll(); renderTabBadges();
+        window.scrollTo({top:0,behavior:'smooth'});
+      });
+      ft.appendChild(go);
+    }
+    if(!a.read){
+      const rd=el('button','btn btn-sm','MARK READ'); rd.type='button';
+      rd.addEventListener('click',()=>{ a.read=true; save(); renderAlerts(); renderTabBadges(); });
+      ft.appendChild(rd);
+    }
+    w.appendChild(ft);
+    body.appendChild(w);
+  });
+}
+/** Locate an indicator by id, for the jump-to-reports action. */
+function pathOfIndicator(indId){
+  let found=null;
+  walkIndicators((ind,path)=>{ if(ind.id===indId) found=path; });
+  return found;
+}
+
+/* =============================================================================
+   [14b] MANAGEMENT TAB — A9 only
+   -----------------------------------------------------------------------------
+   Suspense dates and hard locks per quarter, plus the participation report that
+   is filed to the managing office when a line is locked.
+   ========================================================================== */
+function renderManagement(){
+  const root=$('#mgmtRoot'); root.innerHTML='';
+  const period=S.period;
+  const l=lockRec(period);
+  const p=participation(period);
+
+  const bar=el('div','dbar');
+  const tag=el('div','panel'); tag.style.padding='11px 16px'; tag.style.flex='1 1 320px';
+  tag.innerHTML=`<div class="eyebrow">Reporting control · ${period}</div>
+    <div style="font-size:13.5px;margin-top:4px">Set the suspense for each input line, or lock it now.</div>`;
+  bar.appendChild(tag);
+  root.appendChild(bar);
+
+  // ---- suspense + lock per line
+  const panel=el('section','panel');
+  panel.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
+                 +'<span class="corner bl"></span><span class="corner br"></span>';
+  const h=el('div','panel-h'); h.appendChild(el('h2','','Quarterly suspenses'));
+  h.appendChild(el('div','spacer'));
+  h.appendChild(el('span','eyebrow',period));
+  panel.appendChild(h);
+  const body=el('div'); body.style.padding='16px'; panel.appendChild(body);
+  root.appendChild(panel);
+
+  [['ocr','OCR coordination',  'ocrDate','ocrLocked',isOcrLocked(period),p.ocrMissing,p.ocrAll],
+   ['opr','OPR input',         'oprDate','oprLocked',isOprLocked(period),p.oprMissing,p.oprAll]]
+  .forEach(([line,label,dateKey,lockKey,locked,miss,all])=>{
+    const row=el('div','mgmt-row');
+    const left=el('div');
+    left.appendChild(el('div','eyebrow',`${label} lock date`));
+    const nm=el('div','',label); nm.style.fontSize='14px'; left.appendChild(nm);
+    row.appendChild(left);
+
+    const dt=document.createElement('input');
+    dt.type='date'; dt.className='ctl'; dt.style.maxWidth='190px';
+    dt.value=l[dateKey]||'';
+    dt.addEventListener('change',()=>{ l[dateKey]=dt.value; save(); renderManagement(); renderData(); });
+    row.appendChild(dt);
+
+    const state=el('span','pill '+(locked?'lk':'un'),locked?'LOCKED':'OPEN');
+    row.appendChild(state);
+
+    const btn=el('button','btn btn-sm',locked?'UNLOCK':'LOCK NOW'); btn.type='button';
+    btn.addEventListener('click',()=>{
+      if(locked){
+        if(!confirm(`Reopen ${label} for ${period}?`)) return;
+        l[lockKey]=false; l[dateKey]='';
+        save(); renderManagement(); renderData(); renderTabBadges();
+      }else{
+        const names=Object.keys(miss).sort();
+        if(!confirm(`Lock ${label} for ${period}?\n\n`
+          +`${names.length} of ${all.length} assigned office${all.length===1?'':'s'} did not participate`
+          +(names.length?`:\n${names.join(', ')}`:'.')
+          +`\n\nA participation report will be filed to ${ADMIN_ROLE}.`)) return;
+        lockLine(period,line);
+        renderManagement(); renderData(); renderTabBadges();
+      }
+    });
+    row.appendChild(btn);
+    body.appendChild(row);
+  });
+
+  // ---- participation report
+  const rp=el('section','panel'); rp.style.marginTop='18px';
+  rp.innerHTML='<span class="corner tl"></span><span class="corner tr"></span>'
+              +'<span class="corner bl"></span><span class="corner br"></span>';
+  const rh=el('div','panel-h'); rh.appendChild(el('h2','','Participation'));
+  rh.appendChild(el('div','spacer'));
+  rh.appendChild(el('span','eyebrow',`${period}`));
+  rp.appendChild(rh);
+  const rb=el('div'); rb.style.padding='16px'; rp.appendChild(rb);
+  root.appendChild(rp);
+
+  [['OPR',p.oprAll,p.oprMissing],['OCR',p.ocrAll,p.ocrMissing]].forEach(([label,all,miss])=>{
+    const names=Object.keys(miss).sort();
+    const box=el('div','ocrbox');
+    box.appendChild(el('div','eyebrow',
+      `${label} — ${all.length-names.length}/${all.length} offices participated`));
+    if(!names.length){
+      box.appendChild(el('div','ocr-none',`EVERY ASSIGNED ${label} OFFICE PARTICIPATED`));
+    }else{
+      names.forEach(o=>{
+        const w=el('div','subline');
+        const c=el('span','chip opr missing',o); c.title=OFFICE_NAME[o]||o;
+        w.appendChild(c);
+        w.appendChild(el('span','cov',
+          `${miss[o].length} outstanding · ${miss[o].slice(0,6).join(', ')}`
+          +(miss[o].length>6?' …':'')));
+        w.appendChild(el('div','spacer'));
+        const nudge=el('button','btn btn-sm','SEND REMINDER'); nudge.type='button';
+        nudge.addEventListener('click',()=>{
+          pushAlert({to:o, kind:'no_input', period,
+            fromOffice:ADMIN_ROLE, fromUser:S.user.name,
+            title:`${label} input outstanding for ${period}`,
+            body:`${miss[o].length} indicator${miss[o].length===1?'':'s'} still need your `
+                +`${label} input: ${miss[o].join(', ')}.`});
+          save(); renderTabBadges();
+          nudge.textContent='SENT'; nudge.disabled=true;
+        });
+        w.appendChild(nudge);
+        box.appendChild(w);
+      });
+    }
+    rb.appendChild(box);
+  });
+
+  // ---- inheritance summary
+  const rows=[]; walkIndicators((ind,path)=>rows.push({ind,path}));
+  const unf=rows.filter(r=>indicatorUnfilled(r.ind,period));
+  const inh=el('div','ocrbox');
+  inh.appendChild(el('div','eyebrow',
+    `Carried forward — ${unf.length} indicator${unf.length===1?'':'s'} with no OPR input`));
+  if(!unf.length) inh.appendChild(el('div','ocr-none','EVERY INDICATOR HAS A FRESH SUBMISSION'));
+  unf.slice(0,40).forEach(({ind,path})=>{
+    const w=el('div','subline');
+    w.appendChild(el('span','code ind',codeOf(path)));
+    const v=indicatorValue(ind.id,ind,period);
+    w.appendChild(el('span','cov', v==null?'NO PRIOR RATING TO INHERIT'
+      :`INHERITED ${r1(v)} / ${MAX_RATING}`));
+    w.appendChild(el('div','spacer'));
+    w.appendChild(el('span','chips',''));
+    oprOf(ind).forEach(o=>w.appendChild(el('span','chip opr missing',o)));
+    inh.appendChild(w);
+  });
+  if(unf.length>40) inh.appendChild(el('div','cov',`… and ${unf.length-40} more`));
+  rb.appendChild(inh);
 }
 
 /* =============================================================================
@@ -2361,25 +3432,36 @@ function renderPeriods(){
 function renderReports(){
   renderCrumbs(); renderPie(); renderTrend(); renderExecFrame();
 }
+/** Unread count on the alerts tab. */
+function renderTabBadges(){
+  const b=$('#alertBadge'); if(!b||!S.user) return;
+  const n=unreadFor(S.user.role);
+  b.textContent=String(n);
+  b.classList.toggle('hidden',n===0);
+}
+
+const PANES = {reports:'#tabReports', data:'#tabData', alerts:'#tabAlerts', mgmt:'#tabMgmtPane'};
 function renderAll(){
   renderPeriods();
-  if(S.tab==='reports'){
-    $('#tabReports').classList.remove('hidden');
-    $('#tabData').classList.add('hidden');
-    renderReports();
-  }else{
-    $('#tabReports').classList.add('hidden');
-    $('#tabData').classList.remove('hidden');
-    renderData();
-  }
+  // management is the managing office's tab only
+  const isAdmin = S.user && S.user.role===ADMIN_ROLE;
+  $('#tabMgmt').classList.toggle('hidden',!isAdmin);
+  if(S.tab==='mgmt' && !isAdmin) S.tab='reports';
+
+  for(const t in PANES) $(PANES[t]).classList.toggle('hidden',t!==S.tab);
+  document.querySelectorAll('.tab-btn').forEach(x=>
+    x.classList.toggle('on',x.dataset.tab===S.tab));
+
+  if(S.tab==='reports') renderReports();
+  else if(S.tab==='data') renderData();
+  else if(S.tab==='alerts') renderAlerts();
+  else if(S.tab==='mgmt') renderManagement();
+  renderTabBadges();
 }
 
 function initShell(){
   document.querySelectorAll('.tab-btn').forEach(b=>{
-    b.addEventListener('click',()=>{
-      document.querySelectorAll('.tab-btn').forEach(x=>x.classList.toggle('on',x===b));
-      S.tab=b.dataset.tab; renderAll();
-    });
+    b.addEventListener('click',()=>{ S.tab=b.dataset.tab; renderAll(); });
   });
   $('#perBtn').addEventListener('click',e=>{
     e.stopPropagation(); $('#perPop').classList.toggle('hidden');
@@ -2403,7 +3485,11 @@ function initShell(){
     renderTrend(); renderHud(); renderExecFrame();
   });
   $('#btnOut').addEventListener('click',()=>{
-    S.user=null;
+    const pending = Object.keys(S.draft).some(p=>Object.keys(S.draft[p]||{})
+      .some(o=>Object.keys(S.draft[p][o]||{}).some(i=>draftDirty(p,o,i))));
+    if(pending && !confirm('You have unsaved indicator changes. Nothing is stored '
+      +'until you save each indicator. Sign out and discard them?')) return;
+    S.user=null; S.draft={};
     $('#main').classList.add('hidden');
     $('#login').classList.remove('hidden');
     $('#inPass').value=''; $('#loginErr').classList.add('hidden');
@@ -2426,7 +3512,7 @@ function initShell(){
 
 (function boot(){
   if(!load()) resetToDemo();
-  else if(migrateTaskComments()) save();     // lift any task-level comments
+  else if(migrateSave()) save();             // upgrade an older save in place
   initLogin();
   initShell();
   // Convenience for the proof of concept: prefill nothing, but keep the demo
