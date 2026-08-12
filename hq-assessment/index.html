@@ -288,28 +288,17 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .seg button{padding:6px 12px;border:0;background:transparent;font-family:var(--mono);
   font-size:10px;letter-spacing:.14em;color:var(--ink-faint)}
 .seg button.on{background:rgba(79,227,255,.14);color:#dff8ff}
-.pie-stage{display:grid;grid-template-columns:minmax(0,1fr) 306px;gap:0}
-.pie-hold{position:relative;padding:8px 8px 16px}
-#pie{width:100%;height:auto;display:block;max-height:min(58vh,620px);touch-action:manipulation}
+.pie-stage{flex:1 1 auto;min-height:0;display:flex}
+.pie-hold{position:relative;flex:1 1 auto;min-width:0;min-height:0;padding:6px}
+/* the svg fills the box and the viewBox letterboxes the chart, so the pie
+   auto-fits whatever space the dividers leave it */
+#pie{width:100%;height:100%;display:block;touch-action:manipulation}
 #gRing path,#gKids path{cursor:pointer}
-.hud{border-left:1px solid var(--edge);padding:18px;display:flex;flex-direction:column;gap:14px}
-.hud-code{font-family:var(--mono);font-size:12px;letter-spacing:.16em;color:var(--cy)}
-.hud-title{font-size:17px;line-height:1.3;font-weight:600;letter-spacing:-.01em}
-.hud-bar{height:7px;border-radius:20px;background:rgba(255,255,255,.06);overflow:hidden}
-.hud-bar i{display:block;height:100%;border-radius:20px;transition:width .3s}
-.hud-kv{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:6px 0;
-  border-bottom:1px dashed rgba(120,190,255,.12)}
-.hud-kv b{font-family:var(--mono);font-weight:500}
-.hud-kv span:first-child{color:var(--ink-faint);font-family:var(--mono);font-size:10px;letter-spacing:.14em}
 .pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;
   font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;border:1px solid}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
 .chip{padding:3px 8px;border-radius:6px;border:1px solid var(--edge);background:rgba(255,255,255,.03);
   font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-dim)}
-.hud-note{font-size:12px;line-height:1.55;color:var(--ink-dim);max-height:170px;overflow:auto;
-  padding:10px 12px;border-radius:9px;border:1px solid var(--edge);background:rgba(0,0,0,.24)}
-.hud-note .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--cy);display:block;margin-bottom:3px}
-.hud-idle{color:var(--ink-faint);font-family:var(--mono);font-size:11px;line-height:1.9;letter-spacing:.04em}
 
 /* ==================== REPORTS: quadrants =========================== */
 .quad{
@@ -343,13 +332,6 @@ main{padding:22px;max-width:1680px;margin:0 auto}
   padding:0 0 12px;width:100%}
 .qtl .exec-metrics{margin-top:10px;flex-wrap:wrap}
 .qtl .exec-text{align-items:flex-start}
-/* pie hud folds under when the quadrant narrows */
-.qbl{container-type:inline-size}
-@container (max-width:840px){
-  .pie-stage{grid-template-columns:minmax(0,1fr)}
-  .hud{border-left:0;border-top:1px solid var(--edge)}
-}
-#pie{max-height:none}
 @media (max-width:900px){
   .quad{display:flex;flex-direction:column;height:auto;gap:14px}
   .qdiv,.qknob{display:none}
@@ -589,7 +571,6 @@ input[type=range]:disabled::-webkit-slider-thumb{background:#8fa5c4;border-color
 
 /* ---- management --------------------------------------------------------- */
 .mgmt-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0;
-  border-bottom:1px dashed rgba(120,190,255,.12)}
 .mgmt-row:last-child{border-bottom:0}
 .mgmt-row>div:first-child{flex:1 1 220px}
 input[type=date].ctl{padding:10px 12px}
@@ -597,10 +578,6 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
 .sync{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:#7ff0b6;opacity:0;transition:opacity .3s}
 .sync.on{opacity:1}
 
-@media (max-width:1180px){
-  .pie-stage{grid-template-columns:minmax(0,1fr)}
-  .hud{border-left:0;border-top:1px solid var(--edge)}
-}
 @media (max-width:900px){
   .login-wrap{grid-template-columns:1fr}
   .login-art{border-right:0;border-bottom:1px solid var(--edge)}
@@ -728,7 +705,6 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
               <div class="pie-hold">
                 <svg id="pie" viewBox="0 0 1000 1000" role="img" aria-label="Objective maturity distribution"></svg>
               </div>
-              <aside class="hud" id="hud"></aside>
             </div>
           </section>
 
@@ -2121,7 +2097,6 @@ function renderPie(){
   // ---------------- indicator leaf: single ring + fitted caption -----------
   if(S.focus.length===4){
     renderLeaf(svg,gRing,gCore,defs);
-    renderHud();
     return;
   }
 
@@ -2134,7 +2109,6 @@ function renderPie(){
       fill:'#5d7391','font-family':'ui-monospace,monospace','font-size':'22','letter-spacing':'4'});
     t.textContent='NO SUBORDINATE OBJECTIVES';
     gCore.appendChild(t);
-    renderHud();
     return;
   }
 
@@ -2222,7 +2196,6 @@ function renderPie(){
   gRing.addEventListener('click',click);
   gKids.addEventListener('click',click);
 
-  renderHud();
 }
 const pushXY = (mid,d)=>{ const a=(mid-90)*Math.PI/180; return [Math.cos(a)*d,Math.sin(a)*d]; };
 const pushT  = (mid,d)=>{ const [x,y]=pushXY(mid,d); return `translate(${f2(x)},${f2(y)})`; };
@@ -2473,78 +2446,6 @@ function renderCrumbs(){
   box.appendChild(tag);
 }
 
-function renderHud(){
-  const hud=$('#hud'); hud.innerHTML='';
-  const period=S.period;
-  const path = S.hover!=null ? S.focus.concat(S.hover) : S.focus;
-  const isHover = S.hover!=null;
-
-  if(!isHover && S.focus.length<4){
-    const idle=el('div','hud-idle');
-    idle.innerHTML = `ANGLE = RATING &nbsp;·&nbsp; FILL = STATUS`
-      + `<br>HISTORY HANDLE UNDER THE TREND SETS THE FIT WINDOW`;
-    hud.appendChild(idle);
-  }
-
-  const node = path.length ? nodeAt(path) : null;
-  const v=valueOf(path,period), pv=pctOf(v), st=STATUS[statusOf(path,period)];
-  hud.appendChild(el('div','hud-code',(path.length?codeOf(path):'OVERALL').toUpperCase()));
-  hud.appendChild(el('div','hud-title',node?node.title:'All lines of effort'));
-
-  const bar=el('div','hud-bar'); const fill=el('div');
-  fill.style.width=(pv||0)+'%';
-  fill.style.background=`linear-gradient(90deg,${st.c2},${st.c})`;
-  fill.style.boxShadow=`0 0 14px ${st.c}88`;
-  bar.appendChild(fill); hud.appendChild(bar);
-
-  const pill=el('span','pill',st.label);
-  pill.style.color=st.c; pill.style.borderColor=st.c+'66'; pill.style.background=st.c+'14';
-  const pw=el('div'); pw.appendChild(pill); hud.appendChild(pw);
-
-  const kv=(k,val)=>{
-    const r=el('div','hud-kv'); r.appendChild(el('span','',k));
-    r.appendChild(el('b','',val)); hud.appendChild(r);
-  };
-  kv('MATURITY', v==null?'NOT ASSESSED':`${f2(v)} / ${MAX_RATING}  (${pv}%)`);
-  const lvl = path.length===0?'OVERALL':LEVELS[path.length-1].toUpperCase();
-  kv('LEVEL', lvl);
-  if(path.length<4){
-    const kids=childrenOf(path);
-    kv(`SUBORDINATE ${(LEVELS[path.length]||'').toUpperCase()}S`, String(kids.length));
-  }
-  const {fc,w:win}=fitFor(path);
-  if(fc.ok){
-    const arrow = fc.slope>0.04?'▲':(fc.slope<-0.04?'▼':'▬');
-    kv('QUARTERLY DELTA', `${arrow} ${fc.slope>0?'+':''}${f2(fc.slope)}`);
-    if(!win.all) kv('FIT WINDOW', `${PERIODS[win.a].short}–${PERIODS[win.b].short}`);
-  }
-
-  [['opr','OPR'],['ocr','OCR']].forEach(([line,label])=>{
-    const offs=[...officesUnder(path,line)];
-    if(!offs.length) return;
-    hud.appendChild(el('div','eyebrow',label));
-    const c=el('div','chips');
-    offs.forEach(o=>{
-      const ch=el('span',`chip ${line}`,o);
-      ch.title=OFFICE_NAME[o]||o;
-      c.appendChild(ch);
-    });
-    hud.appendChild(c);
-  });
-
-  const cms=commentsUnder(path,period);
-  if(cms.length){
-    hud.appendChild(el('div','eyebrow',`OPR comments · ${period}`));
-    const box=el('div','hud-note');
-    cms.slice(0,6).forEach(c=>{
-      const w=el('div'); w.style.marginBottom='9px';
-      w.appendChild(el('span','who',`${c.office} · ${c.code}`));
-      w.appendChild(document.createTextNode(c.text));
-      box.appendChild(w);
-    });
-    hud.appendChild(box);
-  }
-}
 
 /* =============================================================================
    [12] TREND / FORECAST VIEW
@@ -2809,7 +2710,7 @@ function initHistSlider(){
   const finish=()=>{
     if(!dragging) return;
     dragging=false;
-    renderHud(); renderExecFrame();
+    renderExecFrame();
   };
   svg.addEventListener('pointerup',finish);
   svg.addEventListener('pointercancel',finish);
@@ -4326,7 +4227,7 @@ function initShell(){
     const b=e.target.closest('button'); if(!b) return;
     S.forecastMode = b.dataset.fm;
     [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
-    renderTrend(); renderHud(); renderExecFrame();
+    renderTrend(); renderExecFrame();
   });
   $('#btnOut').addEventListener('click',()=>{
     const pending = Object.keys(S.draft).some(p=>Object.keys(S.draft[p]||{})
