@@ -21,7 +21,7 @@
     [6]  SELECTORS / ROLLUP MATH        <- pure, port straight to .ts
     [7]  FORECAST MATH                  <- pure, port straight to .ts
     [8]  SVG GEOMETRY HELPERS           <- pure, port straight to .ts
-    [9]  AI EXECUTIVE SUMMARY — INTEGRATION STUB (NOT WIRED)
+    [9]  AI EXECUTIVE SUMMARY — types + payload builder (wired further down)
     [10] LOGIN VIEW
     [11] PIE (nested drill-down) VIEW
     [12] TREND / FORECAST VIEW
@@ -311,6 +311,107 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .hud-note .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--cy);display:block;margin-bottom:3px}
 .hud-idle{color:var(--ink-faint);font-family:var(--mono);font-size:11px;line-height:1.9;letter-spacing:.04em}
 
+/* ==================== REPORTS: quadrants =========================== */
+.quad{
+  --fx:.52;--fy:.46;
+  position:relative;display:grid;height:calc(100vh - 128px);min-height:640px;
+  grid-template-columns:calc((100% - 12px)*var(--fx)) 12px minmax(0,1fr);
+  grid-template-rows:calc((100% - 12px)*var(--fy)) 12px minmax(0,1fr);
+}
+.quadrant{min-width:0;min-height:0;overflow:auto;display:flex;flex-direction:column}
+.quadrant .panel-h{position:sticky;top:0;z-index:5;background:rgba(11,17,30,.92);
+  backdrop-filter:blur(10px)}
+.qtl{grid-area:1/1}
+.qtr{grid-area:1/3}
+.qbl{grid-area:3/1}
+.qbr{grid-area:3/3}
+.qdiv{z-index:6}
+.qdiv.qv{grid-column:2;grid-row:1/4;cursor:col-resize}
+.qdiv.qh{grid-row:2;grid-column:1/4;cursor:row-resize}
+.qdiv::after{content:"";position:absolute}
+.qdiv{position:relative}
+.qdiv.qv::after{inset:0 4.5px;background:rgba(120,190,255,.14);border-radius:2px}
+.qdiv.qh::after{inset:4.5px 0;background:rgba(120,190,255,.14);border-radius:2px}
+.qdiv:hover::after,.qdiv.on::after{background:rgba(79,227,255,.55)}
+.qknob{grid-area:2/2;z-index:7;cursor:move;position:relative}
+.qknob::after{content:"";position:absolute;inset:-4px;border-radius:6px;
+  border:1px solid rgba(79,227,255,.45);background:#0a1424}
+.qknob:hover::after{background:rgba(79,227,255,.25)}
+/* exec panel stacks inside its quadrant */
+.qtl .exec-body{flex-direction:column;gap:14px}
+.qtl .exec-scope{flex:0 0 auto;border-right:0;border-bottom:1px solid var(--edge);
+  padding:0 0 12px;width:100%}
+.qtl .exec-metrics{margin-top:10px;flex-wrap:wrap}
+.qtl .exec-text{align-items:flex-start}
+/* pie hud folds under when the quadrant narrows */
+.qbl{container-type:inline-size}
+@container (max-width:840px){
+  .pie-stage{grid-template-columns:minmax(0,1fr)}
+  .hud{border-left:0;border-top:1px solid var(--edge)}
+}
+#pie{max-height:none}
+@media (max-width:900px){
+  .quad{display:flex;flex-direction:column;height:auto;gap:14px}
+  .qdiv,.qknob{display:none}
+  .quadrant{overflow:visible}
+}
+
+/* ---- watch items --------------------------------------------------- */
+.prob-list{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.prob{
+  text-align:left;border:1px solid rgba(255,77,99,.28);border-radius:11px;
+  background:rgba(255,77,99,.045);padding:11px 13px;transition:.15s;
+  display:flex;flex-direction:column;gap:8px;
+}
+.prob:hover{border-color:rgba(255,77,99,.6);background:rgba(255,77,99,.09);
+  transform:translateY(-1px)}
+.prob.down-only{border-color:rgba(255,194,71,.28);background:rgba(255,194,71,.04)}
+.prob.down-only:hover{border-color:rgba(255,194,71,.6);background:rgba(255,194,71,.08)}
+.prob-chain{display:flex;align-items:center;gap:4px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.06em}
+.pc{padding:3px 7px;border-radius:5px;border:1px solid;white-space:nowrap}
+.pc-sep{color:var(--ink-faint)}
+.pc .dn{margin-left:4px;color:var(--st-red);font-size:9px}
+.prob-title{font-size:13px;line-height:1.4}
+.prob-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.prob-why{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em}
+.prob-why.red{color:#ffb3bf}
+.prob-why.down{color:#ffd98a}
+.prob-empty{padding:36px 18px;text-align:center;font-family:var(--mono);
+  font-size:11px;letter-spacing:.08em;color:var(--ink-faint);line-height:1.9}
+
+/* ---- exec summary content ------------------------------------------ */
+.syn{width:100%;padding:14px 16px;border-radius:10px;border:1px solid var(--edge);
+  background:rgba(0,0,0,.22);font-size:13px;line-height:1.6}
+.syn .headline{font-size:15px;font-weight:600;margin-bottom:8px;line-height:1.4}
+.syn ul{margin:8px 0 0;padding-left:18px}
+.syn li{margin-bottom:5px}
+.syn .src{margin-top:10px;font-family:var(--mono);font-size:9px;
+  letter-spacing:.16em;color:var(--ink-faint)}
+.syn.ai{border-color:rgba(79,227,255,.35);background:rgba(79,227,255,.05)}
+.btn-gen{border-color:rgba(79,227,255,.5);color:#dff8ff;font-family:var(--mono);
+  letter-spacing:.1em;background:rgba(79,227,255,.10)}
+.btn-gen:hover{background:rgba(79,227,255,.2)}
+.btn-gen:disabled{opacity:.5}
+.aierr{margin-top:8px;font-family:var(--mono);font-size:10px;color:#ffb3bf;
+  letter-spacing:.06em}
+.pss-view{width:100%;display:flex;flex-direction:column;gap:10px}
+.pss-card{border:1px solid rgba(255,77,99,.3);border-radius:10px;
+  background:rgba(255,77,99,.05);padding:12px 14px}
+.pss-row{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:5px 0;
+  font-size:13px;line-height:1.5}
+.pss-row b{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  color:var(--ink-faint);font-weight:500;padding-top:2px}
+.pss-row .gw{color:var(--amber);font-family:var(--mono)}
+.cmt-list{width:100%;display:flex;flex-direction:column;gap:9px}
+
+/* ---- OPR problem/solution/get-well entry ---------------------------- */
+.pss-entry{border:1px solid rgba(255,77,99,.32);border-radius:10px;
+  background:rgba(255,77,99,.05);padding:12px 14px;display:flex;
+  flex-direction:column;gap:9px}
+.pss-entry .cmt{min-height:40px}
+.pss-entry input[type=date].ctl{max-width:200px}
+
 /* ==================== REPORTS: trend =============================== */
 #trend{width:100%;height:auto;display:block;touch-action:none;user-select:none;
   -webkit-user-select:none}
@@ -580,39 +681,48 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
 
     <main>
       <!-- ============================ REPORTS ============================ -->
+      <!-- Four quadrants; both dividers drag, the centre knob drags both. -->
       <div id="tabReports">
+        <div class="quad" id="quad">
 
-        <!-- Executive summary: rendering only. AI hook lives in section [9]. -->
-        <section class="panel exec">
-          <span class="corner tl"></span><span class="corner tr"></span>
-          <span class="corner bl"></span><span class="corner br"></span>
-          <div class="panel-h">
-            <h2>Executive Summary</h2>
-            <span class="eyebrow" id="execScopeTag"></span>
-            <div class="spacer"></div>
-            <button class="btn btn-sm" id="btnPayload" type="button" title="Copy the AI request payload for this scope">
-              COPY&nbsp;AI&nbsp;PAYLOAD
-            </button>
-          </div>
-          <div class="exec-body">
-            <div class="exec-scope">
-              <div class="eyebrow">Scope</div>
-              <div class="big" id="execCode">OVERALL</div>
-              <div class="sub" id="execTitle">All lines of effort</div>
+          <!-- TL: executive summary -->
+          <section class="panel quadrant qtl" id="qExec">
+            <div class="panel-h">
+              <h2>Executive Summary</h2>
+              <span class="eyebrow" id="execScopeTag"></span>
+              <div class="spacer"></div>
+              <button class="btn btn-sm btn-gen" id="btnGen" type="button">AI&nbsp;SUMMARY</button>
+              <button class="btn btn-sm" id="btnPayload" type="button" title="Copy the AI request payload for this scope">PAYLOAD</button>
             </div>
-            <div class="exec-text" id="execText"></div>
-            <div class="exec-metrics" id="execMetrics"></div>
-          </div>
-        </section>
+            <div class="exec-body">
+              <div class="exec-scope">
+                <div class="eyebrow">Scope</div>
+                <div class="big" id="execCode">OVERALL</div>
+                <div class="sub" id="execTitle">All lines of effort</div>
+                <div class="exec-metrics" id="execMetrics"></div>
+              </div>
+              <div class="exec-text" id="execText"></div>
+            </div>
+          </section>
 
-        <div class="viz">
-          <!-- nested pie -->
-          <section class="panel pie-panel">
-            <span class="corner tl"></span><span class="corner tr"></span>
-            <span class="corner bl"></span><span class="corner br"></span>
+          <div class="qdiv qv" id="qdV" title="Drag to resize"></div>
+
+          <!-- TR: watch items — red or falling indicators -->
+          <section class="panel quadrant qtr" id="qProb">
+            <div class="panel-h">
+              <h2>Watch Items</h2>
+              <span class="eyebrow" id="probTag"></span>
+            </div>
+            <div class="prob-list" id="probRoot"></div>
+          </section>
+
+          <div class="qdiv qh" id="qdH" title="Drag to resize"></div>
+          <div class="qknob" id="qKnob" title="Drag to resize both"></div>
+
+          <!-- BL: nested pie -->
+          <section class="panel quadrant qbl pie-panel">
             <div class="panel-h">
               <div class="crumbs" id="crumbs"></div>
-              <div class="spacer"></div>
             </div>
             <div class="pie-stage">
               <div class="pie-hold">
@@ -622,10 +732,8 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
             </div>
           </section>
 
-          <!-- trend + forecast -->
-          <section class="panel">
-            <span class="corner tl"></span><span class="corner tr"></span>
-            <span class="corner bl"></span><span class="corner br"></span>
+          <!-- BR: trend + forecast -->
+          <section class="panel quadrant qbr">
             <div class="panel-h">
               <h2>Trend &amp; Forecast</h2>
               <span class="eyebrow" id="trendScope"></span>
@@ -642,6 +750,7 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
             </div>
             <div class="legend" id="trendLegend"></div>
           </section>
+
         </div>
       </div>
 
@@ -770,7 +879,8 @@ const CHILD_KEY = {1:'imos',2:'tasks',3:'indicators'};
 
    entries : { [periodId]: { [office]: { ind:{ [indId]:{
                  r:number, s:StatusKey, cmt:string,
-                 by:string, ts:string, override?:string } } } } }
+                 pss?:{problem,solution,getWell},   // filed when the score fell
+                 by:string, ts:string, override?:string } } } } } // or went red
                                        // OPR submissions, written only on save
 
    ocr     : { [periodId]: { [indId]: OcrNote[] } }
@@ -814,12 +924,17 @@ const S = {
   locks:/** @type {any} */({}),
   /** Unsaved edits. Memory only — never persisted, never read by the rollups. */
   draft:/** @type {any} */({}),
+  /** AI summary cache keyed by scope|period|revision. Session only. */
+  ai:{cache:{},busy:null},
+  /** Bumps on every save so cached AI summaries go stale with the data. */
+  rev:0,
 };
 
 let _uid = 0;
 const uid = p => `${p}_${(++_uid).toString(36)}${Math.floor(Math.random()*1e6).toString(36)}`;
 
 function save(){
+  S.rev=(S.rev||0)+1;
   try{
     localStorage.setItem(LS_KEY,JSON.stringify({
       tree:S.tree, entries:S.entries, ocr:S.ocr, alerts:S.alerts, locks:S.locks, v:3}));
@@ -950,10 +1065,12 @@ function draftFor(period, office, indId){
   S.draft[period][office] = S.draft[period][office]||{};
   if(!S.draft[period][office][indId]){
     const eff = effectiveInd(indId, office, period);
+    const pss = (eff && !eff.inherited && eff.pss) ? eff.pss : {};
     S.draft[period][office][indId] = {
       r: eff ? eff.r : 0,
       s: eff ? eff.s : 'gray',
       cmt: (eff && !eff.inherited) ? (eff.cmt||'') : '',
+      pss: {problem:pss.problem||'', solution:pss.solution||'', getWell:pss.getWell||''},
     };
   }
   return S.draft[period][office][indId];
@@ -965,9 +1082,14 @@ const dropDraft = (period, office, indId)=>{
 function draftDirty(period, office, indId){
   const d = S.draft?.[period]?.[office]?.[indId];
   if(!d) return false;
+  const pd = d.pss||{};
+  const pssTyped = !!((pd.problem||'').trim()||(pd.solution||'').trim()||(pd.getWell||'').trim());
   const sv = S.entries?.[period]?.[office]?.ind?.[indId];
-  if(!sv) return d.r!==0 || d.s!=='gray' || !!(d.cmt||'').trim();
-  return sv.r!==d.r || sv.s!==d.s || (sv.cmt||'')!==(d.cmt||'');
+  if(!sv) return d.r!==0 || d.s!=='gray' || !!(d.cmt||'').trim() || pssTyped;
+  const sp = sv.pss||{};
+  return sv.r!==d.r || sv.s!==d.s || (sv.cmt||'')!==(d.cmt||'')
+      || (sp.problem||'')!==(pd.problem||'') || (sp.solution||'')!==(pd.solution||'')
+      || (sp.getWell||'')!==(pd.getWell||'');
 }
 
 /* =============================================================================
@@ -1120,6 +1242,29 @@ function seedEntries(tree){
       });
     });
   })));
+  // red current-quarter entries arrive with a Problem/Solution/Get-well-by
+  // already filed, so the executive views have the format to show
+  const PSS_BANK=[
+    {problem:'Funding release slipped a full quarter and stalled the effort.',
+     solution:'Reprogramming request staffed; execution resumes on approval.',
+     getWell:'2026-12-15'},
+    {problem:'Key billet gapped; no qualified backfill on station.',
+     solution:'By-name request submitted and TDY coverage arranged.',
+     getWell:'2026-11-30'},
+    {problem:'Dependency on partner deliverable that is running late.',
+     solution:'Joint recovery plan agreed at the last synchronisation board.',
+     getWell:'2027-01-31'},
+  ];
+  let pssN=0;
+  for(const off in (entries[CURRENT_PERIOD]||{})){
+    const ind=entries[CURRENT_PERIOD][off].ind;
+    for(const id in ind){
+      if(ind[id].s==='red'){
+        ind[id].cmt='';
+        ind[id].pss=PSS_BANK[pssN++ % PSS_BANK.length];
+      }
+    }
+  }
   return entries;
 }
 function ent(entries,p,off){
@@ -1365,7 +1510,7 @@ function commentsUnder(path, period){
       const ind=nodeAt(p); if(!ind) return;
       oprOf(ind).forEach(off=>{
         const e = S.entries?.[period]?.[off]?.ind?.[ind.id];
-        const c = e && e.cmt;
+        const c = e && pssText(e);
         if(c && c.trim()) out.push({office:off,code:codeOf(p),
           task:(taskOfPath(p)||{}).title||'',indicator:ind.title,text:c.trim()});
       });
@@ -1444,6 +1589,15 @@ function fitFor(path){
   return {periods,series,masked,w,fc};
 }
 
+/**
+ * The Problem/Solution/Get-well-by format applies while an OPR is entering a
+ * score lower than last quarter's, or a red status. Everything else keeps the
+ * plain comment.
+ */
+function pssRequired(draft, prevRating){
+  return draft.s==='red' || (prevRating!=null && draft.r < prevRating - 1e-9);
+}
+
 /* =============================================================================
    WRITE PATH — the only way data enters `entries`
    ========================================================================== */
@@ -1463,8 +1617,14 @@ function saveIndicator(period, office, ind, code, opts){
       +`Saved:   ${was}\nReplace with: ${now}\n\nOverwrite it?`)) return false;
   }
   const e = ent(S.entries,period,office);
-  e.ind[ind.id] = {r:d.r, s:d.s, cmt:(d.cmt||'').trim(),
+  const rec = {r:d.r, s:d.s, cmt:(d.cmt||'').trim(),
     by:`${S.user.name} (${office})`, ts:new Date().toISOString()};
+  if(pssRequired(d, prevQuarterRating(ind.id,office,period))){
+    rec.cmt='';
+    rec.pss={problem:(d.pss.problem||'').trim(), solution:(d.pss.solution||'').trim(),
+             getWell:(d.pss.getWell||'').trim()};
+  }
+  e.ind[ind.id] = rec;
   dropDraft(period,office,ind.id);
   save();
   return true;
@@ -1672,7 +1832,10 @@ function sliceColor(path,period){
 }
 
 /* =============================================================================
-   [9] AI EXECUTIVE SUMMARY — INTEGRATION STUB  (NOT WIRED)
+   [9] AI EXECUTIVE SUMMARY — request/response types and payload builder.
+       The live call is in 'AI EXECUTIVE SUMMARY — LIVE WIRING' below, which
+       uses the site's shared /api/llm-json endpoint. TODO(PLNTR MAVEN): that
+       block is the swap point when the builder AI rewires the model.
    -----------------------------------------------------------------------------
    `buildSummaryPayload()` below is live and pure: it assembles everything an
    LLM needs to write the executive summary for the currently displayed scope —
@@ -1710,7 +1873,13 @@ function sliceColor(path,period){
      code: string;        // 'Indicator 1.1.1.2' — comments are indicator level
      task: string;        // parent task title, for context
      indicator: string;   // indicator title
-     text: string;
+     text: string;        // plain comment, or the formatted PSS triple
+   }
+   export interface ProblemIndicator {
+     code: string; title: string; status: StatusKey;
+     rating: number|null; delta: number|null;   // change since last quarter
+     opr: string[];
+     problem?: string; solution?: string; getWellBy?: string;
    }
    // OCR coordination traffic is deliberately NOT in the summary payload: only
    // the OPR's saved comment is the office's position of record. Pass
@@ -1722,6 +1891,7 @@ function sliceColor(path,period){
      children: NodeRollup[];
      trend: TrendBlock;
      comments: OfficeComment[];
+     problems: ProblemIndicator[];  // red or falling under this scope
      descendantCounts: { imos:number; tasks:number; indicators:number };
      audience: 'commander' | 'staff';
      maxWords: number;
@@ -1810,6 +1980,15 @@ function buildSummaryPayload(){
       seasonalOffsets: (S.forecastMode!=='off' && fc.season) ? fc.season.map(f2) : null,
     },
     comments: commentsUnder(path,period),
+    problems: problemIndicators(period,path).slice(0,20).map(p=>{
+      const e = oprOf(p.ind).map(o=>effectiveInd(p.ind.id,o,period)).find(x=>x&&x.pss);
+      return {code:p.code, title:p.ind.title, status:p.status,
+        rating:indicatorValue(p.ind.id,p.ind,period),
+        delta:p.delta==null?null:f2(p.delta), opr:p.opr,
+        problem:e?e.pss.problem:undefined,
+        solution:e?e.pss.solution:undefined,
+        getWellBy:e?e.pss.getWell:undefined};
+    }),
     descendantCounts:{imos,tasks,indicators:inds},
     audience:'commander',
     maxWords:180,
@@ -2645,13 +2824,152 @@ function lineD(arr,X,Y){
   return pts.map((p,i)=>`${i?'L':'M'}${f2(p[0])},${f2(p[1])}`).join('');
 }
 
+/* =============================================================================
+   WATCH ITEMS — red or falling indicators, and the drill-to animation
+   ========================================================================== */
+/** Current-vs-previous-quarter change in an indicator's rolled-up rating. */
+function indicatorDelta(ind, period){
+  const i = PERIOD_IDX[period];
+  if(i<1) return null;
+  const cur = indicatorValue(ind.id, ind, period);
+  const prev = indicatorValue(ind.id, ind, PERIODS[i-1].id);
+  return (cur!=null && prev!=null) ? cur-prev : null;
+}
+/**
+ * Indicators an executive should look at: status red, or rating fell since
+ * last quarter. Sorted reds first, then by steepest fall.
+ */
+function problemIndicators(period, underPath){
+  const out=[];
+  walkIndicators((ind,path)=>{
+    if(underPath && !underPath.every((v,i)=>path[i]===v)) return;
+    const st = indicatorStatus(ind.id, ind, period);
+    const delta = indicatorDelta(ind, period);
+    const red = st==='red';
+    const down = delta!=null && delta < -1e-9;
+    if(!red && !down) return;
+    out.push({ind, path, code:codeOf(path), status:st, delta, red, down,
+      opr:oprOf(ind),
+      chain:[statusOf(path.slice(0,1),period), statusOf(path.slice(0,2),period),
+             statusOf(path.slice(0,3),period), st]});
+  });
+  return out.sort((x,y)=>(y.red-x.red) || ((x.delta??0)-(y.delta??0)));
+}
+
+function renderProblems(){
+  const root=$('#probRoot'); if(!root) return;
+  root.innerHTML='';
+  const period=S.period;
+  const probs=problemIndicators(period);
+  $('#probTag').textContent=`${probs.length} · ${period}`;
+  if(!probs.length){
+    root.appendChild(el('div','prob-empty','NO RED OR FALLING INDICATORS THIS QUARTER'));
+    return;
+  }
+  const names=['LOE','IMO','TSK','IND'];
+  probs.forEach(pr=>{
+    const b=el('button','prob'+(pr.red?'':' down-only')); b.type='button';
+    // structure chain, each level in its own rolled-up colour
+    const chain=el('div','prob-chain');
+    pr.chain.forEach((stKey,d)=>{
+      if(d) chain.appendChild(el('span','pc-sep','›'));
+      const st=STATUS[stKey];
+      const chip=el('span','pc',
+        `${names[d]} ${pr.path.slice(0,d+1).map(i=>i+1).join('.')}`);
+      chip.style.color=st.c; chip.style.borderColor=st.c+'55';
+      chip.style.background=st.c+'12';
+      if(d===3 && pr.down){
+        const dn=el('span','dn','\u25BC'); chip.appendChild(dn);
+      }
+      chain.appendChild(chip);
+    });
+    b.appendChild(chain);
+    b.appendChild(el('div','prob-title',pr.ind.title));
+    const foot=el('div','prob-foot');
+    if(pr.red) foot.appendChild(el('span','prob-why red','RED'));
+    if(pr.down) foot.appendChild(el('span','prob-why down',
+      `\u25BC ${r1(Math.abs(pr.delta))} SINCE ${PERIODS[PERIOD_IDX[period]-1].short}`));
+    foot.appendChild(el('div','spacer'));
+    pr.opr.forEach(o=>{
+      const c=el('span','chip opr',o); c.title=`OPR · ${OFFICE_NAME[o]||o}`;
+      foot.appendChild(c);
+    });
+    b.appendChild(foot);
+    b.addEventListener('click',()=>driveTo(pr.path));
+    root.appendChild(b);
+  });
+}
+
+/**
+ * Progressively drills the pie (and with it the trend and summary) down to a
+ * target indicator, one level at a time, so the executive watches the nesting
+ * open rather than teleporting.
+ */
+function driveTo(target){
+  if(S.animating) return;
+  // retreat instantly to the deepest common prefix, then animate downward
+  let common=0;
+  while(common<S.focus.length && common<target.length && S.focus[common]===target[common]) common++;
+  if(S.focus.length>common){ S.focus=target.slice(0,common); S.hover=null; renderReports(); }
+  const step=()=>{
+    if(S.animating){ setTimeout(step,80); return; }
+    if(S.focus.length>=target.length) return;
+    animateFocus(target.slice(0,S.focus.length+1),'down');
+    setTimeout(step,120);
+  };
+  step();
+}
+
+/* =============================================================================
+   QUADRANT LAYOUT — both dividers drag; the centre knob drags both
+   ========================================================================== */
+const UI_KEY='c1aa.ui.v1';
+const UI={fx:.52,fy:.46};
+function loadUi(){
+  try{ Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY)||'{}')); }catch(e){}
+}
+function applyQuad(){
+  const q=$('#quad'); if(!q) return;
+  q.style.setProperty('--fx',clamp(UI.fx,.24,.76));
+  q.style.setProperty('--fy',clamp(UI.fy,.22,.78));
+}
+function initQuad(){
+  loadUi(); applyQuad();
+  const q=$('#quad');
+  let mode=null;
+  const move=e=>{
+    if(!mode) return;
+    const r=q.getBoundingClientRect();
+    if(mode!=='h') UI.fx=clamp((e.clientX-r.left)/r.width,.24,.76);
+    if(mode!=='v') UI.fy=clamp((e.clientY-r.top)/r.height,.22,.78);
+    applyQuad();
+  };
+  const start=(m)=>e=>{
+    mode=m; e.preventDefault();
+    e.target.classList.add('on');
+    e.target.setPointerCapture(e.pointerId);
+  };
+  const end=e=>{
+    if(!mode) return;
+    mode=null; e.target.classList.remove('on');
+    try{ localStorage.setItem(UI_KEY,JSON.stringify(UI)); }catch(err){}
+  };
+  [['#qdV','v'],['#qdH','h'],['#qKnob','b']].forEach(([sel,m])=>{
+    const n=$(sel); if(!n) return;
+    n.addEventListener('pointerdown',start(m));
+    n.addEventListener('pointermove',move);
+    n.addEventListener('pointerup',end);
+    n.addEventListener('pointercancel',end);
+  });
+}
+
 /* ---- executive summary frame (rendering only) --------------------------- */
 function renderExecFrame(){
   const period=S.period, path=S.focus;
   const node = path.length?nodeAt(path):null;
   $('#execCode').textContent = path.length?codeOf(path).toUpperCase():'OVERALL';
   $('#execTitle').textContent = node?node.title:'All lines of effort';
-  $('#execScopeTag').textContent = `${period} · AI SUMMARY NOT WIRED`;
+  $('#execScopeTag').textContent = period;
 
   const v=valueOf(path,period), st=STATUS[statusOf(path,period)];
   const {periods,fc,w:win}=fitFor(path);
@@ -2696,17 +3014,223 @@ function renderExecFrame(){
    +'counted here and do not reach the reports tab.');
 
   const t=$('#execText'); t.innerHTML='';
-  const e=el('div','exec-empty');
-  e.innerHTML =
-    `<span class="k">// EXECUTIVE SUMMARY — RESERVED</span><br>`
-   +`<span class="k">// </span>buildSummaryPayload() is live for this scope: `
-   +`${cms.length} comment${cms.length===1?'':'s'}, `
-   +`${childrenOf(path).length} child node${childrenOf(path).length===1?'':'s'}, `
-   +`${win.all?periods.length:(win.b-win.a+1)} quarter`
-   +`${(win.all?periods.length:(win.b-win.a+1))===1?'':'s'} of series`
-   +`${win.all?'':` (${PERIODS[win.a].short}–${PERIODS[win.b].short} selected)`}.<br>`
-   +`<span class="k">// </span>Implement fetchExecutiveSummary() (see section [9]) and render here.`;
-  t.appendChild(e);
+  const gen=$('#btnGen');
+
+  // ---- indicator leaf: no summarising a single entry ----------------------
+  if(path.length===4){
+    gen.classList.add('hidden');
+    $('#execScopeTag').textContent = `${period} · OPR INPUT`;
+    const ind=nodeAt(path);
+    const probs=problemIndicators(period).filter(x=>x.ind.id===ind.id);
+    if(probs.length){
+      // trouble indicator: the OPR's Problem / Solution / Get-well-by
+      const wrap=el('div','pss-view');
+      const why=probs[0];
+      const tagLine=el('div','eyebrow',
+        (why.red?'RED':'')+(why.red&&why.down?' · ':'')
+        +(why.down?`FELL ${r1(Math.abs(why.delta))} SINCE ${PERIODS[PERIOD_IDX[period]-1].short}`:''));
+      tagLine.style.color='#ffb3bf';
+      wrap.appendChild(tagLine);
+      let any=false;
+      oprOf(ind).forEach(off=>{
+        const e2=effectiveInd(ind.id,off,period);
+        if(!e2) return;
+        const card=el('div','pss-card');
+        card.appendChild(el('div','eyebrow',
+          `${off}${e2.inherited?` · INHERITED ${e2.from}`:''}`));
+        const pss=e2.pss||{};
+        const row=(k,v2,cls)=>{
+          const r=el('div','pss-row'); r.appendChild(el('b','',k));
+          const d2=el('div',cls||'',v2||'—'); r.appendChild(d2); card.appendChild(r);
+        };
+        row('PROBLEM', pss.problem || e2.cmt || 'Not filed by the OPR.');
+        row('SOLUTION', pss.solution);
+        row('GET WELL BY', pss.getWell, 'gw');
+        wrap.appendChild(card); any=true;
+      });
+      if(!any) wrap.appendChild(el('div','exec-empty','NO OPR SUBMISSION THIS QUARTER'));
+      t.appendChild(wrap);
+    }else{
+      // healthy indicator: show the OPR comments verbatim
+      const wrap=el('div','cmt-list');
+      let any=false;
+      oprOf(ind).forEach(off=>{
+        const e2=effectiveInd(ind.id,off,period);
+        if(!e2 || !((e2.cmt&&e2.cmt.trim())||e2.pss)) return;
+        const card=el('div','syn');
+        card.appendChild(el('div','eyebrow',
+          `${off}${e2.inherited?` · INHERITED ${e2.from}`:''}`));
+        card.appendChild(el('div','',pssText(e2)));
+        wrap.appendChild(card); any=true;
+      });
+      if(!any) wrap.appendChild(el('div','exec-empty','NO OPR COMMENT THIS QUARTER'));
+      t.appendChild(wrap);
+    }
+    return;
+  }
+
+  // ---- overall down to task: AI executive summary --------------------------
+  gen.classList.remove('hidden');
+  const key=aiKey();
+  const cached=S.ai.cache[key];
+  $('#execScopeTag').textContent =
+    `${period}${cached?' · AI':''}${S.ai.busy===key?' · GENERATING':''}`;
+  gen.disabled = S.ai.busy===key;
+  gen.textContent = S.ai.busy===key ? 'GENERATING…' : (cached?'REGENERATE':'AI SUMMARY');
+
+  if(cached){
+    t.appendChild(renderSummaryCard(cached,true));
+  }else{
+    // deterministic staff synopsis so the panel is never empty; the AI
+    // narrative replaces it on demand
+    t.appendChild(renderSummaryCard(localSynopsis(buildSummaryPayload()),false));
+  }
+  if(S.ai.error===key){
+    const e2=el('div','aierr',S.ai.errorMsg||'AI REQUEST FAILED');
+    t.appendChild(e2);
+  }
+}
+
+/** One rendered summary: headline, narrative, drivers/risks, provenance. */
+function renderSummaryCard(sm,isAi){
+  const card=el('div','syn'+(isAi?' ai':''));
+  if(sm.headline) card.appendChild(el('div','headline',sm.headline));
+  if(sm.summary) card.appendChild(el('div','',sm.summary));
+  const li=(arr,label)=>{
+    if(!arr||!arr.length) return;
+    card.appendChild(el('div','eyebrow',label));
+    const u=el('ul');
+    arr.slice(0,5).forEach(x=>u.appendChild(el('li','',x)));
+    card.appendChild(u);
+  };
+  li(sm.drivers,'Drivers'); li(sm.risks,'Risks');
+  if(sm.recommendation){
+    card.appendChild(el('div','eyebrow','Recommendation'));
+    card.appendChild(el('div','',sm.recommendation));
+  }
+  card.appendChild(el('div','src', isAi
+    ? `AI SUMMARY · ${String(sm.generatedAt||'').slice(0,16).replace('T',' ')}`
+    : 'STAFF SYNOPSIS (COMPUTED LOCALLY) — PRESS AI SUMMARY FOR THE NARRATIVE'));
+  return card;
+}
+
+/** An OPR entry's text of record: plain comment, or the PSS triple. */
+function pssText(e){
+  if(e && e.pss) return `Problem: ${e.pss.problem||'—'}  //  Solution: `
+    +`${e.pss.solution||'—'}  //  Get well by: ${e.pss.getWell||'—'}`;
+  return (e && e.cmt) ? e.cmt : '';
+}
+
+/**
+ * Deterministic summary computed from the payload alone — no model involved.
+ * Keeps the quadrant useful offline and is the fallback when the AI errs.
+ */
+function localSynopsis(pl){
+  const sc=pl.scope, tr=pl.trend;
+  const dir = tr.slope>0.04?'improving':(tr.slope<-0.04?'declining':'holding steady');
+  const drivers=[], risks=[];
+  pl.children.forEach(c=>{
+    if(c.maturity==null) return;
+    if(c.status==='blue'||c.status==='green') drivers.push(
+      `${c.code} at ${c.percent}% (${c.status.toUpperCase()})`);
+    else if(c.status==='red') risks.push(`${c.code} at ${c.percent}% (RED)`);
+  });
+  (pl.problems||[]).slice(0,4).forEach(p2=>{
+    risks.push(`${p2.code} ${p2.status==='red'?'RED':''}`
+      +`${p2.delta!=null&&p2.delta<0?` fell ${r1(Math.abs(p2.delta))}`:''}`
+      +` — OPR ${p2.opr.join(' ')}`);
+  });
+  return {
+    headline:`${sc.code}: ${sc.percent==null?'not assessed':sc.percent+'%'} `
+      +`(${sc.status.toUpperCase()}), ${dir}`,
+    summary:`${sc.title} stands at `
+      +`${sc.maturity==null?'no assessed maturity':`${r1(sc.maturity)} of ${MAX_RATING}`}`
+      +` for ${pl.period}, trending ${dir} at ${tr.slope>0?'+':''}${tr.slope} per quarter`
+      +`${tr.forecast?`; next quarter projects ${tr.forecast.point} `
+      +`[${tr.forecast.low}–${tr.forecast.high}]`:''}. `
+      +`${(pl.problems||[]).length} indicator${(pl.problems||[]).length===1?'':'s'} `
+      +`under this scope ${(pl.problems||[]).length===1?'is':'are'} red or falling.`,
+    drivers:drivers.slice(0,4),
+    risks:risks.slice(0,5),
+  };
+}
+
+/* =============================================================================
+   AI EXECUTIVE SUMMARY — LIVE WIRING
+   -----------------------------------------------------------------------------
+   Uses the SAME shared model endpoint every other tool on this site calls:
+   POST /api/llm-json  (see /api/llm-json.js — a Vercel function fronting
+   OpenAI, JSON-only responses, rate-limited to 10 requests per day per IP,
+   which is why generation is a button and responses are cached per scope).
+
+   >>> TODO(BUILDER AI / PLNTR MAVEN) <<<
+   When this tool is transferred to the builder AI and rewired to the model it
+   has access to in PLNTR MAVEN, replace ONLY callSummaryModel() below. The
+   request contract (buildSummaryPayload -> ExecutiveSummaryRequest) and the
+   response contract (ExecutiveSummaryResponse, validated in ensureSummary)
+   are the interface and must survive the swap unchanged.
+   ========================================================================== */
+const SUMMARY_INSTRUCTIONS =
+ 'You write executive summaries for a military headquarters objective-'
++'assessment dashboard. The user message is a JSON ExecutiveSummaryRequest: '
++'scope rollup, children rollups, trend with optional forecast and fit '
++'window, OPR comments of record, and problem indicators (red or falling, '
++'possibly with Problem/Solution/Get-well-by fields). Write for a commander. '
++'Use ONLY the numbers in the payload; never invent figures. Weigh the '
++'problem indicators and the OPR comments most heavily. Return JSON only: '
++'{"headline": string (<=140 chars), "summary": string (3-5 sentences on '
++'status, progress and trend), "drivers": string[] (<=4), "risks": string[] '
++'(<=5, name the OPR offices), "recommendation": string, '
++'"confidence": "low"|"medium"|"high"}';
+
+function aiKey(){
+  return [S.focus.join('.')||'root', S.period, S.rev||0,
+          S.forecastMode, S.range?`${S.range.a}-${S.range.b}`:'all'].join('|');
+}
+
+/** The one function PLNTR MAVEN replaces. Payload in, summary JSON out. */
+async function callSummaryModel(payload){
+  const res = await fetch('/api/llm-json', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      toolId:'pmh-hq-assessment',
+      instructions:SUMMARY_INSTRUCTIONS,
+      userPrompt:JSON.stringify(payload),
+    }),
+  });
+  const body = await res.json();
+  if(!res.ok || !body.ok) throw new Error(body.error||`summary failed: ${res.status}`);
+  return body.json;
+}
+
+function ensureSummary(x){
+  if(!x || typeof x!=='object') throw new Error('Model returned no JSON object.');
+  return {
+    headline:String(x.headline||'').slice(0,180),
+    summary:String(x.summary||''),
+    drivers:Array.isArray(x.drivers)?x.drivers.map(String):[],
+    risks:Array.isArray(x.risks)?x.risks.map(String):[],
+    recommendation:x.recommendation?String(x.recommendation):'',
+    confidence:['low','medium','high'].includes(x.confidence)?x.confidence:'medium',
+    generatedAt:new Date().toISOString(),
+  };
+}
+
+async function generateSummary(){
+  const key=aiKey();
+  if(S.ai.busy) return;
+  S.ai.busy=key; delete S.ai.error; renderExecFrame();
+  try{
+    const sm=ensureSummary(await callSummaryModel(buildSummaryPayload()));
+    S.ai.cache[key]=sm;
+  }catch(err){
+    S.ai.error=key;
+    S.ai.errorMsg=`AI UNAVAILABLE — ${String(err.message||err).slice(0,90).toUpperCase()}`;
+  }finally{
+    S.ai.busy=null;
+    renderExecFrame();
+  }
 }
 
 /* =============================================================================
@@ -3008,6 +3532,11 @@ function renderOprView(root){
     const sl=ratingSlider(d.r,prev,(v)=>{
       d.r=v; val.textContent=r1(v); markDirty(card,period,role,ind.id);
     },locked);
+    // crossing the trouble threshold swaps the comment box for the
+    // Problem / Solution / Get-well-by form (on release, not mid-drag)
+    sl.input.addEventListener('change',()=>{
+      if(pssRequired(d,prev)!==wasPss) renderData();
+    });
     row.appendChild(sl.wrap);
     row.appendChild(val);
     row.appendChild(statusPicker(d.s,(sk)=>{
@@ -3018,13 +3547,33 @@ function renderOprView(root){
     // ---- OCR coordination, expanded from the card header
     if(open) cb.appendChild(ocrNoteListAck(ind,period,true));
 
-    // ---- OPR comment of record
+    // ---- comment of record: plain, or Problem/Solution/Get-well-by when the
+    // score fell below last quarter or the status is red
+    const wasPss=pssRequired(d,prev);
     const cw=el('div','icmt');
-    cw.appendChild(el('div','eyebrow','OPR comment of record'));
-    const ta=el('textarea','cmt');
-    ta.value=d.cmt||''; ta.disabled=locked;
-    ta.addEventListener('input',()=>{ d.cmt=ta.value; markDirty(card,period,role,ind.id); });
-    cw.appendChild(ta);
+    if(wasPss){
+      const pe=el('div','pss-entry');
+      pe.appendChild(el('div','eyebrow','Problem'));
+      const tp=el('textarea','cmt'); tp.value=d.pss.problem; tp.disabled=locked;
+      tp.addEventListener('input',()=>{ d.pss.problem=tp.value; markDirty(card,period,role,ind.id); });
+      pe.appendChild(tp);
+      pe.appendChild(el('div','eyebrow','Solution'));
+      const tso=el('textarea','cmt'); tso.value=d.pss.solution; tso.disabled=locked;
+      tso.addEventListener('input',()=>{ d.pss.solution=tso.value; markDirty(card,period,role,ind.id); });
+      pe.appendChild(tso);
+      pe.appendChild(el('div','eyebrow','Get well by'));
+      const gd=document.createElement('input');
+      gd.type='date'; gd.className='ctl'; gd.value=d.pss.getWell||''; gd.disabled=locked;
+      gd.addEventListener('change',()=>{ d.pss.getWell=gd.value; markDirty(card,period,role,ind.id); });
+      pe.appendChild(gd);
+      cw.appendChild(pe);
+    }else{
+      cw.appendChild(el('div','eyebrow','OPR comment of record'));
+      const ta=el('textarea','cmt');
+      ta.value=d.cmt||''; ta.disabled=locked;
+      ta.addEventListener('input',()=>{ d.cmt=ta.value; markDirty(card,period,role,ind.id); });
+      cw.appendChild(ta);
+    }
     cb.appendChild(cw);
 
     // ---- save row
@@ -3414,7 +3963,8 @@ function renderAdminSubmissions(root){
           e.inherited ? `INHERITED FROM ${e.from}`
                       : `SAVED ${String(e.ts||'').slice(0,10)} BY ${e.by||'—'}`));
         if(e.override) line.appendChild(el('span','pill inh','OVERRIDE'));
-        if(e.cmt) line.appendChild(el('span','subcmt',e.cmt));
+        const ctext=pssText(e);
+        if(ctext) line.appendChild(el('span','subcmt',ctext));
       }
       cb.appendChild(line);
     });
@@ -3727,7 +4277,7 @@ function renderPeriods(){
 }
 
 function renderReports(){
-  renderCrumbs(); renderPie(); renderTrend(); renderExecFrame();
+  renderCrumbs(); renderPie(); renderTrend(); renderProblems(); renderExecFrame();
 }
 /** Unread count on the alerts tab. */
 function renderTabBadges(){
@@ -3768,6 +4318,8 @@ function initShell(){
     if(pop && !pop.classList.contains('hidden') && !e.target.closest('.per')) pop.classList.add('hidden');
   });
   initHistSlider();
+  initQuad();
+  $('#btnGen').addEventListener('click',generateSummary);
   // one-time: leaving the chart clears the hover reveal
   $('#pie').addEventListener('pointerleave',()=>{ if(!S.animating) setHover(null); });
   $('#seasonSeg').addEventListener('click',e=>{
