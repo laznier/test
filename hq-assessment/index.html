@@ -43,7 +43,7 @@
         AlertsTab          <- section [14]    props: { alerts, onRead, onJump }
         ManagementTab      <- section [14b]   props: { locks, participation }
         NestedPie          <- section [11]   props: { tree, period, focusPath,
-                                                     colorMode, onFocus }
+                                                     onFocus }
         TrendForecast      <- section [12]   props: { series, components,
                                                       forecast }
         ExecutiveSummary   <- section [9]    props: { payload, summary, loading }
@@ -603,10 +603,6 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
             <div class="panel-h">
               <div class="crumbs" id="crumbs"></div>
               <div class="spacer"></div>
-              <div class="seg" id="colorSeg">
-                <button data-cm="status" class="on" type="button">STATUS</button>
-                <button data-cm="maturity" type="button">MATURITY</button>
-              </div>
             </div>
             <div class="pie-stage">
               <div class="pie-hold">
@@ -785,7 +781,6 @@ const S = {
   period:CURRENT_PERIOD,
   focus:/** @type {number[]} */([]),   // [] | [loe] | [loe,imo] | [loe,imo,task] | [...,ind]
   hover:/** @type {number|null} */(null),
-  colorMode:'status',         // 'status' | 'maturity'
   seasonal:true,
   animating:false,
   adminView:'structure',      // A9 data tab: 'structure' | 'submissions'
@@ -1641,19 +1636,11 @@ function layout(path, period, a0=0, a1=360){
   });
 }
 
-/** Slice fill: status hue, or a cool maturity ramp. */
+/**
+ * Slice fill. Size already carries the rating, so colour carries only the
+ * status — there is no second colour channel for the rating.
+ */
 function sliceColor(path,period){
-  if(S.colorMode==='maturity'){
-    const v = valueOf(path,period);
-    if(v==null) return {c:STATUS.gray.c,c2:STATUS.gray.c2};
-    const t = v/MAX_RATING;
-    const stops=[[26,52,96],[24,110,150],[32,178,178],[79,227,255]];
-    const x=t*(stops.length-1), i=Math.min(stops.length-2,Math.floor(x)), f=x-i;
-    const mix=(a,b)=>Math.round(lerp(a,b,f));
-    const rgb=[0,1,2].map(k=>mix(stops[i][k],stops[i+1][k]));
-    const dark=rgb.map(v2=>Math.round(v2*0.42));
-    return {c:`rgb(${rgb.join(',')})`,c2:`rgb(${dark.join(',')})`};
-  }
   const st = STATUS[statusOf(path,period)];
   return {c:st.c,c2:st.c2};
 }
@@ -2042,12 +2029,10 @@ function drawCore(gCore){
     stroke:'rgba(120,190,255,.13)'}));
   gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:CORE,fill:'url(#coreG)',
     stroke:st.c,'stroke-opacity':'.55','stroke-width':'1.6'}));
-  // maturity arc around the core
-  const sweepDeg = (v==null?0:v/MAX_RATING)*360;
-  if(sweepDeg>0.5){
-    gCore.appendChild(svgEl('path',{d:arcPath(CORE+5,CORE+11,0,sweepDeg),
-      fill:st.c,opacity:'.85','fill-rule':'evenodd',filter:'url(#glowS)'}));
-  }
+  // status ring around the core: a full ring, so nothing here encodes the
+  // rating — the rating is carried by slice size and by the figure below
+  gCore.appendChild(svgEl('path',{d:arcPath(CORE+5,CORE+11,0,360),
+    fill:st.c,opacity:'.85','fill-rule':'evenodd',filter:'url(#glowS)'}));
   const label = S.focus.length ? codeOf(S.focus) : 'OVERALL';
   const t1 = svgEl('text',{x:CX,y:CY-34,'text-anchor':'middle',fill:'#8fa5c4',
     'font-family':'ui-monospace,monospace','font-size':'19','letter-spacing':'4'});
@@ -2291,8 +2276,7 @@ function renderHud(){
 
   if(!isHover && S.focus.length<4){
     const idle=el('div','hud-idle');
-    idle.innerHTML = `ANGLE = MATURITY &nbsp;·&nbsp; FILL = `
-      + (S.colorMode==='status'?'STATUS':'MATURITY')
+    idle.innerHTML = `ANGLE = RATING &nbsp;·&nbsp; FILL = STATUS`
       + `<br>DRAG THE TREND TO SET THE FIT WINDOW`;
     hud.appendChild(idle);
   }
@@ -3723,12 +3707,6 @@ function initShell(){
   initBrush();
   // one-time: leaving the chart clears the hover reveal
   $('#pie').addEventListener('pointerleave',()=>{ if(!S.animating) setHover(null); });
-  $('#colorSeg').addEventListener('click',e=>{
-    const b=e.target.closest('button'); if(!b) return;
-    S.colorMode=b.dataset.cm;
-    [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
-    renderPie();
-  });
   $('#seasonSeg').addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b) return;
     S.seasonal = b.dataset.se==='1';
