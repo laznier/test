@@ -314,7 +314,6 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 /* ==================== REPORTS: trend =============================== */
 #trend{width:100%;height:auto;display:block;touch-action:none;user-select:none;
   -webkit-user-select:none}
-#brushHit{cursor:crosshair}
 .rangebox{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .legend{display:flex;flex-wrap:wrap;gap:7px 16px;padding:12px 18px 16px}
 .lg{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;
@@ -371,8 +370,8 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .icmt .cmt{min-height:52px}
 .slider-wrap{position:relative}
 input[type=range]{
-  -webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:20px;outline:none;
-  background:rgba(255,255,255,.1);margin:0}
+  -webkit-appearance:none;appearance:none;display:block;width:100%;height:4px;
+  border-radius:20px;outline:none;background:rgba(255,255,255,.1);margin:0}
 input[type=range]::-webkit-slider-thumb{
   -webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:#eafaff;
   border:2px solid var(--cy);box-shadow:0 0 14px rgba(79,227,255,.75);cursor:pointer}
@@ -408,12 +407,10 @@ input[type=range]::-moz-range-thumb{
 
 /* ---- slider ghost (previous quarter) ------------------------------------ */
 .slider-wrap{position:relative;padding-top:16px}
-.ghost{position:absolute;top:12px;width:2px;height:22px;margin-left:-1px;
-  background:rgba(255,255,255,.42);border-radius:2px;pointer-events:none;z-index:0}
-.ghost::after{content:"";position:absolute;left:-4px;top:6px;width:10px;height:10px;
-  border-radius:50%;background:rgba(255,255,255,.20);
-  border:1px solid rgba(255,255,255,.45)}
-.ghost-lb{position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+.ghost{position:absolute;top:13px;width:10px;height:10px;margin-left:-5px;
+  border-radius:50%;background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.55);pointer-events:none;z-index:0}
+.ghost-lb{position:absolute;top:-14px;left:50%;transform:translateX(-50%);
   font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:rgba(255,255,255,.5);
   white-space:nowrap}
 input[type=range].ro{opacity:.5;cursor:not-allowed}
@@ -437,6 +434,19 @@ input[type=range]:disabled::-webkit-slider-thumb{background:#8fa5c4;border-color
 .ocr-txt{font-size:13px;line-height:1.55}
 .ocr-rec{margin-top:5px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
   color:#ffd98a}
+
+.chev{display:inline-block;font-size:12px;color:var(--ink-faint);
+  transition:transform .16s;flex:0 0 auto}
+.chev.open{transform:rotate(90deg);color:var(--cy)}
+.ch-click{cursor:pointer}
+.ch-click:hover .chev{color:var(--cy)}
+.pill.newocr{color:#ffd98a;border-color:rgba(255,194,71,.42);background:rgba(255,194,71,.10)}
+.pill.quiet{color:var(--ink-faint);border-color:var(--edge);background:transparent}
+.ackd{margin-top:7px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;
+  color:#7ff0b6}
+.btn-ack{border-color:rgba(79,227,255,.45);color:#dff8ff;font-family:var(--mono);
+  letter-spacing:.12em;background:rgba(79,227,255,.08)}
+.btn-ack:hover{background:rgba(79,227,255,.16)}
 
 /* ---- save row ----------------------------------------------------------- */
 .saverow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:13px}
@@ -622,12 +632,13 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
               <div class="spacer"></div>
               <div class="rangebox" id="rangeBox"></div>
               <div class="seg" id="seasonSeg">
-                <button data-se="1" class="on" type="button">SEASONAL</button>
-                <button data-se="0" type="button">LINEAR</button>
+                <button data-fm="seasonal" class="on" type="button">SEASONAL</button>
+                <button data-fm="linear" type="button">LINEAR</button>
+                <button data-fm="off" type="button">OFF</button>
               </div>
             </div>
             <div style="padding:14px 8px 0">
-              <svg id="trend" viewBox="0 0 1200 400" role="img" aria-label="Maturity trend and forecast"></svg>
+              <svg id="trend" viewBox="0 0 1200 434" role="img" aria-label="Maturity trend and forecast"></svg>
             </div>
             <div class="legend" id="trendLegend"></div>
           </section>
@@ -671,10 +682,12 @@ const STATUS = {
   blue  :{ord:4,label:'BLUE',        c:'#3aa2ff',c2:'#0a4f96'},
 };
 
-/** The managing office. Only this role may shape the objective tree. */
+/** The managing office. Only an admin sign-in may shape the objective tree. */
 const ADMIN_ROLE = 'A9';
-const PASS_DEFAULT = 'C1AA';
-const PASS_ADMIN   = 'C1AA_A9_ADMIN';
+/** Every office signs in with its own code: C1AA_A5 for A5, C1AA_A9 for the
+ *  A9 staff acting as a reporting office. The admin code elevates A9 only. */
+const passFor    = role => `C1AA_${role}`;
+const PASS_ADMIN = 'C1AA_A9_ADMIN';
 
 /** Headquarters offices. A7 is intentionally absent. */
 const OFFICE_GROUPS = [
@@ -713,8 +726,9 @@ const OFFICE_GROUPS = [
 ];
 const OFFICES = OFFICE_GROUPS.flatMap(g=>g.items);
 const OFFICE_NAME = Object.fromEntries(OFFICES.map(o=>[o.id,o.name]));
-/** Offices that can be tasked. The managing office does not rate its own tree. */
-const TASKABLE = OFFICES.filter(o=>o.id!==ADMIN_ROLE).map(o=>o.id);
+/** Every office can hold OPR or OCR — including A9, whose staff report on
+ *  their own indicators separately from the managing-office role. */
+const TASKABLE = OFFICES.map(o=>o.id);
 
 /** Assessment periods are quarterly. */
 const YEARS = [25,26,27];
@@ -760,11 +774,14 @@ const CHILD_KEY = {1:'imos',2:'tasks',3:'indicators'};
                                        // OPR submissions, written only on save
 
    ocr     : { [periodId]: { [indId]: OcrNote[] } }
-                 OcrNote { id, office, user, comment, rec, ts }
+                 OcrNote { id, office, user, comment, rec, ts,
+                           ack?: { [office]: {by, ts} } }
 
    alerts  : Alert[]
-                 Alert { id, to, ts, kind, indId, indCode, fromOffice,
-                         fromUser, title, body, read }
+                 Alert { id, to, ts, kind, indId, indCode, noteId?,
+                         fromOffice, fromUser, title, body, read }
+                 Acknowledging a note removes the acknowledging office's
+                 alert for it; the managing office's copy stays.
 
    locks   : { [periodId]: { ocrDate, oprDate, ocrLocked, oprLocked,
                              ocrReported, oprReported } }
@@ -781,14 +798,15 @@ const S = {
   period:CURRENT_PERIOD,
   focus:/** @type {number[]} */([]),   // [] | [loe] | [loe,imo] | [loe,imo,task] | [...,ind]
   hover:/** @type {number|null} */(null),
-  seasonal:true,
+  forecastMode:'seasonal',    // 'seasonal' | 'linear' | 'off'
   animating:false,
+  /** Indicator cards whose OCR comment panel is open (session only). */
+  expanded:/** @type {Record<string,boolean>} */({}),
   adminView:'structure',      // A9 data tab: 'structure' | 'submissions'
   officeView:'opr',           // office data tab: 'opr' | 'ocr'
-  /** Brushed history window, inclusive period indices. null = every quarter. */
+  /** History window, inclusive period indices. null = every quarter. The
+   *  right edge is always the latest quarter; only the left edge moves. */
   range:/** @type {{a:number,b:number}|null} */(null),
-  /** Live drag state while brushing the trend chart. */
-  brush:/** @type {any} */(null),
   tree:/** @type {any[]} */([]),
   entries:/** @type {any} */({}),
   ocr:/** @type {any} */({}),
@@ -1040,10 +1058,14 @@ function buildSeedTree(){
   const rnd = mulberry32(90210);
   const pickOcr = (opr, idx) => {
     const pool = TASKABLE.filter(o=>!opr.includes(o));
-    const out=[pool[Math.floor(rnd()*pool.length)]];
-    if(idx%3===0){
-      const b = pool[Math.floor(rnd()*pool.length)];
-      if(b && b!==out[0]) out.push(b);
+    const out=[];
+    while(out.length<2){
+      const c=pool[Math.floor(rnd()*pool.length)];
+      if(!out.includes(c)) out.push(c);
+    }
+    if(idx%4===0){
+      const c=pool[Math.floor(rnd()*pool.length)];
+      if(!out.includes(c)) out.push(c);
     }
     return out;
   };
@@ -1130,29 +1152,33 @@ function seedOcrAndAlerts(tree){
   let n = 0;
   tree.forEach((l,li)=>l.imos.forEach((m,mi)=>m.tasks.forEach((t,ti)=>
     t.indicators.forEach((ind,ii)=>{
-      ocrOf(ind).forEach(off=>{
-        if(rnd()>0.45) return;
+      const code = `Indicator ${li+1}.${mi+1}.${ti+1}.${ii+1}`;
+      const file = (off, extra) => {
         n++;
         const user = `${off} action officer`;
         const note = {
           id:`ocrseed${n}`, office:off, user,
-          comment: OCR_COMMENTS[Math.floor(rnd()*OCR_COMMENTS.length)],
+          comment: OCR_COMMENTS[(Math.floor(rnd()*OCR_COMMENTS.length)+(extra?3:0))%OCR_COMMENTS.length],
           rec: rnd()<0.7 ? OCR_RECS[Math.floor(rnd()*OCR_RECS.length)] : '',
-          ts:`2026-07-${String(10+(n%18)).padStart(2,'0')}T09:00:00Z`,
+          ts:`2026-07-${String(8+(n%20)).padStart(2,'0')}T09:00:00Z`,
         };
         ocr[CURRENT_PERIOD] = ocr[CURRENT_PERIOD]||{};
         (ocr[CURRENT_PERIOD][ind.id] = ocr[CURRENT_PERIOD][ind.id]||[]).push(note);
-        const code = `Indicator ${li+1}.${mi+1}.${ti+1}.${ii+1}`;
+        // the managing office's copies arrive pre-read so the demo inbox
+        // starts sane; the OPR copies are the offices' live to-do
         [...new Set([...oprOf(ind), ADMIN_ROLE])].forEach(to=>{
           alerts.push({
-            id:`altseed${n}_${to}`, to, ts:note.ts, kind:'ocr_note', read:false,
-            period:CURRENT_PERIOD, indId:ind.id, indCode:code,
+            id:`altseed${n}_${to}`, to, ts:note.ts, kind:'ocr_note',
+            read: to===ADMIN_ROLE,
+            period:CURRENT_PERIOD, indId:ind.id, indCode:code, noteId:note.id,
             fromOffice:off, fromUser:user,
             title:`${off} commented on ${code}`,
             body:note.comment + (note.rec?`  //  Recommendation: ${note.rec}`:''),
           });
         });
-      });
+      };
+      ocrOf(ind).forEach(off=>file(off,false));
+      if(rnd()<0.35) file(ocrOf(ind)[0],true);
     }))));
   return {ocr, alerts};
 }
@@ -1396,7 +1422,7 @@ const historyPeriods = () => PERIODS.slice(0,PERIOD_IDX[S.period]+1);
  */
 function fitWindow(){
   const last = PERIOD_IDX[S.period];
-  const live = S.brush || S.range;
+  const live = S.range;
   if(!live) return {a:0,b:last,all:true};
   const a = clamp(Math.min(live.a,live.b),0,last);
   const b = clamp(Math.max(live.a,live.b),0,last);
@@ -1414,7 +1440,7 @@ function fitFor(path){
   const series = seriesOf(path,periods);
   const w = fitWindow();
   const masked = maskSeries(series,w);
-  const fc = forecastNext(masked,periods,S.seasonal);
+  const fc = forecastNext(masked,periods,S.forecastMode==='seasonal');
   return {periods,series,masked,w,fc};
 }
 
@@ -1779,8 +1805,9 @@ function buildSummaryPayload(){
       n: fc.n,
       slope: f2(fc.slope),
       r2: f2(fc.r2),
-      forecast: (fc.ok&&nextP) ? {period:nextP.id,point:f2(fc.next),low:f2(fc.lo),high:f2(fc.hi)} : null,
-      seasonalOffsets: fc.season ? fc.season.map(f2) : null,
+      forecast: (S.forecastMode!=='off' && fc.ok && nextP)
+        ? {period:nextP.id,point:f2(fc.next),low:f2(fc.lo),high:f2(fc.hi)} : null,
+      seasonalOffsets: (S.forecastMode!=='off' && fc.season) ? fc.season.map(f2) : null,
     },
     comments: commentsUnder(path,period),
     descendantCounts:{imos,tasks,indicators:inds},
@@ -1809,9 +1836,7 @@ function initLogin(){
   });
   sel.addEventListener('change',()=>{
     const v=sel.value;
-    $('#roleHint').textContent = v===ADMIN_ROLE
-      ? 'MANAGING OFFICE // FULL OBJECTIVE AUTHORITY'
-      : (v ? `REPORTING OFFICE // ${OFFICE_NAME[v].toUpperCase()}` : '');
+    $('#roleHint').textContent = v ? OFFICE_NAME[v].toUpperCase() : '';
   });
 
   $('#loginForm').addEventListener('submit',e=>{
@@ -1823,10 +1848,11 @@ function initLogin(){
     };
     if(!name) return err('OPERATOR NAME REQUIRED');
     if(!role) return err('OFFICE SELECTION REQUIRED');
-    const expect = role===ADMIN_ROLE ? PASS_ADMIN : PASS_DEFAULT;
-    if(pass!==expect) return err('ACCESS CODE REJECTED');
+    let admin=false;
+    if(role===ADMIN_ROLE && pass===PASS_ADMIN) admin=true;
+    else if(pass!==passFor(role)) return err('ACCESS CODE REJECTED');
     $('#loginErr').classList.add('hidden');
-    S.user={name,role};
+    S.user={name,role,admin};
     enterApp();
   });
 }
@@ -1836,13 +1862,13 @@ function enterApp(){
   $('#main').classList.remove('hidden');
   const {name,role}=S.user;
   $('#uNm').textContent=name;
-  $('#uRl').textContent = `${role} · ${role===ADMIN_ROLE?'MANAGING OFFICE':'REPORTING OFFICE'}`;
+  $('#uRl').textContent = `${role} · ${S.user.admin?'MANAGING OFFICE':'REPORTING OFFICE'}`;
   $('#uAv').textContent = role;
   $('#uAv').style.fontSize = role.length>3 ? '9px' : '11px';
   S.focus=[]; S.hover=null; S.tab='reports';
   S.adminView='structure';
   // land a reporting office on whichever line it actually holds
-  S.officeView = (role!==ADMIN_ROLE && !myIndicators('opr').length
+  S.officeView = (!S.user.admin && !myIndicators('opr').length
     && myIndicators('ocr').length) ? 'ocr' : 'opr';
   S.draft={};
   renderPeriods(); renderAll();
@@ -2277,7 +2303,7 @@ function renderHud(){
   if(!isHover && S.focus.length<4){
     const idle=el('div','hud-idle');
     idle.innerHTML = `ANGLE = RATING &nbsp;·&nbsp; FILL = STATUS`
-      + `<br>DRAG THE TREND TO SET THE FIT WINDOW`;
+      + `<br>HISTORY HANDLE UNDER THE TREND SETS THE FIT WINDOW`;
     hud.appendChild(idle);
   }
 
@@ -2351,10 +2377,10 @@ function renderHud(){
 const TW=1200, TH=400, TM={l:52,r:132,t:22,b:46};
 const CHILD_HUES=[188,204,150,42,268,12,320,96,228,58,168,286];
 
-/** Geometry of the trend plot, shared by the renderer and the brush. */
+/** Geometry of the trend plot, shared by the renderer and the history rail. */
 function trendGeom(){
   const periods=historyPeriods();
-  const nextP=PERIODS[PERIOD_IDX[S.period]+1];
+  const nextP=S.forecastMode==='off' ? null : PERIODS[PERIOD_IDX[S.period]+1];
   const cols=periods.length + (nextP?1:0);
   const iw=TW-TM.l-TM.r, ih=TH-TM.t-TM.b;
   return {periods,nextP,cols,iw,ih,
@@ -2367,7 +2393,6 @@ function renderTrend(){
   const G=trendGeom();
   const {periods,nextP,cols,iw,ih,X,Y}=G;
   const w=fitWindow();
-  const halfCol = cols>1 ? (iw/(cols-1))/2 : iw/2;
 
   const defs=svgEl('defs');
   defs.innerHTML=`
@@ -2378,24 +2403,8 @@ function renderTrend(){
     <filter id="tglow" x="-30%" y="-60%" width="160%" height="260%">
       <feGaussianBlur stdDeviation="5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <pattern id="excl" width="7" height="7" patternUnits="userSpaceOnUse"
-             patternTransform="rotate(45)">
-      <line x1="0" y1="0" x2="0" y2="7" stroke="#5d7391" stroke-opacity=".22" stroke-width="1"/>
-    </pattern>`;
+    </filter>`;
   svg.appendChild(defs);
-
-  // ---- excluded regions, drawn under everything --------------------------
-  if(!w.all){
-    const lo=X(w.a)-halfCol, hi=X(w.b)+halfCol;
-    [[TM.l,Math.max(TM.l,lo)],[Math.min(TW-TM.r,hi),TW-TM.r]].forEach(([x0,x1])=>{
-      if(x1-x0<=0.5) return;
-      svg.appendChild(svgEl('rect',{x:f2(x0),y:TM.t,width:f2(x1-x0),height:ih,
-        fill:'url(#excl)'}));
-      svg.appendChild(svgEl('rect',{x:f2(x0),y:TM.t,width:f2(x1-x0),height:ih,
-        fill:'rgba(5,7,13,.55)'}));
-    });
-  }
 
   // grid
   const grid=svgEl('g');
@@ -2426,7 +2435,7 @@ function renderTrend(){
 
   const series=seriesOf(S.focus,periods);
   const masked=maskSeries(series,w);
-  const fc=forecastNext(masked,periods,S.seasonal);
+  const fc=forecastNext(masked,periods,S.forecastMode==='seasonal');
   const kids=childrenOf(S.focus);
   const legend=[];
 
@@ -2518,7 +2527,7 @@ function renderTrend(){
   const cap=svgEl('text',{x:TW-TM.r+18,y:TM.t+12,fill:'#5d7391',
     'font-family':'ui-monospace,monospace','font-size':'10','letter-spacing':'2'});
   cap.textContent='MATURITY 0–5'; svg.appendChild(cap);
-  if(fc.ok){
+  if(fc.ok && S.forecastMode!=='off'){
     const rows=[`R²  ${f2(fc.r2)}`,`N   ${fc.n}`];
     if(fc.season) rows.push('SEASONAL ON');
     rows.forEach((txt,i)=>{
@@ -2528,32 +2537,34 @@ function renderTrend(){
     });
   }
 
-  // ---- brush: selection band, edge handles, and the drag surface ---------
-  const gB=svgEl('g',{id:'gBrush'});
-  const lo=X(w.a)-halfCol, hi=X(w.b)+halfCol;
-  if(!w.all || S.brush){
-    gB.appendChild(svgEl('rect',{x:f2(lo),y:TM.t,width:f2(hi-lo),height:ih,
-      fill:'rgba(79,227,255,.05)',stroke:'rgba(79,227,255,.45)','stroke-width':'1',
-      'pointer-events':'none'}));
-    [lo,hi].forEach(x=>{
-      gB.appendChild(svgEl('line',{x1:f2(x),y1:TM.t,x2:f2(x),y2:TM.t+ih,
-        stroke:'#4fe3ff','stroke-width':'2','pointer-events':'none'}));
-      gB.appendChild(svgEl('rect',{x:f2(x-3),y:TM.t+ih/2-13,width:'6',height:'26',rx:'3',
-        fill:'#4fe3ff',opacity:'.9','pointer-events':'none'}));
-    });
-    const n=(w.b-w.a)+1;
-    const lb=svgEl('text',{x:f2((lo+hi)/2),y:TM.t-6,'text-anchor':'middle',fill:'#4fe3ff',
-      'font-family':'ui-monospace,monospace','font-size':'11','letter-spacing':'1.6',
-      'pointer-events':'none'});
-    lb.textContent=`${periods[w.a].short} – ${periods[w.b].short} · ${n} QTR`;
-    gB.appendChild(lb);
+  // ---- history rail: right end pinned to the latest quarter --------------
+  // A single left handle sets how many past quarters the display and the fit
+  // use. Dragging it to the far left restores the full record.
+  {
+    const last=periods.length-1, hy=417;
+    const g=svgEl('g',{id:'gHist'});
+    g.appendChild(svgEl('line',{x1:f2(X(0)),y1:hy,x2:f2(X(last)),y2:hy,
+      stroke:'rgba(120,190,255,.16)','stroke-width':'2','stroke-linecap':'round'}));
+    g.appendChild(svgEl('line',{x1:f2(X(w.a)),y1:hy,x2:f2(X(last)),y2:hy,
+      stroke:'rgba(79,227,255,.38)','stroke-width':'2','stroke-linecap':'round'}));
+    for(let i=0;i<=last;i++) g.appendChild(svgEl('circle',{cx:f2(X(i)),cy:hy,r:1.3,
+      fill:i>=w.a?'rgba(79,227,255,.55)':'rgba(120,190,255,.25)'}));
+    g.appendChild(svgEl('circle',{cx:f2(X(last)),cy:hy,r:2.6,fill:'rgba(79,227,255,.6)'}));
+    const hx=X(w.a);
+    g.appendChild(svgEl('circle',{cx:f2(hx),cy:hy,r:6,fill:'#0a1424',
+      stroke:'rgba(79,227,255,.75)','stroke-width':'1.4'}));
+    g.appendChild(svgEl('circle',{cx:f2(hx),cy:hy,r:2.2,fill:'#4fe3ff'}));
+    const hitLine=svgEl('line',{x1:f2(X(0)),y1:hy,x2:f2(X(last)),y2:hy,
+      stroke:'transparent','stroke-width':'24','stroke-linecap':'round'});
+    hitLine.dataset.hist='1'; hitLine.style.cursor='pointer';
+    const hitHandle=svgEl('circle',{cx:f2(hx),cy:hy,r:13,fill:'transparent'});
+    hitHandle.dataset.hist='1'; hitHandle.style.cursor='ew-resize';
+    const tip=svgEl('title');
+    tip.textContent='Drag: how much history the display and forecast use';
+    hitHandle.appendChild(tip);
+    g.append(hitLine,hitHandle);
+    svg.appendChild(g);
   }
-  // invisible surface that receives the drag
-  const hit=svgEl('rect',{x:TM.l,y:TM.t,width:f2(iw),height:f2(ih),
-    fill:'transparent',id:'brushHit'});
-  hit.style.cursor = S.brush ? 'grabbing' : 'crosshair';
-  gB.appendChild(hit);
-  svg.appendChild(gB);
 
   // legend + scope tag
   const lg=$('#trendLegend'); lg.innerHTML='';
@@ -2570,31 +2581,25 @@ function renderTrend(){
     ? `${scope} · INDICATOR SERIES`
     : `${scope} · WITH ${nextLv} COMPONENTS`;
 
-  // window read-out + reset control in the panel header
+  // quiet window read-out in the panel header
   const rb=$('#rangeBox'); rb.innerHTML='';
-  const n=(w.b-w.a)+1, pts=fc.n;
-  const tag=el('span','eyebrow', w.all
-    ? `FIT: ALL ${periods.length} QTR · N=${pts}`
-    : `FIT: ${periods[w.a].short}–${periods[w.b].short} · ${n} QTR · N=${pts}`);
+  const n=(w.b-w.a)+1;
+  const bits=[ w.all ? `ALL ${periods.length} QTR` : `LAST ${n} QTR` ];
+  if(S.forecastMode==='off') bits.push('FORECAST OFF');
+  else bits.push(`N=${fc.n}`);
+  const tag=el('span','eyebrow',bits.join(' · '));
   if(!w.all) tag.style.color='var(--cy)';
   rb.appendChild(tag);
-  if(!w.all){
-    const rs=el('button','btn btn-sm','FULL RANGE'); rs.type='button';
-    rs.addEventListener('click',()=>{
-      S.range=null; renderTrend(); renderHud(); renderExecFrame();
-    });
-    rb.appendChild(rs);
-  }
-  if(fc.n<2){
-    const warn=el('span','eyebrow','SELECT 2+ QUARTERS WITH DATA TO FORECAST');
+  if(S.forecastMode!=='off' && fc.n<2){
+    const warn=el('span','eyebrow','2+ QUARTERS NEEDED TO FORECAST');
     warn.style.color='var(--amber)';
     rb.appendChild(warn);
   }
 }
 
-/* ---- brush interaction --------------------------------------------------- */
+/* ---- history rail interaction --------------------------------------------- */
 /** Period index under a pointer event, snapped to the nearest column. */
-function brushIndexAt(evt){
+function histIndexAt(evt){
   const svg=$('#trend'), r=svg.getBoundingClientRect();
   if(!r.width) return 0;
   const vx=(evt.clientX-r.left)*(TW/r.width);
@@ -2604,50 +2609,31 @@ function brushIndexAt(evt){
   const step=(G.iw)/(G.cols-1);
   return clamp(Math.round((vx-TM.l)/step),0,last);
 }
-function initBrush(){
+function initHistSlider(){
   const svg=$('#trend');
-  let downX=null, moved=false;
-
-  svg.addEventListener('pointerdown',e=>{
-    if(!e.target || e.target.id!=='brushHit') return;
-    const i=brushIndexAt(e);
-    const w=fitWindow();
-    downX=e.clientX; moved=false;
-    // grabbing near an edge of an existing window resizes it
-    if(!w.all){
-      const G=trendGeom();
-      const step=G.cols>1?(G.iw/(G.cols-1)):G.iw;
-      const near=(idx)=>Math.abs(brushIndexAt(e)-idx)*step<step*0.75;
-      if(near(w.a) && !near(w.b)){ S.brush={a:w.b,b:i}; }
-      else if(near(w.b) && !near(w.a)){ S.brush={a:w.a,b:i}; }
-      else S.brush={a:i,b:i};
-    }else S.brush={a:i,b:i};
-    svg.setPointerCapture(e.pointerId);
+  let dragging=false;
+  const apply=i=>{
+    const last=PERIOD_IDX[S.period];
+    const next = i<=0 ? null : {a:i,b:last};
+    const cur = S.range ? S.range.a : 0;
+    if((next?next.a:0)===cur) return;
+    S.range=next;
     renderTrend();
+  };
+  svg.addEventListener('pointerdown',e=>{
+    if(!e.target || !e.target.dataset || !e.target.dataset.hist) return;
+    dragging=true;
+    svg.setPointerCapture(e.pointerId);
+    apply(histIndexAt(e));
   });
-
-  svg.addEventListener('pointermove',e=>{
-    if(!S.brush) return;
-    if(downX!=null && Math.abs(e.clientX-downX)>3) moved=true;
-    const i=brushIndexAt(e);
-    if(i!==S.brush.b){ S.brush.b=i; renderTrend(); }
-  });
-
-  const finish=e=>{
-    if(!S.brush) return;
-    const b=S.brush; S.brush=null;
-    const a=Math.min(b.a,b.b), z=Math.max(b.a,b.b);
-    // a click with no drag, or a single column, clears the window
-    if(!moved || z-a<1) S.range=null;
-    else S.range={a,b:z};
-    downX=null; moved=false;
-    renderTrend(); renderHud(); renderExecFrame();
+  svg.addEventListener('pointermove',e=>{ if(dragging) apply(histIndexAt(e)); });
+  const finish=()=>{
+    if(!dragging) return;
+    dragging=false;
+    renderHud(); renderExecFrame();
   };
   svg.addEventListener('pointerup',finish);
   svg.addEventListener('pointercancel',finish);
-  svg.addEventListener('dblclick',()=>{
-    S.range=null; renderTrend(); renderHud(); renderExecFrame();
-  });
 }
 const firstIdx = a => a.findIndex(v=>v!=null);
 function lastIdx(a){ for(let i=a.length-1;i>=0;i--) if(a[i]!=null) return i; return -1; }
@@ -2728,7 +2714,7 @@ function renderExecFrame(){
    ========================================================================== */
 function renderDataBar(){
   const bar=$('#dataBar'); bar.innerHTML='';
-  const isAdmin = S.user.role===ADMIN_ROLE;
+  const isAdmin = S.user.admin;
   const tag=el('div','panel'); tag.style.padding='11px 16px'; tag.style.flex='1 1 300px';
   tag.innerHTML = isAdmin
     ? `<div class="eyebrow">Objective architecture · ${S.period}</div>
@@ -2782,7 +2768,7 @@ function renderDataBar(){
 function renderData(){
   renderDataBar();
   const root=$('#dataRoot'); root.innerHTML='';
-  if(S.user.role===ADMIN_ROLE){
+  if(S.user.admin){
     if(S.adminView==='submissions') renderAdminSubmissions(root); else renderAdminTree(root);
   }else{
     if(S.officeView==='ocr') renderOcrView(root); else renderOprView(root);
@@ -2813,7 +2799,9 @@ function ratingSlider(value, prev, onInput, disabled){
 
   if(prev!=null){
     const g=el('div','ghost');
-    g.style.left=`calc(${(prev/MAX_RATING)*100}% )`;
+    // centre of a 17px range thumb at value p sits at p*(width-17)+8.5
+    const p=prev/MAX_RATING;
+    g.style.left=`calc(${(p*100).toFixed(3)}% + ${(8.5-17*p).toFixed(2)}px)`;
     g.title=`Previous quarter: ${r1(prev)}`;
     const lb=el('span','ghost-lb',r1(prev));
     g.appendChild(lb);
@@ -2842,6 +2830,23 @@ function statusPicker(current, onPick, disabled){
   return pick;
 }
 
+/**
+ * A reporting office acknowledges one coordination note: the note is stamped
+ * for that office and the office's alert for it leaves the inbox. The
+ * managing office's copy is untouched.
+ */
+function acknowledgeNote(note){
+  const role=S.user.role;
+  note.ack = note.ack||{};
+  note.ack[role] = {by:S.user.name, ts:new Date().toISOString()};
+  S.alerts = S.alerts.filter(a=>!(a.to===role && a.noteId===note.id));
+  save();
+  renderData(); renderTabBadges();
+}
+/** Notes on an indicator not yet acknowledged by the signed-in office. */
+const unackedCount = (indId,period,role)=>
+  ocrNotes(indId,period).filter(n=>!(n.ack&&n.ack[role])).length;
+
 /** Read-only list of OCR coordination notes on an indicator. */
 function ocrNoteList(indId, period, heading){
   const notes=ocrNotes(indId,period);
@@ -2860,6 +2865,46 @@ function ocrNoteList(indId, period, heading){
     w.appendChild(hd);
     w.appendChild(el('div','ocr-txt',n.comment));
     if(n.rec) w.appendChild(el('div','ocr-rec',`RECOMMENDATION: ${n.rec}`));
+    box.appendChild(w);
+  });
+  return box;
+}
+
+/**
+ * Expandable coordination panel body: every OCR note for the period, each
+ * with its acknowledge state for the signed-in office. `canAck` is true for
+ * offices that hold the OPR line (they received the alert).
+ */
+function ocrNoteListAck(ind, period, canAck){
+  const role=S.user.role;
+  const notes=ocrNotes(ind.id,period);
+  const box=el('div','ocrbox');
+  box.appendChild(el('div','eyebrow',
+    `OCR coordination · ${notes.length} note${notes.length===1?'':'s'} · ${period}`));
+  if(!notes.length){
+    box.appendChild(el('div','ocr-none','NO COORDINATION NOTES'));
+    return box;
+  }
+  notes.forEach(n=>{
+    const w=el('div','ocr-note');
+    const hd=el('div','ocr-hd');
+    hd.appendChild(el('span','who',`${n.office} · ${n.user}`));
+    hd.appendChild(el('span','when',String(n.ts).slice(0,10)));
+    w.appendChild(hd);
+    w.appendChild(el('div','ocr-txt',n.comment));
+    if(n.rec) w.appendChild(el('div','ocr-rec',`RECOMMENDATION: ${n.rec}`));
+    const mine=n.ack && n.ack[role];
+    if(mine){
+      w.appendChild(el('div','ackd',
+        `ACKNOWLEDGED ${String(mine.ts).slice(0,10)} · ${mine.by}`));
+    }else if(canAck){
+      const ft=el('div','saverow'); ft.style.paddingTop='8px';
+      ft.appendChild(el('div','spacer'));
+      const b=el('button','btn btn-sm btn-ack','ACKNOWLEDGE'); b.type='button';
+      b.addEventListener('click',()=>acknowledgeNote(n));
+      ft.appendChild(b);
+      w.appendChild(ft);
+    }
     box.appendChild(w);
   });
   return box;
@@ -2912,9 +2957,16 @@ function renderOprView(root){
     const saved=S.entries?.[period]?.[role]?.ind?.[ind.id];
     const eff=effectiveInd(ind.id,role,period);
     const prev=prevQuarterRating(ind.id,role,period);
+    const open=!!S.expanded[ind.id];
 
     const card=el('div','card');
-    const ch=el('div','card-h');
+    const ch=el('div','card-h ch-click');
+    ch.title='Click to review OCR coordination';
+    ch.addEventListener('click',e=>{
+      if(e.target.closest('button,input,textarea')) return;
+      S.expanded[ind.id]=!open; renderData();
+    });
+    ch.appendChild(el('span',`chev${open?' open':''}`,'\u25B8'));
     ch.appendChild(el('span','code ind',code));
     const tt=el('div'); tt.style.flex='1 1 240px';
     const nm=el('div','',ind.title); nm.style.fontSize='14.5px'; tt.appendChild(nm);
@@ -2937,6 +2989,10 @@ function renderOprView(root){
     state.textContent = saved ? (saved.override?'OVERRIDDEN':'SAVED')
       : (eff&&eff.inherited?`INHERITED ${eff.from}`:'NOT SUBMITTED');
     ch.appendChild(state);
+    const nn=ocrNotes(ind.id,period).length, ua=unackedCount(ind.id,period,role);
+    const oc=el('span','pill '+(ua?'newocr':'quiet'),
+      `OCR ${nn}${ua?` · ${ua} NEW`:''}`);
+    ch.appendChild(oc);
     card.appendChild(ch);
 
     const cb=el('div','card-b');
@@ -2959,8 +3015,8 @@ function renderOprView(root){
     },locked));
     cb.appendChild(row);
 
-    // ---- OCR notes, so the OPR reads coordination before commenting
-    cb.appendChild(ocrNoteList(ind.id,period));
+    // ---- OCR coordination, expanded from the card header
+    if(open) cb.appendChild(ocrNoteListAck(ind,period,true));
 
     // ---- OPR comment of record
     const cw=el('div','icmt');
@@ -3041,9 +3097,16 @@ function renderOcrView(root){
     const code=codeOf(path);
     const v=indicatorValue(ind.id,ind,period);
     const st=STATUS[indicatorStatus(ind.id,ind,period)];
+    const open=!!S.expanded[ind.id];
 
     const card=el('div','card');
-    const ch=el('div','card-h');
+    const ch=el('div','card-h ch-click');
+    ch.title='Click to review OCR coordination';
+    ch.addEventListener('click',e=>{
+      if(e.target.closest('button,input,textarea')) return;
+      S.expanded[ind.id]=!open; renderData();
+    });
+    ch.appendChild(el('span',`chev${open?' open':''}`,'\u25B8'));
     ch.appendChild(el('span','code ind',code));
     const tt=el('div'); tt.style.flex='1 1 240px';
     const nm=el('div','',ind.title); nm.style.fontSize='14.5px'; tt.appendChild(nm);
@@ -3073,8 +3136,8 @@ function renderOcrView(root){
     const pw=el('div'); pw.appendChild(pill); row.appendChild(pw);
     cb.appendChild(row);
 
-    // ---- existing coordination traffic
-    cb.appendChild(ocrNoteList(ind.id,period));
+    // ---- existing coordination traffic, expanded from the card header
+    if(open) cb.appendChild(ocrNoteListAck(ind,period,oprOf(ind).includes(role)));
 
     // ---- new note
     const nw=el('div','icmt');
@@ -3101,7 +3164,7 @@ function renderOcrView(root){
       S.ocr[period]=S.ocr[period]||{};
       (S.ocr[period][ind.id]=S.ocr[period][ind.id]||[]).push(note);
       pushAlert({to:targets, kind:'ocr_note', indId:ind.id, indCode:code,
-        fromOffice:role, fromUser:S.user.name,
+        noteId:note.id, fromOffice:role, fromUser:S.user.name,
         title:`${role} commented on ${code}`,
         body:comment + (r?`  //  Recommendation: ${r}`:'')});
       save(); renderData();
@@ -3677,8 +3740,8 @@ function renderTabBadges(){
 const PANES = {reports:'#tabReports', data:'#tabData', alerts:'#tabAlerts', mgmt:'#tabMgmtPane'};
 function renderAll(){
   renderPeriods();
-  // management is the managing office's tab only
-  const isAdmin = S.user && S.user.role===ADMIN_ROLE;
+  // management belongs to the admin sign-in only
+  const isAdmin = S.user && S.user.admin;
   $('#tabMgmt').classList.toggle('hidden',!isAdmin);
   if(S.tab==='mgmt' && !isAdmin) S.tab='reports';
 
@@ -3704,12 +3767,12 @@ function initShell(){
     const pop=$('#perPop');
     if(pop && !pop.classList.contains('hidden') && !e.target.closest('.per')) pop.classList.add('hidden');
   });
-  initBrush();
+  initHistSlider();
   // one-time: leaving the chart clears the hover reveal
   $('#pie').addEventListener('pointerleave',()=>{ if(!S.animating) setHover(null); });
   $('#seasonSeg').addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b) return;
-    S.seasonal = b.dataset.se==='1';
+    S.forecastMode = b.dataset.fm;
     [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
     renderTrend(); renderHud(); renderExecFrame();
   });
