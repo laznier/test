@@ -301,11 +301,12 @@ main{padding:22px;max-width:1680px;margin:0 auto}
   font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-dim)}
 
 /* ==================== REPORTS: quadrants =========================== */
+#tabReports{user-select:none;-webkit-user-select:none}
 .quad{
   --fx:.52;--fy:.46;
   position:relative;display:grid;height:calc(100vh - 128px);min-height:640px;
-  grid-template-columns:calc((100% - 12px)*var(--fx)) 12px minmax(0,1fr);
-  grid-template-rows:calc((100% - 12px)*var(--fy)) 12px minmax(0,1fr);
+  grid-template-columns:calc((100% - 8px)*var(--fx)) 8px minmax(0,1fr);
+  grid-template-rows:calc((100% - 8px)*var(--fy)) 8px minmax(0,1fr);
 }
 .quadrant{min-width:0;min-height:0;overflow:auto;display:flex;flex-direction:column}
 .quadrant .panel-h{position:sticky;top:0;z-index:5;background:rgba(11,17,30,.92);
@@ -319,13 +320,14 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .qdiv.qh{grid-row:2;grid-column:1/4;cursor:row-resize}
 .qdiv::after{content:"";position:absolute}
 .qdiv{position:relative}
-.qdiv.qv::after{inset:0 4.5px;background:rgba(120,190,255,.14);border-radius:2px}
-.qdiv.qh::after{inset:4.5px 0;background:rgba(120,190,255,.14);border-radius:2px}
-.qdiv:hover::after,.qdiv.on::after{background:rgba(79,227,255,.55)}
+.qdiv.qv::after{inset:0 3.5px;background:rgba(120,190,255,.07)}
+.qdiv.qh::after{inset:3.5px 0;background:rgba(120,190,255,.07)}
+.qdiv:hover::after,.qdiv.on::after{background:rgba(79,227,255,.30)}
 .qknob{grid-area:2/2;z-index:7;cursor:move;position:relative}
-.qknob::after{content:"";position:absolute;inset:-4px;border-radius:6px;
-  border:1px solid rgba(79,227,255,.45);background:#0a1424}
-.qknob:hover::after{background:rgba(79,227,255,.25)}
+/* invisible until hovered; the negative inset keeps the grab area usable */
+.qknob::after{content:"";position:absolute;inset:-6px;border-radius:50%;
+  background:transparent}
+.qknob:hover::after,.qknob.on::after{background:rgba(79,227,255,.22)}
 /* exec panel stacks inside its quadrant */
 .qtl .exec-body{flex-direction:column;gap:14px}
 .qtl .exec-scope{flex:0 0 auto;border-right:0;border-bottom:1px solid var(--edge);
