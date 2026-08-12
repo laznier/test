@@ -2763,10 +2763,15 @@ function renderProblems(){
   const root=$('#probRoot'); if(!root) return;
   root.innerHTML='';
   const period=S.period;
-  const probs=problemIndicators(period);
-  $('#probTag').textContent=`${probs.length} · ${period}`;
+  // the watch list follows the pie: focused on an IMO, it shows only that
+  // IMO's troubled indicators, and so on down to a single indicator
+  const scope=S.focus;
+  const probs=problemIndicators(period,scope);
+  const scopeLabel=scope.length?codeOf(scope).toUpperCase():'OVERALL';
+  $('#probTag').textContent=`${probs.length} · ${scopeLabel} · ${period}`;
   if(!probs.length){
-    root.appendChild(el('div','prob-empty','NO RED OR FALLING INDICATORS THIS QUARTER'));
+    root.appendChild(el('div','prob-empty',
+      `NO RED OR FALLING INDICATORS${scope.length?` UNDER ${scopeLabel}`:''} THIS QUARTER`));
     return;
   }
   const names=['LOE','IMO','TSK','IND'];
