@@ -269,7 +269,11 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .metric{min-width:96px;padding:11px 13px;border-radius:10px;border:1px solid var(--edge);
   background:rgba(255,255,255,.02)}
 .metric .v{font-family:var(--mono);font-size:21px;letter-spacing:-.01em}
+.metric{min-width:104px}
 .metric .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink-faint);margin-top:3px}
+.metric .s{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-dim);
+  margin-top:5px;padding-top:5px;border-top:1px dashed rgba(120,190,255,.16);white-space:nowrap}
+.metric[title]{cursor:help}
 
 /* ==================== REPORTS: layout ============================== */
 .viz{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
@@ -1350,6 +1354,24 @@ function commentsUnder(path, period){
   };
   rec(path); return out;
 }
+/**
+ * Count of each status across the indicators beneath a node, so a rolled-up
+ * colour can show what it was averaged from.
+ * @returns {Record<StatusKey,number>}
+ */
+function statusTally(path, period){
+  const out={gray:0,red:0,yellow:0,green:0,blue:0};
+  const rec = p => {
+    if(p.length===4){
+      const ind=nodeAt(p); if(!ind) return;
+      out[indicatorStatus(ind.id,ind,period)]++;
+      return;
+    }
+    childrenOf(p).forEach((_,i)=>rec(p.concat(i)));
+  };
+  rec(path); return out;
+}
+
 /** OCR coordination notes on one indicator for a period. */
 const ocrNotes = (indId, period)=>(S.ocr?.[period]?.[indId]||[])
   .slice().sort((a,b)=>String(a.ts).localeCompare(String(b.ts)));
@@ -2665,15 +2687,43 @@ function renderExecFrame(){
   const {periods,fc,w:win}=fitFor(path);
   const cms=commentsUnder(path,period);
   const box=$('#execMetrics'); box.innerHTML='';
-  const m=(k,val,col)=>{
+  /**
+   * `sub` states where the number came from. Maturity is deliberately NOT
+   * painted in the status colour: maturity is a magnitude and status is a
+   * separate judgement the offices set by hand, so sharing a hue would imply
+   * one drives the other.
+   */
+  const m=(k,val,col,sub,tip)=>{
     const d=el('div','metric'); const a=el('div','v',val);
-    if(col) a.style.color=col; d.appendChild(a); d.appendChild(el('div','k',k)); box.appendChild(d);
+    if(col) a.style.color=col;
+    d.appendChild(a);
+    d.appendChild(el('div','k',k));
+    if(sub) d.appendChild(el('div','s',sub));
+    if(tip) d.title=tip;
+    box.appendChild(d);
   };
-  m('MATURITY', v==null?'—':pctOf(v)+'%', st.c);
-  m('STATUS', st.label.split(' ')[0], st.c);
+  const tal=statusTally(path,period);
+  const talTxt=['blue','green','yellow','red','gray'].filter(s=>tal[s])
+    .map(s=>`${tal[s]}${s[0].toUpperCase()}`).join(' ');
+
+  m('MATURITY', v==null?'—':pctOf(v)+'%', null,
+    v==null?'NO OPR INPUT':`${f2(v)} / ${MAX_RATING} MEAN`,
+    v==null ? 'No OPR has rated anything beneath this node.'
+      : `Mean OPR rating rolled up: indicator = mean of its OPR offices, `
+       +`task = mean of its indicators, IMO = mean of its tasks, LOE = mean of `
+       +`its IMOs, overall = mean of the LOEs. ${f2(v)} of ${MAX_RATING} = ${pctOf(v)}%.`);
+  m('STATUS', st.label.split(' ')[0], st.c, talTxt||'NOT ASSESSED',
+    'The colour each OPR set by hand, rolled up by taking the mean of the '
+   +'ordinals (red 1, yellow 2, green 3, blue 4) and rounding. Tally is of the '
+   +'indicators beneath this node.');
   m('Δ / QTR', fc.ok?`${fc.slope>0?'+':''}${f2(fc.slope)}`:'—',
-    fc.ok?(fc.slope>=0?'#2fe08a':'#ff4d63'):null);
-  m('COMMENTS', String(cms.length));
+    fc.ok?(fc.slope>=0?'#2fe08a':'#ff4d63'):null,
+    fc.ok?(win.all?`OVER ${fc.n} QTR`:`${PERIODS[win.a].short}–${PERIODS[win.b].short}`):'NEEDS 2 QTR',
+    'Least-squares slope of the maturity series, in rating points per quarter, '
+   +'over the quarters in the fit window.');
+  m('COMMENTS', String(cms.length), null, 'OPR ONLY',
+    'Comments the OPR saved this quarter. OCR coordination notes are not '
+   +'counted here and do not reach the reports tab.');
 
   const t=$('#execText'); t.innerHTML='';
   const e=el('div','exec-empty');
