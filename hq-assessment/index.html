@@ -82,7 +82,8 @@
   --st-blue:#3aa2ff;   --st-blue-2:#0a4f96;
 
   --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
-  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --sans:"Segoe UI Variable Text","Aptos",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --display:"Segoe UI Variable Display","Aptos Display","Segoe UI",system-ui,sans-serif;
   --r:14px;
 }
 *{box-sizing:border-box}
@@ -252,20 +253,78 @@ select.ctl option{background:#0a121f;color:var(--ink);font-family:var(--sans)}
   box-shadow:0 0 18px -4px rgba(79,227,255,.6)}
 .q.fut{opacity:.4}
 
+/* reports layout picker */
+.layout-ctl{position:relative}
+.layout-btn{display:flex;align-items:center;gap:10px;padding:7px 12px;border-radius:10px;
+  border:1px solid var(--edge);background:rgba(255,255,255,.02);font-family:var(--mono);
+  font-size:10.5px;letter-spacing:.14em;color:var(--ink-dim);transition:.15s}
+.layout-btn:hover,.layout-btn[aria-expanded="true"]{border-color:var(--edge-hot);
+  background:rgba(79,227,255,.08);color:var(--ink)}
+.layout-btn .eyebrow{font-size:8.5px;letter-spacing:.16em}
+.layout-btn .lbl{color:var(--cy);white-space:nowrap}
+.layout-btn-icon{width:19px;height:16px;display:grid;gap:2px;grid-template-columns:repeat(2,1fr);
+  grid-template-rows:repeat(2,1fr);transition:.16s}
+.layout-btn-icon i{display:block;border-radius:1.5px;background:rgba(159,208,255,.34);
+  border:1px solid rgba(159,208,255,.3)}
+.layout-btn[aria-expanded="true"] .layout-btn-icon i{background:rgba(79,227,255,.34);
+  border-color:rgba(79,227,255,.5)}
+.layout-pop{position:absolute;top:calc(100% + 9px);left:0;z-index:85;width:440px;padding:14px;
+  border-radius:14px;border:1px solid var(--edge-hot);background:rgba(7,13,24,.98);
+  backdrop-filter:blur(18px);box-shadow:0 28px 70px -24px #000,inset 0 1px rgba(255,255,255,.04)}
+.layout-pop-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  padding:2px 2px 12px}
+.layout-pop-title{font-family:var(--display);font-size:13px;font-weight:650;color:var(--ink)}
+.layout-pop-sub{margin-top:3px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;
+  color:var(--ink-faint)}
+.layout-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.layout-option{display:grid;grid-template-columns:58px minmax(0,1fr);align-items:center;gap:11px;
+  min-height:66px;padding:9px;border-radius:10px;border:1px solid var(--edge);
+  background:rgba(255,255,255,.018);text-align:left;color:var(--ink-dim);transition:.14s}
+.layout-option:hover{border-color:rgba(79,227,255,.42);background:rgba(79,227,255,.06);
+  color:var(--ink);transform:translateY(-1px)}
+.layout-option.on{border-color:rgba(79,227,255,.65);background:rgba(79,227,255,.1);
+  box-shadow:inset 0 0 0 1px rgba(79,227,255,.08),0 10px 28px -20px rgba(79,227,255,.8)}
+.layout-option-copy b{display:block;font-family:var(--display);font-size:11.5px;
+  font-weight:650;color:inherit}
+.layout-option-copy span{display:block;margin-top:3px;font-family:var(--mono);font-size:8.5px;
+  line-height:1.35;letter-spacing:.05em;color:var(--ink-faint)}
+.layout-thumb{width:58px;height:42px;display:grid;gap:3px;padding:4px;border-radius:7px;
+  border:1px solid rgba(120,190,255,.18);background:rgba(2,6,12,.7)}
+.layout-thumb i{display:block;min-width:0;min-height:0;border-radius:2px;
+  border:1px solid rgba(159,208,255,.34);background:rgba(86,151,215,.2)}
+.layout-option.on .layout-thumb i{border-color:rgba(79,227,255,.58);
+  background:rgba(79,227,255,.2)}
+.lt-grid{grid-template:repeat(2,1fr)/repeat(2,1fr)}
+.lt-three-top{grid-template:repeat(2,1fr)/repeat(3,1fr)}
+.lt-three-top i:last-child{grid-column:1/-1}
+.lt-one-top{grid-template:repeat(2,1fr)/repeat(3,1fr)}
+.lt-one-top i:first-child{grid-column:1/-1}
+.lt-feature{grid-template:repeat(3,1fr)/1.65fr 1fr}
+.lt-feature i:first-child{grid-row:1/-1}
+.lt-columns{grid-template:1fr/repeat(4,1fr)}
+.lt-rows{grid-template:repeat(4,1fr)/1fr}
+@media (max-width:700px){
+  .layout-pop{position:fixed;left:12px;right:12px;top:68px;width:auto;max-height:calc(100vh - 82px);overflow:auto}
+  .layout-grid{grid-template-columns:1fr}
+}
+
 main{padding:22px;max-width:1680px;margin:0 auto}
 
 /* ==================== REPORTS: exec summary ======================== */
 .exec{margin-bottom:18px;overflow:hidden}
-.exec-body{padding:18px 20px;display:flex;gap:20px;align-items:flex-start}
-.exec-scope{flex:0 0 210px;border-right:1px solid var(--edge);padding-right:20px}
-.exec-scope .big{font-family:var(--mono);font-size:19px;color:var(--cy);letter-spacing:.04em;margin:4px 0 3px}
-.exec-scope .sub{font-size:12px;color:var(--ink-dim);line-height:1.45}
-.exec-text{flex:1 1 auto;min-height:78px;display:flex;align-items:center}
+/* header carries the long-format scope name; tall enough for two lines */
+.exec-h{min-height:64px;align-items:center}
+.exec-head{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:3px}
+.exec-title{font-size:14.5px;font-weight:600;line-height:1.35;letter-spacing:.01em;
+  display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;cursor:default}
+.exec-body{padding:16px 18px;display:flex;flex-direction:column;gap:14px;align-items:stretch}
+.exec-text{flex:1 1 auto;min-height:78px;display:flex;align-items:flex-start}
 .exec-empty{width:100%;padding:16px 18px;border-radius:10px;
   border:1px dashed rgba(120,190,255,.26);background:rgba(120,190,255,.03);
   font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);line-height:1.9;letter-spacing:.03em}
 .exec-empty .k{color:var(--cy);opacity:.8}
-.exec-metrics{display:flex;gap:10px;flex:0 0 auto}
+.exec-metrics{display:flex;gap:10px;flex:0 0 auto;flex-wrap:wrap}
 .metric{min-width:96px;padding:11px 13px;border-radius:10px;border:1px solid var(--edge);
   background:rgba(255,255,255,.02)}
 .metric .v{font-family:var(--mono);font-size:21px;letter-spacing:-.01em}
@@ -273,7 +332,21 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .metric .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink-faint);margin-top:3px}
 .metric .s{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-dim);
   margin-top:5px;padding-top:5px;border-top:1px dashed rgba(120,190,255,.16);white-space:nowrap}
-.metric[title]{cursor:help}
+.metric[data-tip-title]{cursor:help}
+
+/* ---- themed hover tooltip (replaces the browser-native title popup) ----- */
+#tip{position:fixed;z-index:200;pointer-events:none;max-width:300px;
+  padding:10px 13px;border-radius:10px;border:1px solid var(--edge-hot);
+  background:rgba(7,13,24,.96);backdrop-filter:blur(10px);
+  box-shadow:0 18px 50px -18px #000,0 0 24px rgba(79,227,255,.08);
+  opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+#tip.on{opacity:1;transform:none}
+#tip .tip-code{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;
+  color:var(--cy);margin-bottom:4px;text-transform:uppercase}
+#tip .tip-title{font-size:12.5px;line-height:1.45;color:var(--ink)}
+#tip .tip-meta{display:flex;align-items:center;gap:7px;margin-top:6px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-dim)}
+#tip .tip-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
 
 /* ==================== REPORTS: layout ============================== */
 .viz{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
@@ -294,6 +367,7 @@ main{padding:22px;max-width:1680px;margin:0 auto}
    auto-fits whatever space the dividers leave it */
 #pie{width:100%;height:100%;display:block;touch-action:manipulation}
 #gRing path,#gKids path{cursor:pointer}
+#gLbl text,#gCore text{text-rendering:geometricPrecision}
 .pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:999px;
   font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;border:1px solid}
 .chips{display:flex;flex-wrap:wrap;gap:5px}
@@ -303,41 +377,102 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 /* ==================== REPORTS: quadrants =========================== */
 #tabReports{user-select:none;-webkit-user-select:none}
 .quad{
-  --fx:.52;--fy:.46;
-  position:relative;display:grid;height:calc(100vh - 128px);min-height:640px;
-  grid-template-columns:calc((100% - 8px)*var(--fx)) 8px minmax(0,1fr);
-  grid-template-rows:calc((100% - 8px)*var(--fy)) 8px minmax(0,1fr);
+  --tl-w:52%;--tl-h:46%;--tr-w:48%;--tr-h:46%;
+  --bl-w:52%;--bl-h:54%;--br-w:48%;--br-h:54%;
+  position:relative;height:calc(100vh - 128px);min-height:640px;
 }
-.quadrant{min-width:0;min-height:0;overflow:auto;display:flex;flex-direction:column}
+.quadrant{position:absolute;min-width:0;min-height:0;overflow:auto;display:flex;flex-direction:column}
 .quadrant .panel-h{position:sticky;top:0;z-index:5;background:rgba(11,17,30,.92);
   backdrop-filter:blur(10px)}
-.qtl{grid-area:1/1}
-.qtr{grid-area:1/3}
-.qbl{grid-area:3/1}
-.qbr{grid-area:3/3}
-.qdiv{z-index:6}
-.qdiv.qv{grid-column:2;grid-row:1/4;cursor:col-resize}
-.qdiv.qh{grid-row:2;grid-column:1/4;cursor:row-resize}
-.qdiv::after{content:"";position:absolute}
-.qdiv{position:relative}
-.qdiv.qv::after{inset:0 3.5px;background:rgba(120,190,255,.07)}
-.qdiv.qh::after{inset:3.5px 0;background:rgba(120,190,255,.07)}
-.qdiv:hover::after,.qdiv.on::after{background:rgba(79,227,255,.30)}
-.qknob{grid-area:2/2;z-index:7;cursor:move;position:relative}
-/* invisible until hovered; the negative inset keeps the grab area usable */
-.qknob::after{content:"";position:absolute;inset:-6px;border-radius:50%;
-  background:transparent}
-.qknob:hover::after,.qknob.on::after{background:rgba(79,227,255,.22)}
-/* exec panel stacks inside its quadrant */
-.qtl .exec-body{flex-direction:column;gap:14px}
-.qtl .exec-scope{flex:0 0 auto;border-right:0;border-bottom:1px solid var(--edge);
-  padding:0 0 12px;width:100%}
-.qtl .exec-metrics{margin-top:10px;flex-wrap:wrap}
-.qtl .exec-text{align-items:flex-start}
+.quadrant.swap-source{opacity:.58;filter:saturate(.65)}
+.quadrant.swap-target{outline:2px solid var(--cy);outline-offset:-3px;
+  box-shadow:0 0 28px rgba(79,227,255,.24),inset 0 0 22px rgba(79,227,255,.08)}
+.quad.swap-dragging,.quad.swap-dragging *{cursor:grabbing!important}
+.quadrant.swap-landed{animation:qswap-land .24s ease-out}
+@keyframes qswap-land{from{filter:brightness(1.55);transform:scale(.985)}to{filter:none;transform:none}}
+.qtl{left:0;top:0;width:calc(var(--tl-w) - 4px);height:calc(var(--tl-h) - 4px)}
+.qtr{right:0;top:0;width:calc(var(--tr-w) - 4px);height:calc(var(--tr-h) - 4px)}
+.qbl{left:0;bottom:0;width:calc(var(--bl-w) - 4px);height:calc(var(--bl-h) - 4px)}
+.qbr{right:0;bottom:0;width:calc(var(--br-w) - 4px);height:calc(var(--br-h) - 4px)}
+/* The top/bottom vertical splits and left/right horizontal splits move
+   separately, preserving the old full-divider hit area without a locked cross. */
+.qhandle{position:absolute;z-index:7;padding:0;border:0;background:transparent;
+  touch-action:none}
+.qhandle:focus-visible{outline:2px solid var(--cy);outline-offset:1px}
+.qedge.qv{width:8px;cursor:ew-resize}
+.qedge.qh{height:8px;cursor:ns-resize}
+.qedge::after{content:"";position:absolute;background:rgba(120,190,255,.09)}
+.qedge.qv::after{inset:0 3.5px}
+.qedge.qh::after{inset:3.5px 0}
+.qedge:hover::after,.qedge.on::after{background:rgba(79,227,255,.38)}
+.qedge[data-pane="tl"][data-axis="w"]{left:calc(var(--tl-w) - 8px);top:0;height:min(calc(var(--tl-h) - 4px),calc(var(--tr-h) - 4px))}
+.qedge[data-pane="bl"][data-axis="w"]{left:calc(var(--bl-w) - 8px);bottom:0;height:min(calc(var(--bl-h) - 4px),calc(var(--br-h) - 4px))}
+.qedge[data-pane="tl"][data-axis="h"]{left:0;top:calc(var(--tl-h) - 8px);width:min(calc(var(--tl-w) - 4px),calc(var(--bl-w) - 4px))}
+.qedge[data-pane="tr"][data-axis="h"]{right:0;top:calc(var(--tr-h) - 8px);width:min(calc(var(--tr-w) - 4px),calc(var(--br-w) - 4px))}
+.qcorner{z-index:8;width:10px;height:10px;border-radius:3px;background:transparent}
+.qcorner::after{content:"";position:absolute;width:5px;height:5px;opacity:.42}
+.qcorner:hover,.qcorner.on{background:transparent}
+.qcorner:hover::after,.qcorner.on::after{opacity:1}
+.qcorner[data-pane="tl"]{left:calc(var(--tl-w) - 14px);top:calc(var(--tl-h) - 14px);cursor:nwse-resize}
+.qcorner[data-pane="tr"]{right:calc(var(--tr-w) - 14px);top:calc(var(--tr-h) - 14px);cursor:nesw-resize}
+.qcorner[data-pane="bl"]{left:calc(var(--bl-w) - 14px);bottom:calc(var(--bl-h) - 14px);cursor:nesw-resize}
+.qcorner[data-pane="br"]{right:calc(var(--br-w) - 14px);bottom:calc(var(--br-h) - 14px);cursor:nwse-resize}
+.qcorner[data-pane="tl"]::after{right:1px;bottom:1px;border-right:1.5px solid var(--cy);border-bottom:1.5px solid var(--cy)}
+.qcorner[data-pane="tr"]::after{left:1px;bottom:1px;border-left:1.5px solid var(--cy);border-bottom:1.5px solid var(--cy)}
+.qcorner[data-pane="bl"]::after{right:1px;top:1px;border-right:1.5px solid var(--cy);border-top:1.5px solid var(--cy)}
+.qcorner[data-pane="br"]::after{left:1px;top:1px;border-left:1.5px solid var(--cy);border-top:1.5px solid var(--cy)}
+
+/* Presets use CSS Grid. The panel-to-slot mapping remains independent, so a
+   middle-click swap continues to work in every layout. */
+.quad:not([data-layout="quad"]){display:grid;gap:8px;height:calc(100vh - 128px);min-height:640px}
+.quad:not([data-layout="quad"]) .quadrant{position:relative;left:auto;right:auto;top:auto;bottom:auto;
+  width:auto;height:auto;min-width:0;min-height:0}
+.quad:not([data-layout="quad"]) .qhandle{display:none}
+.quad[data-layout="three-top"]{grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-rows:minmax(270px,.78fr) minmax(330px,1fr)}
+.quad[data-layout="three-top"] .qtl{grid-column:1;grid-row:1}
+.quad[data-layout="three-top"] .qtr{grid-column:2;grid-row:1}
+.quad[data-layout="three-top"] .qbl{grid-column:3;grid-row:1}
+.quad[data-layout="three-top"] .qbr{grid-column:1/-1;grid-row:2}
+.quad[data-layout="one-top"]{grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-rows:minmax(330px,1fr) minmax(270px,.78fr)}
+.quad[data-layout="one-top"] .qtl{grid-column:1/-1;grid-row:1}
+.quad[data-layout="one-top"] .qtr{grid-column:1;grid-row:2}
+.quad[data-layout="one-top"] .qbl{grid-column:2;grid-row:2}
+.quad[data-layout="one-top"] .qbr{grid-column:3;grid-row:2}
+.quad[data-layout="feature"]{grid-template-columns:minmax(0,1.7fr) minmax(280px,.72fr);
+  grid-template-rows:repeat(3,minmax(0,1fr))}
+.quad[data-layout="feature"] .qtl{grid-column:1;grid-row:1/-1}
+.quad[data-layout="feature"] .qtr{grid-column:2;grid-row:1}
+.quad[data-layout="feature"] .qbl{grid-column:2;grid-row:2}
+.quad[data-layout="feature"] .qbr{grid-column:2;grid-row:3}
+.quad[data-layout="columns"]{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:1fr}
+.quad[data-layout="columns"] .qtl{grid-column:1;grid-row:1}
+.quad[data-layout="columns"] .qtr{grid-column:2;grid-row:1}
+.quad[data-layout="columns"] .qbl{grid-column:3;grid-row:1}
+.quad[data-layout="columns"] .qbr{grid-column:4;grid-row:1}
+.quad[data-layout="rows"]{height:auto;grid-template-columns:1fr;
+  grid-template-rows:repeat(4,minmax(420px,62vh))}
+.quad[data-layout="rows"] .qtl{grid-row:1}
+.quad[data-layout="rows"] .qtr{grid-row:2}
+.quad[data-layout="rows"] .qbl{grid-row:3}
+.quad[data-layout="rows"] .qbr{grid-row:4}
+.layout-resize-layer{position:absolute;inset:0;z-index:8;pointer-events:none}
+.layout-resize-handle{position:absolute;padding:0;border:0;background:transparent;
+  pointer-events:auto;touch-action:none}
+.layout-resize-handle::after{content:"";position:absolute;border-radius:99px;
+  background:rgba(120,190,255,.12);transition:.14s}
+.layout-resize-handle.axis-x{width:12px;cursor:ew-resize}
+.layout-resize-handle.axis-x::after{top:0;bottom:0;left:5px;width:2px}
+.layout-resize-handle.axis-y{height:12px;cursor:ns-resize}
+.layout-resize-handle.axis-y::after{left:0;right:0;top:5px;height:2px}
+.layout-resize-handle:hover::after,.layout-resize-handle.on::after{
+  background:rgba(79,227,255,.7);box-shadow:0 0 14px rgba(79,227,255,.55)}
+.layout-resize-handle:focus-visible{outline:2px solid var(--cy);outline-offset:-2px}
 @media (max-width:900px){
-  .quad{display:flex;flex-direction:column;height:auto;gap:14px}
-  .qdiv,.qknob{display:none}
-  .quadrant{overflow:visible}
+  .quad,.quad[data-layout]{display:flex;flex-direction:column;height:auto;gap:14px}
+  .qhandle,.layout-resize-layer{display:none}
+  .quadrant,.quad[data-layout] .quadrant{position:static;width:auto;height:auto;overflow:visible}
 }
 
 /* ---- watch items --------------------------------------------------- */
@@ -419,6 +554,19 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .ti{flex:1 1 240px;min-width:150px;padding:9px 11px;background:rgba(4,8,15,.6);border:1px solid var(--edge);
   border-radius:8px;font-size:13.5px;outline:none;transition:.15s}
 .ti:focus{border-color:var(--edge-hot);box-shadow:0 0 0 3px rgba(79,227,255,.09)}
+/* chart-shorthand row under each node title in the A9 structure view */
+.short-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  padding:0 13px 11px 14px}
+.short-lb{font-family:var(--mono);font-size:9px;letter-spacing:.18em;
+  color:var(--ink-faint);white-space:nowrap}
+.short-in{flex:0 1 300px;min-width:170px;padding:6px 10px;font-size:12.5px}
+.short-ct{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);
+  letter-spacing:.06em;width:44px}
+.btn-ai{padding:5px 11px;border-radius:8px;border:1px solid rgba(79,227,255,.4);
+  background:rgba(79,227,255,.08);color:#dff8ff;font-family:var(--mono);
+  font-size:10px;letter-spacing:.12em}
+.btn-ai:hover{background:rgba(79,227,255,.18)}
+.btn-ai:disabled{opacity:.5;cursor:wait}
 .node-kids{padding:0 13px 13px 30px;position:relative}
 .node-kids::before{content:"";position:absolute;left:15px;top:0;bottom:20px;width:1px;
   background:linear-gradient(180deg,var(--edge),transparent)}
@@ -573,6 +721,7 @@ input[type=range]:disabled::-webkit-slider-thumb{background:#8fa5c4;border-color
 
 /* ---- management --------------------------------------------------------- */
 .mgmt-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0;
+  border-bottom:1px dashed rgba(120,190,255,.13)}
 .mgmt-row:last-child{border-bottom:0}
 .mgmt-row>div:first-child{flex:1 1 220px}
 input[type=date].ctl{padding:10px 12px}
@@ -583,8 +732,6 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
 @media (max-width:900px){
   .login-wrap{grid-template-columns:1fr}
   .login-art{border-right:0;border-bottom:1px solid var(--edge)}
-  .exec-body{flex-direction:column}
-  .exec-scope{flex:1 1 auto;border-right:0;border-bottom:1px solid var(--edge);padding:0 0 14px}
   .irow{grid-template-columns:1fr;gap:12px}
   main{padding:14px}
 }
@@ -641,6 +788,52 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
         <div class="per-pop hidden" id="perPop"></div>
       </div>
 
+      <div class="layout-ctl" id="layoutCtl">
+        <button class="layout-btn" id="layoutBtn" type="button" aria-haspopup="menu"
+          aria-expanded="false" aria-controls="layoutPop">
+          <span class="layout-btn-icon lt-grid" id="layoutBtnIcon" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+          </span>
+          <span class="eyebrow">LAYOUT</span>
+          <span class="lbl" id="layoutLbl">2 × 2</span>
+        </button>
+        <div class="layout-pop hidden" id="layoutPop" role="menu" aria-label="Reports layout">
+          <div class="layout-pop-head">
+            <div>
+              <div class="layout-pop-title">Reports layout</div>
+              <div class="layout-pop-sub">CHOOSE HOW THE FOUR PANELS SHARE THE WORKSPACE</div>
+            </div>
+            <span class="eyebrow">6 PRESETS</span>
+          </div>
+          <div class="layout-grid">
+            <button class="layout-option" data-layout="quad" type="button" role="menuitemradio">
+              <span class="layout-thumb lt-grid" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="layout-option-copy"><b>Resizable 2 × 2</b><span>Independent quadrant sizing</span></span>
+            </button>
+            <button class="layout-option" data-layout="three-top" type="button" role="menuitemradio">
+              <span class="layout-thumb lt-three-top" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="layout-option-copy"><b>Three over one</b><span>Three summaries, wide detail</span></span>
+            </button>
+            <button class="layout-option" data-layout="one-top" type="button" role="menuitemradio">
+              <span class="layout-thumb lt-one-top" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="layout-option-copy"><b>One over three</b><span>Wide lead panel, three details</span></span>
+            </button>
+            <button class="layout-option" data-layout="feature" type="button" role="menuitemradio">
+              <span class="layout-thumb lt-feature" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="layout-option-copy"><b>Feature + stack</b><span>Large focus with side rail</span></span>
+            </button>
+            <button class="layout-option" data-layout="columns" type="button" role="menuitemradio">
+              <span class="layout-thumb lt-columns" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="layout-option-copy"><b>Four columns</b><span>All panels side by side</span></span>
+            </button>
+            <button class="layout-option" data-layout="rows" type="button" role="menuitemradio">
+              <span class="layout-thumb lt-rows" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="layout-option-copy"><b>Four rows</b><span>Full-width vertical report</span></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="tabs" id="tabs">
         <button class="tab-btn on" data-tab="reports" type="button">REPORTS</button>
         <button class="tab-btn" data-tab="data" type="button">DATA</button>
@@ -660,34 +853,31 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
 
     <main>
       <!-- ============================ REPORTS ============================ -->
-      <!-- Four quadrants; both dividers drag, the centre knob drags both. -->
+      <!-- Four independently resizable report panes. -->
       <div id="tabReports">
         <div class="quad" id="quad">
 
-          <!-- TL: executive summary -->
-          <section class="panel quadrant qtl" id="qExec">
-            <div class="panel-h">
-              <h2>Executive Summary</h2>
-              <span class="eyebrow" id="execScopeTag"></span>
+          <!-- TL: executive summary — the header carries the long-format
+               scope name ("LOE 1 — …" / "OVERALL CAMPAIGN"), clamped to two
+               lines with the full text on hover -->
+          <section class="panel quadrant qtl" id="qExec" data-panel="exec">
+            <div class="panel-h exec-h">
+              <div class="exec-head">
+                <div class="exec-title" id="execHead">OVERALL CAMPAIGN</div>
+                <span class="eyebrow" id="execScopeTag"></span>
+              </div>
               <div class="spacer"></div>
               <button class="btn btn-sm btn-gen" id="btnGen" type="button">AI&nbsp;SUMMARY</button>
               <button class="btn btn-sm" id="btnPayload" type="button" title="Copy the AI request payload for this scope">PAYLOAD</button>
             </div>
             <div class="exec-body">
-              <div class="exec-scope">
-                <div class="eyebrow">Scope</div>
-                <div class="big" id="execCode">OVERALL</div>
-                <div class="sub" id="execTitle">All lines of effort</div>
-                <div class="exec-metrics" id="execMetrics"></div>
-              </div>
+              <div class="exec-metrics" id="execMetrics"></div>
               <div class="exec-text" id="execText"></div>
             </div>
           </section>
 
-          <div class="qdiv qv" id="qdV" title="Drag to resize"></div>
-
           <!-- TR: watch items — red or falling indicators -->
-          <section class="panel quadrant qtr" id="qProb">
+          <section class="panel quadrant qtr" id="qProb" data-panel="watch">
             <div class="panel-h">
               <h2>Watch Items</h2>
               <span class="eyebrow" id="probTag"></span>
@@ -695,23 +885,25 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
             <div class="prob-list" id="probRoot"></div>
           </section>
 
-          <div class="qdiv qh" id="qdH" title="Drag to resize"></div>
-          <div class="qknob" id="qKnob" title="Drag to resize both"></div>
-
           <!-- BL: nested pie -->
-          <section class="panel quadrant qbl pie-panel">
+          <section class="panel quadrant qbl pie-panel" id="qPie" data-panel="pie">
             <div class="panel-h">
               <div class="crumbs" id="crumbs"></div>
+              <div class="spacer"></div>
+              <div class="seg" id="wheelSeg">
+                <button data-wm="modern" class="on" type="button">MODERN</button>
+                <button data-wm="classic" type="button">CLASSIC</button>
+              </div>
             </div>
             <div class="pie-stage">
               <div class="pie-hold">
-                <svg id="pie" viewBox="0 0 1000 1000" role="img" aria-label="Objective maturity distribution"></svg>
+                <svg id="pie" viewBox="45 45 910 910" role="img" aria-label="Objective maturity distribution"></svg>
               </div>
             </div>
           </section>
 
           <!-- BR: trend + forecast -->
-          <section class="panel quadrant qbr">
+          <section class="panel quadrant qbr" id="qTrend" data-panel="trend">
             <div class="panel-h">
               <h2>Trend &amp; Forecast</h2>
               <span class="eyebrow" id="trendScope"></span>
@@ -728,6 +920,20 @@ input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.75)}
             </div>
             <div class="legend" id="trendLegend"></div>
           </section>
+
+          <!-- Four independently movable divider arms plus one two-axis grip
+               for each quadrant. -->
+          <button class="qhandle qedge qv" data-pane="tl" data-axis="w" type="button" aria-label="Resize Executive Summary width" title="Drag to resize Executive Summary width"></button>
+          <button class="qhandle qedge qh" data-pane="tl" data-axis="h" type="button" aria-label="Resize Executive Summary height" title="Drag to resize Executive Summary height"></button>
+          <button class="qhandle qcorner" data-pane="tl" data-axis="both" type="button" aria-label="Resize Executive Summary width and height" title="Drag to resize Executive Summary width and height"></button>
+
+          <button class="qhandle qedge qh" data-pane="tr" data-axis="h" type="button" aria-label="Resize Watch Items height" title="Drag to resize Watch Items height"></button>
+          <button class="qhandle qcorner" data-pane="tr" data-axis="both" type="button" aria-label="Resize Watch Items width and height" title="Drag to resize Watch Items width and height"></button>
+
+          <button class="qhandle qedge qv" data-pane="bl" data-axis="w" type="button" aria-label="Resize maturity chart width" title="Drag to resize maturity chart width"></button>
+          <button class="qhandle qcorner" data-pane="bl" data-axis="both" type="button" aria-label="Resize maturity chart width and height" title="Drag to resize maturity chart width and height"></button>
+
+          <button class="qhandle qcorner" data-pane="br" data-axis="both" type="button" aria-label="Resize Trend and Forecast width and height" title="Drag to resize Trend and Forecast width and height"></button>
 
         </div>
       </div>
@@ -838,16 +1044,53 @@ const LEVELS = ['LOE','IMO','Task','Indicator'];
 /** Keyed by the *depth of the parent path*: [] -> LOEs, [loe] -> imos, ... */
 const CHILD_KEY = {1:'imos',2:'tasks',3:'indicators'};
 
+/**
+ * Chart shorthand — the short label the ring shows under each slice's code so
+ * an executive reads "Partner Cooperation", not just "LOE 1". 20 characters is
+ * the ceiling: at the ring's label radius a 20-character label at the minimum
+ * legible size (~10px in the 1000-unit viewBox scaled up) still fits the
+ * narrowest slice that gets a label, without crowding its neighbours.
+ */
+const SHORT_MAX = 20;
+const shortOf = node => node && node.short ? String(node.short).trim().slice(0,SHORT_MAX) : '';
+const SHORT_STOP = new Set(['the','a','an','and','or','of','to','in','on','for',
+  'with','per','by','at','from','into','vs','is','are']);
+/**
+ * Deterministic fallback shorthand: keywords of the title, cased. Tries
+ * skipping the leading verb ("Strengthening foreign cooperation…" ->
+ * "Foreign Cooperation") when that lets more of the subject fit.
+ */
+function autoShort(title){
+  const words = String(title||'').replace(/\(.*?\)/g,' ')
+    .split(/[^A-Za-z0-9&'-]+/).filter(Boolean);
+  const keep = words.filter(w=>!SHORT_STOP.has(w.toLowerCase()));
+  const cased = keep.map(w=>w===w.toUpperCase()?w:w[0].toUpperCase()+w.slice(1));
+  const from = start => {
+    let out='', n=0;
+    for(const w of cased.slice(start)){
+      const t = out?`${out} ${w}`:w;
+      if(t.length>SHORT_MAX) break;
+      out=t; n++;
+    }
+    return {out,n};
+  };
+  const a=from(0), b=cased.length>1?from(1):{out:'',n:0};
+  const best = b.n>a.n ? b : a;
+  return best.out || String(title||'').slice(0,SHORT_MAX);
+}
+/** What the pie actually prints: the hand-set shorthand, else the fallback. */
+const displayShort = node => shortOf(node) || autoShort(node && node.title);
+
 /* =============================================================================
    [4] DATA MODEL + PERSISTENCE
    -----------------------------------------------------------------------------
    Shape (all ids are stable; display codes are always derived from position):
 
-   tree  : Loe[]
-     Loe        { id, title, imos:  Imo[] }
-     Imo        { id, title, tasks: Task[] }
-     Task       { id, title, indicators: Indicator[] }
-     Indicator  { id, title, opr: string[], ocr: string[] }
+   tree  : Loe[]   (`short` = chart shorthand, <= SHORT_MAX chars, optional)
+     Loe        { id, title, short?, imos:  Imo[] }
+     Imo        { id, title, short?, tasks: Task[] }
+     Task       { id, title, short?, indicators: Indicator[] }
+     Indicator  { id, title, short?, opr: string[], ocr: string[] }
 
    Offices are assigned at the indicator level, on two lines:
      OPR  office of primary responsibility — owns the rating, status and the
@@ -938,10 +1181,10 @@ function flashSync(){
 }
 
 /* ---- tree mutation (managing office only) -------------------------------- */
-const newIndicator = ()=>({id:uid('ind'),title:'New indicator',opr:[],ocr:[]});
-const newTask      = ()=>({id:uid('tsk'),title:'New task',indicators:[newIndicator()]});
-const newImo       = ()=>({id:uid('imo'),title:'New intermediate military objective',tasks:[newTask()]});
-const newLoe       = ()=>({id:uid('loe'),title:'New line of effort',imos:[newImo()]});
+const newIndicator = ()=>({id:uid('ind'),title:'New indicator',short:'',opr:[],ocr:[]});
+const newTask      = ()=>({id:uid('tsk'),title:'New task',short:'',indicators:[newIndicator()]});
+const newImo       = ()=>({id:uid('imo'),title:'New intermediate military objective',short:'',tasks:[newTask()]});
+const newLoe       = ()=>({id:uid('loe'),title:'New line of effort',short:'',imos:[newImo()]});
 
 /** Indicators always carry both office lines, whatever the save's vintage. */
 const oprOf = ind => (ind && Array.isArray(ind.opr)) ? ind.opr : [];
@@ -1008,10 +1251,11 @@ function migrateSave(){
 
 /* ---- alerts -------------------------------------------------------------- */
 const ALERT = {
-  ocr_note   :{label:'OCR COMMENT',        c:'#3aa2ff'},
-  a9_override:{label:'A9 RATING OVERRIDE', c:'#ffc247'},
-  no_input   :{label:'NON-PARTICIPATION',  c:'#ff4d63'},
-  locked     :{label:'PERIOD LOCKED',      c:'#7b8a9e'},
+  ocr_note    :{label:'OCR COMMENT',         c:'#3aa2ff'},
+  a9_override :{label:'A9 RATING OVERRIDE',  c:'#ffc247'},
+  no_input    :{label:'NON-PARTICIPATION',   c:'#ff4d63'},
+  ocr_reminder:{label:'OCR REVIEW REMINDER', c:'#a082ff'},
+  locked      :{label:'PERIOD LOCKED',       c:'#7b8a9e'},
 };
 /**
  * Files an alert. A9 receives a copy of everything, so the managing office can
@@ -1080,79 +1324,102 @@ const mulberry32 = a => () => {
   return ((t ^ t>>>14)>>>0)/4294967296;
 };
 
+/** Indicators are {t:title, s:chart shorthand}; every node carries a `short`. */
 const SEED_TREE = [
-  {title:'Build and Sustain the Coalition', imos:[
-    {title:'Deepen partner interoperability', tasks:[
-      {title:'Execute combined exercise program', offices:['A3','CPD'], indicators:[
-        'Combined exercises executed vs. planned','Partner nations participating','Interoperability findings closed']},
-      {title:'Expand liaison officer network', offices:['A5','IA'], indicators:[
-        'LNO billets filled','Partner HQs with resident LNO']},
+  {title:'Build and Sustain the Coalition', short:'Coalition Building', imos:[
+    {title:'Deepen partner interoperability', short:'Interoperability', tasks:[
+      {title:'Execute combined exercise program', short:'Combined Exercises', offices:['A3','CPD'], indicators:[
+        {t:'Combined exercises executed vs. planned', s:'Exercises Executed'},
+        {t:'Partner nations participating',           s:'Partner Nations'},
+        {t:'Interoperability findings closed',        s:'Findings Closed'}]},
+      {title:'Expand liaison officer network', short:'LNO Network', offices:['A5','IA'], indicators:[
+        {t:'LNO billets filled',            s:'LNO Billets'},
+        {t:'Partner HQs with resident LNO', s:'Resident LNOs'}]},
     ]},
-    {title:'Institutionalize security cooperation governance', tasks:[
-      {title:'Publish theater campaign support annex', offices:['A5','SRD'], indicators:[
-        'Annex staffing milestones met','Partner concurrence obtained']},
-      {title:'Synchronize engagement calendar', offices:['A5','KM'], indicators:[
-        'Engagements deconflicted','Calendar currency']},
+    {title:'Institutionalize security cooperation governance', short:'SC Governance', tasks:[
+      {title:'Publish theater campaign support annex', short:'Campaign Annex', offices:['A5','SRD'], indicators:[
+        {t:'Annex staffing milestones met', s:'Annex Milestones'},
+        {t:'Partner concurrence obtained',  s:'Partner Concurrence'}]},
+      {title:'Synchronize engagement calendar', short:'Engagement Sync', offices:['A5','KM'], indicators:[
+        {t:'Engagements deconflicted', s:'Deconfliction'},
+        {t:'Calendar currency',        s:'Calendar Currency'}]},
     ]},
-    {title:'Strengthen public narrative with partners', tasks:[
-      {title:'Execute combined communication plan', offices:['PA'], indicators:[
-        'Combined releases published','Partner-approved themes in use']},
-    ]},
-  ]},
-  {title:'Modernize and Advance Theater Security Cooperation', imos:[
-    {title:'Field agile combat employment infrastructure', tasks:[
-      {title:'Develop cooperative security locations', offices:['A4','A8'], indicators:[
-        'Sites surveyed','Fuel and munitions capacity fielded','Airfield damage repair kits positioned']},
-      {title:'Pre-position sustainment stocks', offices:['A4'], indicators:[
-        'Stock objective on hand','Distribution timelines met']},
-    ]},
-    {title:'Modernize command and control nodes', tasks:[
-      {title:'Harden alternate operations center', offices:['A6','COD'], indicators:[
-        'Node survivability upgrades complete','Failover rehearsals passed']},
-      {title:'Migrate mission systems to resilient transport', offices:['A6'], indicators:[
-        'Systems migrated','Latency objective met']},
+    {title:'Strengthen public narrative with partners', short:'Public Narrative', tasks:[
+      {title:'Execute combined communication plan', short:'Combined Comms', offices:['PA'], indicators:[
+        {t:'Combined releases published',    s:'Combined Releases'},
+        {t:'Partner-approved themes in use', s:'Approved Themes'}]},
     ]},
   ]},
-  {title:'Generate Readiness and Interoperability', imos:[
-    {title:'Improve force generation throughput', tasks:[
-      {title:'Close critical manning gaps', offices:['A1'], indicators:[
-        'Critical billets filled','Time to fill (inverse)']},
-      {title:'Sustain aircrew currency', offices:['A3','A1'], indicators:[
-        'Aircrew current','Simulator hours delivered']},
+  {title:'Modernize and Advance Theater Security Cooperation', short:'TSC Modernization', imos:[
+    {title:'Field agile combat employment infrastructure', short:'ACE Infrastructure', tasks:[
+      {title:'Develop cooperative security locations', short:'Security Locations', offices:['A4','A8'], indicators:[
+        {t:'Sites surveyed',                          s:'Site Surveys'},
+        {t:'Fuel and munitions capacity fielded',     s:'Fuel & Munitions'},
+        {t:'Airfield damage repair kits positioned',  s:'Repair Kits'}]},
+      {title:'Pre-position sustainment stocks', short:'Prepositioning', offices:['A4'], indicators:[
+        {t:'Stock objective on hand',     s:'Stock On Hand'},
+        {t:'Distribution timelines met',  s:'Distribution'}]},
     ]},
-    {title:'Assure medical and personnel readiness', tasks:[
-      {title:'Raise individual medical readiness', offices:['SG','A1'], indicators:[
-        'Individual medical readiness rate','En route care capacity']},
-    ]},
-    {title:'Institutionalize lessons learned', tasks:[
-      {title:'Close observation backlog', offices:['KM','A3'], indicators:[
-        'Observations adjudicated','Corrective actions verified']},
+    {title:'Modernize command and control nodes', short:'C2 Modernization', tasks:[
+      {title:'Harden alternate operations center', short:'Alternate Ops Ctr', offices:['A6','COD'], indicators:[
+        {t:'Node survivability upgrades complete', s:'Survivability'},
+        {t:'Failover rehearsals passed',           s:'Failover Drills'}]},
+      {title:'Migrate mission systems to resilient transport', short:'Resilient Transport', offices:['A6'], indicators:[
+        {t:'Systems migrated',      s:'Systems Migrated'},
+        {t:'Latency objective met', s:'Latency Target'}]},
     ]},
   ]},
-  {title:'Achieve Decision and Information Advantage', imos:[
-    {title:'Deliver persistent ISR coverage', tasks:[
-      {title:'Optimize collection management', offices:['ISRD','A2'], indicators:[
-        'Priority requirements satisfied','Collection deck utilization','Time-sensitive tasking latency (inverse)']},
-      {title:'Federate partner intelligence sharing', offices:['A2','IA'], indicators:[
-        'Releasable products shared','Partner analysts integrated']},
+  {title:'Generate Readiness and Interoperability', short:'Force Readiness', imos:[
+    {title:'Improve force generation throughput', short:'Force Generation', tasks:[
+      {title:'Close critical manning gaps', short:'Critical Manning', offices:['A1'], indicators:[
+        {t:'Critical billets filled',  s:'Billets Filled'},
+        {t:'Time to fill (inverse)',   s:'Time to Fill'}]},
+      {title:'Sustain aircrew currency', short:'Aircrew Currency', offices:['A3','A1'], indicators:[
+        {t:'Aircrew current',           s:'Aircrew Current'},
+        {t:'Simulator hours delivered', s:'Simulator Hours'}]},
     ]},
-    {title:'Accelerate the assessment cycle', tasks:[
-      {title:'Automate indicator reporting', offices:['A9','A6','KM'], indicators:[
-        'Indicators auto-populated','Reporting cycle time (inverse)']},
-      {title:'Institutionalize commander decision boards', offices:['CAG','SRD'], indicators:[
-        'Boards executed on cycle','Decisions tracked to closure']},
+    {title:'Assure medical and personnel readiness', short:'Medical Readiness', tasks:[
+      {title:'Raise individual medical readiness', short:'Individual Medical', offices:['SG','A1'], indicators:[
+        {t:'Individual medical readiness rate', s:'IMR Rate'},
+        {t:'En route care capacity',            s:'En Route Care'}]},
     ]},
-    {title:'Protect the information environment', tasks:[
-      {title:'Reduce cyber attack surface', offices:['A6','SE'], indicators:[
-        'Critical findings remediated','Continuity of operations exercises passed']},
+    {title:'Institutionalize lessons learned', short:'Lessons Learned', tasks:[
+      {title:'Close observation backlog', short:'Observation Backlog', offices:['KM','A3'], indicators:[
+        {t:'Observations adjudicated',    s:'Adjudications'},
+        {t:'Corrective actions verified', s:'Corrective Actions'}]},
+    ]},
+  ]},
+  {title:'Achieve Decision and Information Advantage', short:'Decision Advantage', imos:[
+    {title:'Deliver persistent ISR coverage', short:'Persistent ISR', tasks:[
+      {title:'Optimize collection management', short:'Collection Mgmt', offices:['ISRD','A2'], indicators:[
+        {t:'Priority requirements satisfied',            s:'Priority Reqs Met'},
+        {t:'Collection deck utilization',                s:'Deck Utilization'},
+        {t:'Time-sensitive tasking latency (inverse)',   s:'Tasking Latency'}]},
+      {title:'Federate partner intelligence sharing', short:'Intel Sharing', offices:['A2','IA'], indicators:[
+        {t:'Releasable products shared',    s:'Products Shared'},
+        {t:'Partner analysts integrated',   s:'Analysts Integrated'}]},
+    ]},
+    {title:'Accelerate the assessment cycle', short:'Assessment Cycle', tasks:[
+      {title:'Automate indicator reporting', short:'Auto Reporting', offices:['A9','A6','KM'], indicators:[
+        {t:'Indicators auto-populated',        s:'Auto-Populated'},
+        {t:'Reporting cycle time (inverse)',   s:'Cycle Time'}]},
+      {title:'Institutionalize commander decision boards', short:'Decision Boards', offices:['CAG','SRD'], indicators:[
+        {t:'Boards executed on cycle',      s:'Boards On Cycle'},
+        {t:'Decisions tracked to closure',  s:'Decision Tracking'}]},
+    ]},
+    {title:'Protect the information environment', short:'Info Protection', tasks:[
+      {title:'Reduce cyber attack surface', short:'Attack Surface', offices:['A6','SE'], indicators:[
+        {t:'Critical findings remediated',              s:'Findings Fixed'},
+        {t:'Continuity of operations exercises passed', s:'COOP Exercises'}]},
     ]},
   ]},
 ];
 
 /**
- * The seed keeps the OPR list on the task for brevity; it is copied onto every
- * indicator, and one coordinating office is picked deterministically so the
- * OCR flow has something to show on first open.
+ * The seed keeps the office pool on the task for brevity; every indicator gets
+ * exactly ONE office of primary responsibility (rotating through the task's
+ * pool), and coordinating offices are picked deterministically so the OCR flow
+ * has something to show on first open.
  */
 function buildSeedTree(){
   const rnd = mulberry32(90210);
@@ -1171,16 +1438,19 @@ function buildSeedTree(){
   };
   let n=0;
   return SEED_TREE.map(l=>({
-    id:uid('loe'), title:l.title,
+    id:uid('loe'), title:l.title, short:l.short,
     imos:l.imos.map(m=>({
-      id:uid('imo'), title:m.title,
+      id:uid('imo'), title:m.title, short:m.short,
       tasks:m.tasks.map(t=>({
-        id:uid('tsk'), title:t.title,
-        indicators:t.indicators.map(name=>({
-          id:uid('ind'), title:name,
-          opr:t.offices.slice(),
-          ocr:pickOcr(t.offices, n++),
-        })),
+        id:uid('tsk'), title:t.title, short:t.short,
+        indicators:t.indicators.map((ind,ii)=>{
+          const opr=[t.offices[ii % t.offices.length]];   // single OPR of record
+          return {
+            id:uid('ind'), title:ind.t, short:ind.s,
+            opr,
+            ocr:pickOcr(opr, n++),
+          };
+        }),
       })),
     })),
   }));
@@ -1196,7 +1466,16 @@ function seedEntries(tree){
   const entries = {};
   const upto = PERIOD_IDX[CURRENT_PERIOD];
   const seasonal = [0.30,-0.18,-0.34,0.22];        // Q1..Q4 offset
-  tree.forEach(l=>l.imos.forEach(m=>m.tasks.forEach(task=>{
+  // Per-LOE trajectory bias keeps maturity aligned with the deliberate demo
+  // status mix below: two healthy lines, one critical line and one watch line.
+  const LOE_BIAS = [0.70,-1.15,0.35,-0.30];
+  const DEMO_LOE_STATUS = /** @type {StatusKey[]} */([
+    'green',   // LOE 1 — healthy coalition building
+    'red',     // LOE 2 — critical modernization constraints
+    'green',   // LOE 3 — healthy readiness
+    'yellow',  // LOE 4 — decision-advantage watch item
+  ]);
+  tree.forEach((l,li)=>l.imos.forEach(m=>m.tasks.forEach(task=>{
     task.indicators.forEach(ind=>{
       const start = 0.6 + rnd()*1.7;
       const slope = 0.10 + rnd()*0.34;
@@ -1208,7 +1487,8 @@ function seedEntries(tree){
           // has something to chase and inheritance is exercised on first open
           if(i===upto && rnd()<0.20) continue;
           const p = PERIODS[i];
-          const v = start + slope*i + seasonal[p.q-1] + bias + (rnd()-0.5)*0.5;
+          const v = start + slope*i + seasonal[p.q-1] + bias
+                  + (LOE_BIAS[li]||0) + (rnd()-0.5)*0.5;
           const r = clamp(Math.round(v*10)/10,0,MAX_RATING);   // slider step is 0.1
           const e = ent(entries,p.id,off);
           e.ind[ind.id] = {
@@ -1220,6 +1500,24 @@ function seedEntries(tree){
       });
     });
   })));
+
+  // Status is intentionally independent from the numeric maturity rating.
+  // Pin each indicator's effective current status to its LOE's demo state so
+  // the top ring always opens 1 red / 1 yellow / 2 green. When the current
+  // submission is deliberately missing, update the inherited source instead;
+  // this preserves the participation and carry-forward demonstrations.
+  tree.forEach((loe,li)=>loe.imos.forEach(imo=>imo.tasks.forEach(task=>
+    task.indicators.forEach(ind=>oprOf(ind).forEach(off=>{
+      let effective = entries[CURRENT_PERIOD]?.[off]?.ind?.[ind.id];
+      if(!effective){
+        for(let i=upto-1;i>=0&&!effective;i--){
+          effective = entries[PERIODS[i].id]?.[off]?.ind?.[ind.id];
+        }
+      }
+      if(effective) effective.s=DEMO_LOE_STATUS[li];
+    }))
+  )));
+
   // red current-quarter entries arrive with a Problem/Solution/Get-well-by
   // already filed, so the executive views have the format to show
   const PSS_BANK=[
@@ -1300,8 +1598,11 @@ function seedOcrAndAlerts(tree){
           });
         });
       };
-      ocrOf(ind).forEach(off=>file(off,false));
-      if(rnd()<0.35) file(ocrOf(ind)[0],true);
+      // roughly a quarter of the assigned OCR offices have not reviewed yet,
+      // so the OPR-to-OCR reminder flow has live targets on first open
+      ocrOf(ind).forEach(off=>{ if(rnd()>=0.25) file(off,false); });
+      const filed = (ocr[CURRENT_PERIOD]?.[ind.id]||[]).map(x=>x.office);
+      if(rnd()<0.35 && filed.length) file(filed[0],true);
     }))));
   return {ocr, alerts};
 }
@@ -1747,9 +2048,11 @@ function forecastNext(series, periods, seasonal){
    [8] SVG GEOMETRY HELPERS   (pure — port straight to .ts)
    ========================================================================== */
 const CX=500, CY=500;
-const RING = {r0:252, r1:400};        // current-level band
-const KIDS = {r0:150, r1:236};        // children band, revealed on hover
-const CORE = 122;                     // centre disc
+// A broad current-level band leaves a dedicated high-contrast rail for labels.
+const RING = {r0:296, r1:410};        // current-level band
+const KIDS = {r0:207, r1:282};        // children band, always on display
+const GKIDS= {r0:128, r1:195};        // grandchildren band, revealed on hover
+const CORE = 104;                     // centre disc
 const EXPLODE = 13;                   // hover pull-out, px
 const GAP = 0.9;                      // inter-slice gap, degrees
 
@@ -2060,13 +2363,62 @@ function sliceGrad(defs,id,c,c2,mid){
   const [x1,y1]=polar(RING.r1,mid), [x2,y2]=polar(RING.r0*0.5,mid);
   const g = svgEl('linearGradient',{id,gradientUnits:'userSpaceOnUse',
     x1:f2(x1),y1:f2(y1),x2:f2(x2),y2:f2(y2)});
+  g.appendChild(svgEl('stop',{offset:'0%','stop-color':c,'stop-opacity':'.98'}));
+  g.appendChild(svgEl('stop',{offset:'52%','stop-color':c,'stop-opacity':'.9'}));
+  g.appendChild(svgEl('stop',{offset:'100%','stop-color':c2,'stop-opacity':'.86'}));
+  defs.appendChild(g);
+  return `url(#${id})`;
+}
+
+/* =============================================================================
+   CLASSIC WHEEL — the wheel exactly as it was before the modernisation
+   (flat code + percent labels, single reveal band, outer tick ring, wide
+   core). Recovered verbatim from the pre-modernisation revision; only the
+   geometry constants and helper names are prefixed so the modern wheel is
+   untouched. The WHEEL toggle in the pie header picks the renderer.
+   ========================================================================== */
+const C_RING = {r0:252, r1:400};
+const C_KIDS = {r0:150, r1:236};
+const C_CORE = 122;
+
+function sliceGradClassic(defs,id,c,c2,mid){
+  const [x1,y1]=polar(C_RING.r1,mid), [x2,y2]=polar(C_RING.r0*0.5,mid);
+  const g = svgEl('linearGradient',{id,gradientUnits:'userSpaceOnUse',
+    x1:f2(x1),y1:f2(y1),x2:f2(x2),y2:f2(y2)});
   g.appendChild(svgEl('stop',{offset:'0%','stop-color':c,'stop-opacity':'1'}));
   g.appendChild(svgEl('stop',{offset:'100%','stop-color':c2,'stop-opacity':'.92'}));
   defs.appendChild(g);
   return `url(#${id})`;
 }
 
-function renderPie(){
+function drawCoreClassic(gCore){
+  const period=S.period, v=valueOf(S.focus,period), pv=pctOf(v);
+  const st=STATUS[statusOf(S.focus,period)];
+  gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:C_CORE+16,fill:'none',
+    stroke:'rgba(120,190,255,.13)'}));
+  gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:C_CORE,fill:'url(#coreG)',
+    stroke:st.c,'stroke-opacity':'.55','stroke-width':'1.6'}));
+  // status ring around the core: a full ring, so nothing here encodes the
+  // rating — the rating is carried by slice size and by the figure below
+  gCore.appendChild(svgEl('path',{d:arcPath(C_CORE+5,C_CORE+11,0,360),
+    fill:st.c,opacity:'.85','fill-rule':'evenodd',filter:'url(#glowS)'}));
+  const label = S.focus.length ? codeOf(S.focus) : 'OVERALL';
+  const t1 = svgEl('text',{x:CX,y:CY-34,'text-anchor':'middle',fill:'#8fa5c4',
+    'font-family':'ui-monospace,monospace','font-size':'19','letter-spacing':'4'});
+  t1.textContent = label.toUpperCase();
+  const t2 = svgEl('text',{x:CX,y:CY+16,'text-anchor':'middle',fill:'#eaf6ff',
+    'font-family':'ui-monospace,monospace','font-size':'60','font-weight':'600'});
+  t2.textContent = pv==null?'—':pv+'%';
+  const t3 = svgEl('text',{x:CX,y:CY+50,'text-anchor':'middle',fill:st.c,
+    'font-family':'ui-monospace,monospace','font-size':'15','letter-spacing':'3'});
+  t3.textContent = st.label;
+  const t4 = svgEl('text',{x:CX,y:CY+76,'text-anchor':'middle',fill:'#5d7391',
+    'font-family':'ui-monospace,monospace','font-size':'14','letter-spacing':'2'});
+  t4.textContent = v==null?'NOT ASSESSED':`${f2(v)} / ${MAX_RATING} MATURITY`;
+  gCore.append(t1,t2,t3,t4);
+}
+
+function renderPieClassic(){
   const svg = $('#pie');
   svg.innerHTML='';
   defsFor(svg);
@@ -2105,7 +2457,7 @@ function renderPie(){
   const slices = layout(S.focus,period);
   const kids = childrenOf(S.focus);
   if(!kids.length){
-    gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:CORE+40,fill:'url(#coreG)',
+    gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:C_CORE+40,fill:'url(#coreG)',
       stroke:'rgba(120,190,255,.2)'}));
     const t = svgEl('text',{x:CX,y:CY,'text-anchor':'middle','dominant-baseline':'central',
       fill:'#5d7391','font-family':'ui-monospace,monospace','font-size':'22','letter-spacing':'4'});
@@ -2120,9 +2472,9 @@ function renderPie(){
     const hot = S.hover===i;
     const pad = Math.min(GAP, (s.a1-s.a0)/4);
     const a0=s.a0+pad/2, a1=s.a1-pad/2;
-    const g = hot ? geom(a0-0.35,a1+0.35,RING.r0-6,RING.r1+18,1,EXPLODE)
-                  : geom(a0,a1,RING.r0,RING.r1,1,0);
-    const fill = sliceGrad(defs,`sg${i}`,c,c2,s.mid);
+    const g = hot ? geom(a0-0.35,a1+0.35,C_RING.r0-6,C_RING.r1+18,1,EXPLODE)
+                  : geom(a0,a1,C_RING.r0,C_RING.r1,1,0);
+    const fill = sliceGradClassic(defs,`sg${i}`,c,c2,s.mid);
 
     const path = svgEl('path',{d:arcPath(g.r0,g.r1,g.a0,g.a1),fill,
       stroke:hot?'rgba(255,255,255,.55)':'rgba(4,8,15,.85)','stroke-width':hot?2:2.5,
@@ -2140,7 +2492,7 @@ function renderPie(){
         const kc = sliceColor(kp,period);
         const kpad = Math.min(0.7,(k.a1-k.a0)/4);
         const kpath = svgEl('path',{
-          d:arcPath(KIDS.r0,KIDS.r1,k.a0+kpad/2,k.a1-kpad/2),
+          d:arcPath(C_KIDS.r0,C_KIDS.r1,k.a0+kpad/2,k.a1-kpad/2),
           fill:kc.c,opacity:'0','stroke':'rgba(4,8,15,.8)','stroke-width':'1.5',
           'fill-rule':'evenodd'});
         kpath.setAttribute('transform',pushT(s.mid,EXPLODE*0.45));
@@ -2152,7 +2504,7 @@ function renderPie(){
         kpath.appendChild(an);
       });
       // radial guide marking the hovered span
-      const guide = svgEl('path',{d:arcPath(KIDS.r1+8,KIDS.r1+9.5,a0,a1),
+      const guide = svgEl('path',{d:arcPath(C_KIDS.r1+8,C_KIDS.r1+9.5,a0,a1),
         fill:'rgba(79,227,255,.5)','pointer-events':'none'});
       gKids.appendChild(guide);
     }
@@ -2180,7 +2532,7 @@ function renderPie(){
   });
 
   // ---------------- centre core ------------------------------------------
-  drawCore(gCore);
+  drawCoreClassic(gCore);
 
   // ---------------- interaction ------------------------------------------
   gRing.addEventListener('pointerover',e=>{
@@ -2199,8 +2551,320 @@ function renderPie(){
   gKids.addEventListener('click',click);
 
 }
+
+const wheelClassic = () => UI.wheel === 'classic';
+function renderPie(){
+  const svg=$('#pie');
+  if(svg) svg.setAttribute('viewBox', wheelClassic() ? '0 0 1000 1000' : '45 45 910 910');
+  const seg=$('#wheelSeg');
+  if(seg) [...seg.children].forEach(b=>b.classList.toggle('on',b.dataset.wm===(UI.wheel||'modern')));
+  (wheelClassic() ? renderPieClassic : renderPieModern)();
+}
+
+function renderPieModern(){
+  const svg = $('#pie');
+  svg.innerHTML='';
+  svg.onpointermove=null;   // leaf/empty views take no geometric hover
+  defsFor(svg);
+  const defs = svg.querySelector('defs');
+  const period = S.period;
+
+  // restrained orbit furniture keeps the data dominant and silhouette crisp
+  const deco = svgEl('g',{'pointer-events':'none'});
+  deco.appendChild(svgEl('circle',{cx:CX,cy:CY,r:425,fill:'none',
+    stroke:'rgba(166,211,255,.18)','stroke-width':'1'}));
+  deco.appendChild(svgEl('circle',{cx:CX,cy:CY,r:438,fill:'none',
+    stroke:'rgba(79,227,255,.12)','stroke-width':'1','stroke-dasharray':'2 10'}));
+  for(let a=0;a<360;a+=30){
+    const [x,y]=polar(438,a);
+    deco.appendChild(svgEl('circle',{cx:f2(x),cy:f2(y),r:a%90===0?2.6:1.5,
+      fill:a%90===0?'rgba(154,226,255,.62)':'rgba(154,226,255,.28)'}));
+  }
+  svg.appendChild(deco);
+
+  const gKids  = svgEl('g',{id:'gKids'});     // children band + hover reveal band
+  const gRing  = svgEl('g',{id:'gRing'});     // current level
+  const gLbl   = svgEl('g',{id:'gLbl','pointer-events':'none'});
+  const gCore  = svgEl('g',{id:'gCore','pointer-events':'none'});
+  svg.append(gKids,gRing,gLbl,gCore);
+
+  // ---------------- indicator leaf: single ring + fitted caption -----------
+  if(S.focus.length===4){
+    renderLeaf(svg,gRing,gCore,defs);
+    return;
+  }
+
+  const slices = layout(S.focus,period);
+  const kids = childrenOf(S.focus);
+  if(!kids.length){
+    gCore.appendChild(svgEl('circle',{cx:CX,cy:CY,r:CORE+40,fill:'url(#coreG)',
+      stroke:'rgba(120,190,255,.2)'}));
+    const t = svgEl('text',{x:CX,y:CY,'text-anchor':'middle','dominant-baseline':'central',
+      fill:'#5d7391','font-family':'ui-monospace,monospace','font-size':'22','letter-spacing':'4'});
+    t.textContent='NO SUBORDINATE OBJECTIVES';
+    gCore.appendChild(t);
+    return;
+  }
+
+  // themed tooltip payload: hovering any slice shows code, full title and
+  // rollup in the app's own popup (rendered by the shell's tooltip layer)
+  const tipFor=(elm,p,node)=>{
+    const v=valueOf(p,period), st=STATUS[statusOf(p,period)];
+    elm.dataset.tipCode=codeOf(p);
+    elm.dataset.tipTitle=node?node.title:'';
+    elm.dataset.tipMeta=v==null?'NOT ASSESSED':`${pctOf(v)}% · ${st.label}`;
+    elm.dataset.tipColor=st.c;
+  };
+  const shortCode=p=>codeOf(p).replace('Indicator','IND').replace('Task','TSK');
+
+  slices.forEach((s,i)=>{
+    const p = S.focus.concat(i);
+    const node = nodeAt(p);
+    const {c,c2} = sliceColor(p,period);
+    const hot = S.hover===i;
+    const pad = Math.min(GAP, (s.a1-s.a0)/4);
+    const a0=s.a0+pad/2, a1=s.a1-pad/2;
+    const g = hot ? geom(a0-0.35,a1+0.35,RING.r0-6,RING.r1+18,1,EXPLODE)
+                  : geom(a0,a1,RING.r0,RING.r1,1,0);
+    const fill = sliceGrad(defs,`sg${i}`,c,c2,s.mid);
+
+    const path = svgEl('path',{d:arcPath(g.r0,g.r1,g.a0,g.a1),fill,
+      stroke:hot?'rgba(255,255,255,.62)':'rgba(228,244,255,.16)','stroke-width':hot?2:1.25,
+      'fill-rule':'evenodd'});
+    if(g.push) path.setAttribute('transform',pushT(s.mid,g.push));
+    if(hot) path.setAttribute('filter','url(#glowS)');
+    path.dataset.i=i;
+    tipFor(path,p,node);
+    gRing.appendChild(path);
+
+    // ---- children band: the next level down, always on display ----------
+    if(S.focus.length<3){
+      const push = hot ? EXPLODE*0.45 : 0;
+      const sub = layout(p,period,a0,a1);
+      sub.forEach((k,j)=>{
+        const kp = p.concat(j);
+        const kn = nodeAt(kp);
+        const kc = sliceColor(kp,period);
+        const kpad = Math.min(0.7,(k.a1-k.a0)/4);
+        const ka0=k.a0+kpad/2, ka1=k.a1-kpad/2;
+        const kpath = svgEl('path',{
+          d:arcPath(KIDS.r0,KIDS.r1,ka0,ka1),
+          fill:kc.c,opacity:hot?'.95':'.82','stroke':'rgba(4,8,15,.8)',
+          'stroke-width':'1.5','fill-rule':'evenodd'});
+        if(push) kpath.setAttribute('transform',pushT(s.mid,push));
+        kpath.dataset.i=i;                 // clicking a child band drills the parent
+        tipFor(kpath,kp,kn);
+        gKids.appendChild(kpath);
+
+        // inner band keeps the plain notation: just the code, horizontal
+        const ksweep=ka1-ka0;
+        if(ksweep>14){
+          const rM=(KIDS.r0+KIDS.r1)/2;
+          const [kx,ky]=polar(rM,k.mid);
+          const koff = push ? pushXY(s.mid,push) : [0,0];
+          const kt=svgEl('text',{x:f2(kx+koff[0]),y:f2(ky+koff[1]),
+            'text-anchor':'middle','dominant-baseline':'central',
+            fill:'rgba(255,255,255,.88)','font-family':'ui-monospace,monospace',
+            'font-size':ksweep>24?'15':'12','letter-spacing':'1'});
+          kt.textContent=shortCode(kp);
+          gLbl.appendChild(kt);
+        }
+
+        // ---- grandchildren band, revealed under the hovered slice --------
+        if(hot && S.focus.length<2){
+          const gsub = layout(kp,period,ka0,ka1);
+          gsub.forEach((q,x)=>{
+            const qp = kp.concat(x);
+            const qn = nodeAt(qp);
+            const qc = sliceColor(qp,period);
+            const qpad = Math.min(0.5,(q.a1-q.a0)/4);
+            const qpath = svgEl('path',{
+              d:arcPath(GKIDS.r0,GKIDS.r1,q.a0+qpad/2,q.a1-qpad/2),
+              fill:qc.c,opacity:'0','stroke':'rgba(4,8,15,.8)',
+              'stroke-width':'1.2','fill-rule':'evenodd'});
+            if(push) qpath.setAttribute('transform',pushT(s.mid,push));
+            qpath.dataset.i=i;
+            tipFor(qpath,qp,qn);
+            gKids.appendChild(qpath);
+            // staggered reveal
+            const an = svgEl('animate',{attributeName:'opacity',from:'0',to:'.9',
+              dur:'.24s',begin:`${x*0.02}s`,fill:'freeze'});
+            qpath.appendChild(an);
+            // plain tiny code where the arc allows; tooltip has the rest
+            const qsweep=(q.a1-q.a0)-qpad;
+            if(qsweep>20){
+              const rM=(GKIDS.r0+GKIDS.r1)/2;
+              const [qx,qy]=polar(rM,(q.a0+q.a1)/2);
+              const qoff = push ? pushXY(s.mid,push) : [0,0];
+              const qt=svgEl('text',{x:f2(qx+qoff[0]),y:f2(qy+qoff[1]),
+                'text-anchor':'middle','dominant-baseline':'central',opacity:'0',
+                fill:'rgba(255,255,255,.85)','font-family':'ui-monospace,monospace',
+                'font-size':'10','letter-spacing':'.5'});
+              qt.textContent=shortCode(qp);
+              qt.appendChild(svgEl('animate',{attributeName:'opacity',from:'0',
+                to:'.9',dur:'.24s',begin:'0s',fill:'freeze'}));
+              gLbl.appendChild(qt);
+            }
+          });
+        }
+      });
+      // radial guide marking the hovered span, level with the reveal band
+      if(hot && S.focus.length<2){
+        const guide = svgEl('path',{d:arcPath(GKIDS.r1+6,GKIDS.r1+7.5,a0,a1),
+          fill:'rgba(79,227,255,.5)','pointer-events':'none'});
+        if(push) guide.setAttribute('transform',pushT(s.mid,push));
+        gKids.appendChild(guide);
+      }
+    }
+
+    // ---- high-contrast label rail + curved type -------------------------
+    const pv = pctOf(s.v);
+    const pct = pv==null ? '—' : pv+'%';
+    const codeTxt = shortCode(p);
+    const short = node ? displayShort(node) : '';
+    const full = short ? [codeTxt,short,pct] : [codeTxt,pct];
+    const rail = svgEl('path',{
+      d:arcPath(g.r1-52,g.r1-7,a0+0.35,a1-0.35),
+      fill:hot?'rgba(3,8,15,.9)':'rgba(3,8,15,.78)',
+      stroke:'rgba(226,244,255,.18)','stroke-width':'1','fill-rule':'evenodd'});
+    if(g.push) rail.setAttribute('transform',pushT(s.mid,g.push));
+    gLbl.appendChild(rail);
+
+    // Prefer the full context, then keep the shorthand and score before
+    // allowing the type to fall below a comfortable dashboard size.
+    arcLabel(defs,gLbl,{rC:g.r1-27,a0,a1,mid:s.mid,push:g.push,
+      variants:[full],maxFs:28,minFs:23.5,
+      fill:'#f7fbff'})
+    || arcLabel(defs,gLbl,{rC:g.r1-27,a0,a1,mid:s.mid,push:g.push,
+      variants:[[short,pct]],maxFs:28,minFs:19,
+      fill:'#f7fbff'})
+    || arcLabel(defs,gLbl,{rC:g.r1-27,a0,a1,mid:s.mid,push:g.push,
+      variants:[[codeTxt,pct],[codeTxt]],maxFs:22,minFs:13,
+      fill:'#f7fbff'});
+  });
+
+  // ---------------- centre core ------------------------------------------
+  drawCore(gCore);
+
+  // ---------------- interaction ------------------------------------------
+  /**
+   * Geometric hover: the pointer's polar position decides which slice (if
+   * any) is hot, so the pull-out collapses the moment the cursor leaves the
+   * slice's span — not only when it leaves the whole chart. The hovered
+   * slice keeps a slightly larger radial window so its exploded body and
+   * the revealed inner band stay hoverable.
+   */
+  const idxAt = e=>{
+    const rect=svg.getBoundingClientRect();
+    if(!rect.width || !rect.height) return null;
+    const sc=Math.min(rect.width,rect.height)/1000;
+    const vx=(e.clientX-rect.left-(rect.width -1000*sc)/2)/sc;
+    const vy=(e.clientY-rect.top -(rect.height-1000*sc)/2)/sc;
+    const dx=vx-CX, dy=vy-CY;
+    const r=Math.hypot(dx,dy);
+    let deg=Math.atan2(dy,dx)*180/Math.PI+90;
+    if(deg<0) deg+=360;
+    const idx=slices.findIndex(q=>deg>=q.a0 && deg<q.a1);
+    if(idx<0) return null;
+    const hovered = idx===S.hover;
+    const inner = (hovered && S.focus.length<2) ? GKIDS.r0
+                : (S.focus.length<3 ? KIDS.r0 : RING.r0);
+    const outer = RING.r1 + (hovered ? EXPLODE+20 : 8);
+    return (r>=inner-4 && r<=outer) ? idx : null;
+  };
+  // property assignment, not addEventListener: renderPie runs per hover
+  // change and the svg node persists, so this must replace itself
+  svg.onpointermove = e=>{
+    if(!S.animating) setHover(idxAt(e));
+  };
+  const click = e=>{
+    const i = e.target.dataset && e.target.dataset.i;
+    if(i!=null && !S.animating) drillInto(+i);
+  };
+  gRing.addEventListener('click',click);
+  gKids.addEventListener('click',click);
+
+}
 const pushXY = (mid,d)=>{ const a=(mid-90)*Math.PI/180; return [Math.cos(a)*d,Math.sin(a)*d]; };
 const pushT  = (mid,d)=>{ const [x,y]=pushXY(mid,d); return `translate(${f2(x)},${f2(y)})`; };
+
+/* ---- curved slice labels ------------------------------------------------- */
+let _arcN=0;
+/**
+ * One label riding a slice's arc on a <textPath>. The guide path runs
+ * clockwise on the top half of the circle and is REVERSED on the bottom half
+ * (mid between 90° and 270°), so the letters never stand on their heads.
+ *
+ * `variants` is a list of text part-arrays, richest first (e.g.
+ * [['LOE 4','Decision Advantage','59%'], ['LOE 4','59%'], ['LOE 4']]); the
+ * first one that fits the arc at >= minFs is drawn at the largest size that
+ * fits, capped at maxFs. Parts are joined with a quiet bullet. `spill` (>1) lets the
+ * text overrun the slice span into free space — used for labels hung outside
+ * the ring. Returns true when a label was drawn.
+ */
+function arcLabel(defs,gLbl,o){
+  const span=Math.max(0,o.a1-o.a0);
+  if(span<4) return false;
+  const displayFont='"Segoe UI Variable Display","Aptos Display","Segoe UI",system-ui,sans-serif';
+  const meas=svgEl('text',{x:-9999,y:-9999,'font-family':displayFont,
+    'font-weight':String(o.weight||650),'font-size':'100'});
+  gLbl.appendChild(meas);
+  // width of the string per 1px of font size (estimated when the renderer
+  // cannot measure, e.g. in a test harness)
+  const unit=s=>{ meas.textContent=s;
+    try{ const w=meas.getComputedTextLength(); if(w>0) return w/100; }catch(e){}
+    return s.length*0.56; };
+  let drawn=false;
+  for(const parts of o.variants){
+    const s=parts.filter(Boolean).join('  •  ');
+    if(!s) continue;
+    const u=unit(s); if(!u) continue;
+    const allowSpan=span*(o.spill||1);
+    const avail=allowSpan*Math.PI/180*o.rC - 10;
+    const fs=Math.min(o.maxFs, avail/u);
+    if(fs<o.minFs) continue;
+
+    const flip=o.mid>90 && o.mid<270;
+    // baseline sits on the guide path and glyphs grow away from the centre
+    // on top, toward it on the flipped bottom — offset keeps them centred
+    // on rC either way
+    const pathR=o.rC + (flip?0.34:-0.34)*fs;
+    const textSpan=Math.min(allowSpan,(u*fs+10)/(Math.PI/180*pathR));
+    const A0=o.mid-textSpan/2, A1=o.mid+textSpan/2;
+    const big=textSpan>180?1:0;
+    const P=(r,a)=>polar(r,a).map(f2).join(',');
+    const id=`arclb${++_arcN}`;
+    const d=flip
+      ? `M${P(pathR,A1)}A${f2(pathR)},${f2(pathR)} 0 ${big} 0 ${P(pathR,A0)}`
+      : `M${P(pathR,A0)}A${f2(pathR)},${f2(pathR)} 0 ${big} 1 ${P(pathR,A1)}`;
+    defs.appendChild(svgEl('path',{id,d,fill:'none'}));
+
+    const t=svgEl('text',{'font-family':displayFont,'font-size':f2(fs),
+      'font-weight':String(o.weight||650),fill:o.fill||'rgba(255,255,255,.95)',
+      'letter-spacing':'.15'});
+    if(o.halo!==false){   // dark halo so white text reads on any status colour
+      t.setAttribute('stroke','rgba(2,5,10,.82)');
+      t.setAttribute('stroke-width',f2(Math.max(1.5,fs*0.12)));
+      t.setAttribute('stroke-linejoin','round');
+      t.setAttribute('style','paint-order:stroke; font-variation-settings:"wght" 650');
+    }
+    if(o.push) t.setAttribute('transform',pushT(o.mid,o.push));
+    if(o.opacity!=null) t.setAttribute('opacity',String(o.opacity));
+    const tp=svgEl('textPath',{href:`#${id}`,startOffset:'50%','text-anchor':'middle'});
+    tp.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href',`#${id}`);
+    tp.textContent=s;
+    t.appendChild(tp);
+    if(o.fadeIn){
+      t.setAttribute('opacity','0');
+      t.appendChild(svgEl('animate',{attributeName:'opacity',from:'0',
+        to:String(o.opacity!=null?o.opacity:1),dur:'.24s',begin:'0s',fill:'freeze'}));
+    }
+    gLbl.appendChild(t);
+    drawn=true; break;
+  }
+  meas.remove();
+  return drawn;
+}
 
 function drawCore(gCore){
   const period=S.period, v=valueOf(S.focus,period), pv=pctOf(v);
@@ -2214,17 +2878,18 @@ function drawCore(gCore){
   gCore.appendChild(svgEl('path',{d:arcPath(CORE+5,CORE+11,0,360),
     fill:st.c,opacity:'.85','fill-rule':'evenodd',filter:'url(#glowS)'}));
   const label = S.focus.length ? codeOf(S.focus) : 'OVERALL';
-  const t1 = svgEl('text',{x:CX,y:CY-34,'text-anchor':'middle',fill:'#8fa5c4',
-    'font-family':'ui-monospace,monospace','font-size':'19','letter-spacing':'4'});
-  t1.textContent = label.toUpperCase();
-  const t2 = svgEl('text',{x:CX,y:CY+16,'text-anchor':'middle',fill:'#eaf6ff',
-    'font-family':'ui-monospace,monospace','font-size':'60','font-weight':'600'});
-  t2.textContent = pv==null?'—':pv+'%';
-  const t3 = svgEl('text',{x:CX,y:CY+50,'text-anchor':'middle',fill:st.c,
+  const t1 = svgEl('text',{x:CX,y:CY-42,'text-anchor':'middle',fill:'#8fa5c4',
     'font-family':'ui-monospace,monospace','font-size':'15','letter-spacing':'3'});
+  t1.textContent = label.toUpperCase();
+  const t2 = svgEl('text',{x:CX,y:CY+4,'text-anchor':'middle',fill:'#f4f9ff',
+    'font-family':'"Segoe UI Variable Display","Aptos Display","Segoe UI",system-ui,sans-serif',
+    'font-size':'50','font-weight':'650','letter-spacing':'-1'});
+  t2.textContent = pv==null?'—':pv+'%';
+  const t3 = svgEl('text',{x:CX,y:CY+32,'text-anchor':'middle',fill:st.c,
+    'font-family':'ui-monospace,monospace','font-size':'12.5','letter-spacing':'2.5'});
   t3.textContent = st.label;
-  const t4 = svgEl('text',{x:CX,y:CY+76,'text-anchor':'middle',fill:'#5d7391',
-    'font-family':'ui-monospace,monospace','font-size':'14','letter-spacing':'2'});
+  const t4 = svgEl('text',{x:CX,y:CY+56,'text-anchor':'middle',fill:'#5d7391',
+    'font-family':'ui-monospace,monospace','font-size':'11.5','letter-spacing':'1.5'});
   t4.textContent = v==null?'NOT ASSESSED':`${f2(v)} / ${MAX_RATING} MATURITY`;
   gCore.append(t1,t2,t3,t4);
 }
@@ -2339,6 +3004,9 @@ function goTo(path){
  * inner band and become the full circle, while the old level fades outward.
  */
 function animateFocus(target,dir){
+  // the drill animation uses whichever wheel geometry is active
+  const RINGX = wheelClassic() ? C_RING : RING;
+  const KIDSX = wheelClassic() ? C_KIDS : KIDS;
   const svg=$('#pie');
   const from=S.focus.slice();
   const period=S.period;
@@ -2361,7 +3029,7 @@ function animateFocus(target,dir){
   if(dir==='down'){
     const idx=target[target.length-1];
     const sl=layout(from,period)[idx];
-    startSpan={a0:sl.a0,a1:sl.a1,r0:KIDS.r0,r1:KIDS.r1,push:EXPLODE*0.45,
+    startSpan={a0:sl.a0,a1:sl.a1,r0:KIDSX.r0,r1:KIDSX.r1,push:EXPLODE*0.45,
                mid:(sl.a0+sl.a1)/2};
   }else{
     startSpan=null;                              // coming back up: fan in from wide
@@ -2377,13 +3045,13 @@ function animateFocus(target,dir){
     const p=target.concat(i);
     const {c,c2}=sliceColor(p,period);
     const pad=Math.min(GAP,(s.a1-s.a0)/4);
-    const to=geom(s.a0+pad/2,s.a1-pad/2,RING.r0,RING.r1,1,0);
+    const to=geom(s.a0+pad/2,s.a1-pad/2,RINGX.r0,RINGX.r1,1,0);
     let fr;
     if(startSpan){
       const sub=layout(target,period,startSpan.a0,startSpan.a1)[i];
       fr=geom(sub.a0,sub.a1,startSpan.r0,startSpan.r1,.55,startSpan.push);
     }else{
-      fr=geom(to.a0-14,to.a1+14,RING.r0+86,RING.r1+120,0,0);
+      fr=geom(to.a0-14,to.a1+14,RINGX.r0+86,RINGX.r1+120,0,0);
     }
     const path=svgEl('path',{d:arcPath(fr.r0,fr.r1,fr.a0,fr.a1),
       fill:sliceGrad(defs,`ag${i}`,c,c2,s.mid),opacity:String(fr.op),
@@ -2397,15 +3065,15 @@ function animateFocus(target,dir){
     oldLay.forEach((s,i)=>{
       if(i===target[target.length-1]) return;
       const p=from.concat(i); const {c,c2}=sliceColor(p,period);
-      const fr=geom(s.a0,s.a1,RING.r0,RING.r1,.85,0);
-      const to=geom(s.a0-6,s.a1+6,RING.r0+120,RING.r1+150,0,0);
+      const fr=geom(s.a0,s.a1,RINGX.r0,RINGX.r1,.85,0);
+      const to=geom(s.a0-6,s.a1+6,RINGX.r0+120,RINGX.r1+150,0,0);
       const path=svgEl('path',{d:arcPath(fr.r0,fr.r1,fr.a0,fr.a1),fill:c,opacity:'.85',
         'fill-rule':'evenodd'});
       g.insertBefore(path,g.firstChild);
       items.push({path,fr,to,mid:s.mid});
     });
   }
-  drawCore(core);
+  (wheelClassic()?drawCoreClassic:drawCore)(core);
 
   const T0=performance.now(), DUR=dir==='down'?680:520;
   (function frame(now){
@@ -2829,54 +3497,413 @@ function driveTo(target){
 }
 
 /* =============================================================================
-   QUADRANT LAYOUT — both dividers drag; the centre knob drags both
+   QUADRANT LAYOUT — each pane resizes from its inward-facing corner
    ========================================================================== */
-const UI_KEY='c1aa.ui.v1';
-const UI={fx:.52,fy:.46};
+const UI_KEY='c1aa.ui.v2', LEGACY_UI_KEY='c1aa.ui.v1';
+const PANEL_SLOTS=['qtl','qtr','qbl','qbr'];
+const PANEL_IDS=['exec','watch','pie','trend'];
+const REPORT_LAYOUTS={
+  quad:       {label:'2 × 2',   icon:'lt-grid'},
+  'three-top':{label:'3 + 1',   icon:'lt-three-top'},
+  'one-top':  {label:'1 + 3',   icon:'lt-one-top'},
+  feature:    {label:'FEATURE', icon:'lt-feature'},
+  columns:    {label:'4 COL',   icon:'lt-columns'},
+  rows:       {label:'4 ROW',   icon:'lt-rows'},
+};
+const DEFAULT_LAYOUT_SIZES={
+  'three-top':{cols:[1,1,1],rows:[.78,1]},
+  'one-top':  {cols:[1,1,1],rows:[1,.78]},
+  feature:    {cols:[1.7,.72],rows:[1,1,1]},
+  columns:    {cols:[1,1,1,1],rows:[1]},
+  rows:       {cols:[1],rows:[1,1,1,1]},
+};
+const LAYOUT_SPLITTERS={
+  'three-top':[
+    {axis:'x',index:0,before:'qtl',after:'qtr',span:'qtl'},
+    {axis:'x',index:1,before:'qtr',after:'qbl',span:'qtr'},
+    {axis:'y',index:0,before:'qtl',after:'qbr',span:'all'},
+  ],
+  'one-top':[
+    {axis:'x',index:0,before:'qtr',after:'qbl',span:'qtr'},
+    {axis:'x',index:1,before:'qbl',after:'qbr',span:'qbl'},
+    {axis:'y',index:0,before:'qtl',after:'qtr',span:'all'},
+  ],
+  feature:[
+    {axis:'x',index:0,before:'qtl',after:'qtr',span:'all'},
+    {axis:'y',index:0,before:'qtr',after:'qbl',span:'qtr'},
+    {axis:'y',index:1,before:'qbl',after:'qbr',span:'qbl'},
+  ],
+  columns:[
+    {axis:'x',index:0,before:'qtl',after:'qtr',span:'all'},
+    {axis:'x',index:1,before:'qtr',after:'qbl',span:'all'},
+    {axis:'x',index:2,before:'qbl',after:'qbr',span:'all'},
+  ],
+  rows:[
+    {axis:'y',index:0,before:'qtl',after:'qtr',span:'all'},
+    {axis:'y',index:1,before:'qtr',after:'qbl',span:'all'},
+    {axis:'y',index:2,before:'qbl',after:'qbr',span:'all'},
+  ],
+};
+const freshLayoutSizes=()=>Object.fromEntries(Object.entries(DEFAULT_LAYOUT_SIZES)
+  .map(([id,s])=>[id,{cols:[...s.cols],rows:[...s.rows]}]));
+const UI={tlW:.52,tlH:.46,trW:.48,trH:.46,blW:.52,blH:.54,brW:.48,brH:.54,
+  order:[...PANEL_IDS],layout:'quad',sizes:freshLayoutSizes(),wheel:'modern'};
+const validPanelOrder=order=>Array.isArray(order) && order.length===PANEL_IDS.length
+  && new Set(order).size===PANEL_IDS.length && PANEL_IDS.every(id=>order.includes(id));
+const validReportLayout=layout=>Object.prototype.hasOwnProperty.call(REPORT_LAYOUTS,layout);
+function normalizeLayoutSizes(saved){
+  const clean=freshLayoutSizes();
+  for(const id in clean){
+    for(const axis of ['cols','rows']){
+      const expected=clean[id][axis].length;
+      const values=saved?.[id]?.[axis];
+      if(Array.isArray(values)&&values.length===expected&&values.every(Number.isFinite)){
+        const safe=values.map(v=>clamp(v,.18,4));
+        if(safe.reduce((a,b)=>a+b,0)>.36) clean[id][axis]=safe;
+      }
+    }
+  }
+  UI.sizes=clean;
+}
+function normalizeUi(){
+  UI.tlW=clamp(UI.tlW,.24,.76); UI.trW=1-UI.tlW;
+  UI.blW=clamp(UI.blW,.24,.76); UI.brW=1-UI.blW;
+  UI.tlH=clamp(UI.tlH,.22,.78); UI.blH=1-UI.tlH;
+  UI.trH=clamp(UI.trH,.22,.78); UI.brH=1-UI.trH;
+  if(!validPanelOrder(UI.order)) UI.order=[...PANEL_IDS];
+  if(!validReportLayout(UI.layout)) UI.layout='quad';
+  normalizeLayoutSizes(UI.sizes);
+}
 function loadUi(){
-  try{ Object.assign(UI, JSON.parse(localStorage.getItem(UI_KEY)||'{}')); }catch(e){}
+  try{
+    const saved=JSON.parse(localStorage.getItem(UI_KEY)||'null');
+    if(saved){
+      Object.keys(UI).forEach(k=>{ if(Number.isFinite(saved[k])) UI[k]=saved[k]; });
+      if(validPanelOrder(saved.order)) UI.order=[...saved.order];
+      if(validReportLayout(saved.layout)) UI.layout=saved.layout;
+      if(saved.wheel==='classic'||saved.wheel==='modern') UI.wheel=saved.wheel;
+      if(saved.sizes) UI.sizes=saved.sizes;
+      normalizeUi(); return;
+    }
+    // Preserve the old shared divider positions on the first visit after the
+    // independent-pane upgrade.
+    const old=JSON.parse(localStorage.getItem(LEGACY_UI_KEY)||'null');
+    if(old && Number.isFinite(old.fx)){
+      UI.tlW=UI.blW=clamp(old.fx,.24,.76);
+      UI.trW=UI.brW=1-UI.tlW;
+    }
+    if(old && Number.isFinite(old.fy)){
+      UI.tlH=UI.trH=clamp(old.fy,.22,.78);
+      UI.blH=UI.brH=1-UI.tlH;
+    }
+  }catch(e){}
+  normalizeUi();
+}
+function saveUi(){
+  try{ localStorage.setItem(UI_KEY,JSON.stringify(UI)); }catch(err){}
 }
 function applyQuad(){
   const q=$('#quad'); if(!q) return;
-  q.style.setProperty('--fx',clamp(UI.fx,.24,.76));
-  q.style.setProperty('--fy',clamp(UI.fy,.22,.78));
+  ['tl','tr','bl','br'].forEach(p=>{
+    q.style.setProperty(`--${p}-w`,`${UI[p+'W']*100}%`);
+    q.style.setProperty(`--${p}-h`,`${UI[p+'H']*100}%`);
+  });
+}
+function applyPresetTracks(){
+  const q=$('#quad'); if(!q) return;
+  if(UI.layout==='quad'){
+    q.style.removeProperty('grid-template-columns');
+    q.style.removeProperty('grid-template-rows');
+    return;
+  }
+  const sizes=UI.sizes[UI.layout]; if(!sizes) return;
+  q.style.gridTemplateColumns=sizes.cols.map(v=>`minmax(0,${v}fr)`).join(' ');
+  q.style.gridTemplateRows=UI.layout==='rows'
+    ? sizes.rows.map(v=>`minmax(300px,${f2(v*62)}vh)`).join(' ')
+    : sizes.rows.map(v=>`minmax(180px,${v}fr)`).join(' ');
+}
+let _layoutHandleFrame=0;
+function scheduleLayoutHandles(){
+  cancelAnimationFrame(_layoutHandleFrame);
+  _layoutHandleFrame=requestAnimationFrame(()=>requestAnimationFrame(positionLayoutHandles));
+}
+function positionLayoutHandles(){
+  const q=$('#quad'), layer=$('#layoutResizeLayer');
+  if(!q||!layer) return;
+  const defs=LAYOUT_SPLITTERS[UI.layout]||[];
+  layer.classList.toggle('hidden',!defs.length);
+  if(!defs.length||matchMedia('(max-width:900px)').matches) return;
+  const qr=q.getBoundingClientRect();
+  defs.forEach((def,i)=>{
+    const h=layer.querySelector(`[data-handle="${i}"]`);
+    const before=q.querySelector(`.quadrant.${def.before}`);
+    const after=q.querySelector(`.quadrant.${def.after}`);
+    if(!h||!before||!after) return;
+    const a=before.getBoundingClientRect(), b=after.getBoundingClientRect();
+    const span=def.span==='all' ? qr : q.querySelector(`.quadrant.${def.span}`)?.getBoundingClientRect();
+    if(!span) return;
+    if(def.axis==='x'){
+      h.style.left=`${f2((a.right+b.left)/2-qr.left-6)}px`;
+      h.style.top=`${f2(span.top-qr.top)}px`;
+      h.style.width='12px'; h.style.height=`${f2(span.height)}px`;
+    }else{
+      h.style.left=`${f2(span.left-qr.left)}px`;
+      h.style.top=`${f2((a.bottom+b.top)/2-qr.top-6)}px`;
+      h.style.width=`${f2(span.width)}px`; h.style.height='12px';
+    }
+  });
+}
+function renderLayoutHandles(){
+  const layer=$('#layoutResizeLayer'); if(!layer) return;
+  layer.innerHTML='';
+  (LAYOUT_SPLITTERS[UI.layout]||[]).forEach((def,i)=>{
+    const h=el('button',`layout-resize-handle axis-${def.axis}`);
+    h.type='button'; h.dataset.handle=String(i); h.dataset.axis=def.axis;
+    h.dataset.index=String(def.index);
+    h.setAttribute('aria-label',`Resize ${def.axis==='x'?'layout columns':'layout rows'}`);
+    h.title=`Drag to resize ${def.axis==='x'?'columns':'rows'}`;
+    layer.appendChild(h);
+  });
+  scheduleLayoutHandles();
+}
+function applyReportLayout(){
+  const q=$('#quad'), meta=REPORT_LAYOUTS[UI.layout];
+  if(!q||!meta) return;
+  q.dataset.layout=UI.layout;
+  applyPresetTracks();
+  const label=$('#layoutLbl'), icon=$('#layoutBtnIcon');
+  if(label) label.textContent=meta.label;
+  if(icon) icon.className=`layout-btn-icon ${meta.icon}`;
+  document.querySelectorAll('.layout-option').forEach(option=>{
+    const on=option.dataset.layout===UI.layout;
+    option.classList.toggle('on',on);
+    option.setAttribute('aria-checked',String(on));
+  });
+  renderLayoutHandles();
+}
+function setReportLayout(layout){
+  if(!validReportLayout(layout)||layout===UI.layout) return;
+  UI.layout=layout; applyReportLayout(); saveUi();
+  // SVG viewBoxes are responsive, but a fresh render updates hover geometry
+  // and text measurement after the panel has moved into its new slot.
+  requestAnimationFrame(()=>{
+    if(S.user&&S.tab==='reports'){ renderPie(); renderTrend(); }
+  });
+}
+function applyPanelOrder(){
+  PANEL_SLOTS.forEach((slot,index)=>{
+    const panel=$(`.quadrant[data-panel="${UI.order[index]}"]`);
+    if(!panel) return;
+    panel.classList.remove(...PANEL_SLOTS);
+    panel.classList.add(slot);
+  });
+  scheduleLayoutHandles();
+}
+function swapPanelOrder(sourceId,targetId){
+  const a=UI.order.indexOf(sourceId), b=UI.order.indexOf(targetId);
+  if(a<0 || b<0 || a===b) return false;
+  [UI.order[a],UI.order[b]]=[UI.order[b],UI.order[a]];
+  applyPanelOrder(); saveUi();
+  return true;
+}
+function adjustPresetTrack(axis,index,deltaPx){
+  const q=$('#quad'), sizes=UI.sizes[UI.layout];
+  if(!q||!sizes||UI.layout==='quad') return;
+  const tracks=axis==='x'?sizes.cols:sizes.rows;
+  if(index<0||index>=tracks.length-1) return;
+  const rect=q.getBoundingClientRect();
+  const usable=(axis==='x'?rect.width:rect.height)-8*(tracks.length-1);
+  if(usable<=0) return;
+  const sum=tracks.reduce((a,b)=>a+b,0);
+  const change=deltaPx/usable*sum;
+  const pair=tracks[index]+tracks[index+1], min=Math.min(.18,pair*.28);
+  const first=clamp(tracks[index]+change,min,pair-min);
+  tracks[index]=first; tracks[index+1]=pair-first;
+  applyPresetTracks(); scheduleLayoutHandles();
+}
+function initPresetResizers(q){
+  if(!q||$('#layoutResizeLayer')) return;
+  const layer=el('div','layout-resize-layer'); layer.id='layoutResizeLayer';
+  q.appendChild(layer);
+  let drag=null;
+  layer.addEventListener('pointerdown',e=>{
+    const h=e.target.closest('.layout-resize-handle'); if(!h) return;
+    drag={layout:UI.layout,axis:h.dataset.axis,index:+h.dataset.index,
+      x:e.clientX,y:e.clientY,handle:h};
+    h.classList.add('on'); h.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  layer.addEventListener('pointermove',e=>{
+    if(!drag||drag.layout!==UI.layout) return;
+    const delta=drag.axis==='x'?e.clientX-drag.x:e.clientY-drag.y;
+    adjustPresetTrack(drag.axis,drag.index,delta);
+    drag.x=e.clientX; drag.y=e.clientY;
+  });
+  const end=()=>{
+    if(!drag) return;
+    drag.handle.classList.remove('on'); drag=null; saveUi();
+  };
+  layer.addEventListener('pointerup',end);
+  layer.addEventListener('pointercancel',end);
+  layer.addEventListener('keydown',e=>{
+    const h=e.target.closest('.layout-resize-handle'); if(!h) return;
+    let delta=0;
+    if(h.dataset.axis==='x'&&e.key==='ArrowLeft') delta=-24;
+    else if(h.dataset.axis==='x'&&e.key==='ArrowRight') delta=24;
+    else if(h.dataset.axis==='y'&&e.key==='ArrowUp') delta=-24;
+    else if(h.dataset.axis==='y'&&e.key==='ArrowDown') delta=24;
+    else return;
+    e.preventDefault(); adjustPresetTrack(h.dataset.axis,+h.dataset.index,delta); saveUi();
+  });
+  window.addEventListener('resize',scheduleLayoutHandles);
 }
 function initQuad(){
-  loadUi(); applyQuad();
   const q=$('#quad');
-  let mode=null;
-  const move=e=>{
-    if(!mode) return;
-    const r=q.getBoundingClientRect();
-    if(mode!=='h') UI.fx=clamp((e.clientX-r.left)/r.width,.24,.76);
-    if(mode!=='v') UI.fy=clamp((e.clientY-r.top)/r.height,.22,.78);
+  initPresetResizers(q);
+  loadUi(); applyPanelOrder(); applyQuad(); applyReportLayout();
+  const across={tl:'tr',tr:'tl',bl:'br',br:'bl'};
+  const vertical={tl:'bl',bl:'tl',tr:'br',br:'tr'};
+  let drag=null;
+  const resize=(pane,dx,dy)=>{
+    const right=pane==='tr'||pane==='br', bottom=pane==='bl'||pane==='br';
+    const wk=pane+'W', hk=pane+'H';
+    if(dx){
+      UI[wk]=clamp(UI[wk]+dx*(right?-1:1),.24,.76);
+      UI[across[pane]+'W']=1-UI[wk];
+    }
+    if(dy){
+      UI[hk]=clamp(UI[hk]+dy*(bottom?-1:1),.22,.78);
+      UI[vertical[pane]+'H']=1-UI[hk];
+    }
     applyQuad();
   };
-  const start=(m)=>e=>{
-    mode=m; e.preventDefault();
-    e.target.classList.add('on');
-    e.target.setPointerCapture(e.pointerId);
+  const move=e=>{
+    if(!drag) return;
+    const r=q.getBoundingClientRect();
+    const dx=(e.clientX-drag.x)/r.width, dy=(e.clientY-drag.y)/r.height;
+    resize(drag.pane,drag.axis==='h'?0:dx,drag.axis==='w'?0:dy);
+    drag.x=e.clientX; drag.y=e.clientY;
+  };
+  const start=(pane,axis)=>e=>{
+    drag={pane,axis,x:e.clientX,y:e.clientY}; e.preventDefault();
+    e.currentTarget.classList.add('on');
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
   const end=e=>{
-    if(!mode) return;
-    mode=null; e.target.classList.remove('on');
-    try{ localStorage.setItem(UI_KEY,JSON.stringify(UI)); }catch(err){}
+    if(!drag) return;
+    drag=null; e.currentTarget.classList.remove('on');
+    saveUi();
   };
-  [['#qdV','v'],['#qdH','h'],['#qKnob','b']].forEach(([sel,m])=>{
-    const n=$(sel); if(!n) return;
-    n.addEventListener('pointerdown',start(m));
+  document.querySelectorAll('.qhandle').forEach(n=>{
+    const pane=n.dataset.pane, axis=n.dataset.axis;
+    n.addEventListener('pointerdown',start(pane,axis));
     n.addEventListener('pointermove',move);
     n.addEventListener('pointerup',end);
     n.addEventListener('pointercancel',end);
+    n.addEventListener('keydown',e=>{
+      const d=.02;
+      if(e.key==='ArrowLeft' && axis!=='h') resize(pane,-d,0);
+      else if(e.key==='ArrowRight' && axis!=='h') resize(pane,d,0);
+      else if(e.key==='ArrowUp' && axis!=='w') resize(pane,0,-d);
+      else if(e.key==='ArrowDown' && axis!=='w') resize(pane,0,d);
+      else return;
+      e.preventDefault();
+      saveUi();
+    });
   });
+
+  let swap=null;
+  const markSwapTarget=target=>{
+    if(swap.target===target) return;
+    if(swap.target) swap.target.classList.remove('swap-target');
+    swap.target=target && target!==swap.source ? target : null;
+    if(swap.target) swap.target.classList.add('swap-target');
+  };
+  const finishSwap=commit=>{
+    if(!swap) return;
+    const {source,target}=swap;
+    source.classList.remove('swap-source');
+    if(target) target.classList.remove('swap-target');
+    q.classList.remove('swap-dragging');
+    swap=null;
+    if(!commit || !target) return;
+    if(!swapPanelOrder(source.dataset.panel,target.dataset.panel)) return;
+    source.classList.add('swap-landed'); target.classList.add('swap-landed');
+    setTimeout(()=>{
+      source.classList.remove('swap-landed'); target.classList.remove('swap-landed');
+    },260);
+  };
+  q.querySelectorAll('.quadrant').forEach(panel=>{
+    const header=panel.querySelector('.panel-h');
+    if(header) header.title='Middle-click and drag to swap this quadrant';
+    panel.addEventListener('pointerdown',e=>{
+      if(e.button!==1 || swap) return;
+      e.preventDefault(); e.stopPropagation();
+      swap={source:panel,target:null,pointerId:e.pointerId};
+      panel.classList.add('swap-source'); q.classList.add('swap-dragging');
+      panel.setPointerCapture(e.pointerId);
+    },true);
+    panel.addEventListener('pointermove',e=>{
+      if(!swap || e.pointerId!==swap.pointerId) return;
+      const hit=document.elementFromPoint(e.clientX,e.clientY);
+      markSwapTarget(hit && hit.closest('.quadrant'));
+    });
+    panel.addEventListener('pointerup',e=>{
+      if(!swap || e.pointerId!==swap.pointerId) return;
+      e.preventDefault(); finishSwap(true);
+    });
+    panel.addEventListener('pointercancel',()=>finishSwap(false));
+    panel.addEventListener('mousedown',e=>{ if(e.button===1) e.preventDefault(); });
+    panel.addEventListener('auxclick',e=>{ if(e.button===1) e.preventDefault(); });
+  });
+}
+
+function initLayoutPicker(){
+  const ctl=$('#layoutCtl'), btn=$('#layoutBtn'), pop=$('#layoutPop');
+  if(!ctl||!btn||!pop) return;
+  const options=[...pop.querySelectorAll('.layout-option')];
+  const setOpen=open=>{
+    pop.classList.toggle('hidden',!open);
+    btn.setAttribute('aria-expanded',String(open));
+    if(open){
+      const active=options.find(o=>o.dataset.layout===UI.layout)||options[0];
+      requestAnimationFrame(()=>active.focus());
+    }
+  };
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const open=pop.classList.contains('hidden');
+    $('#perPop').classList.add('hidden');
+    setOpen(open);
+  });
+  options.forEach(option=>option.addEventListener('click',e=>{
+    e.stopPropagation();
+    setReportLayout(option.dataset.layout);
+    setOpen(false); btn.focus();
+  }));
+  pop.addEventListener('keydown',e=>{
+    const at=options.indexOf(document.activeElement);
+    if(e.key==='Escape'){ e.preventDefault(); setOpen(false); btn.focus(); return; }
+    if(e.key!=='ArrowDown'&&e.key!=='ArrowRight'&&e.key!=='ArrowUp'&&e.key!=='ArrowLeft') return;
+    e.preventDefault();
+    const step=(e.key==='ArrowDown'||e.key==='ArrowRight')?1:-1;
+    options[(Math.max(0,at)+step+options.length)%options.length].focus();
+  });
+  document.addEventListener('click',e=>{ if(!ctl.contains(e.target)) setOpen(false); });
+  applyReportLayout();
 }
 
 /* ---- executive summary frame (rendering only) --------------------------- */
 function renderExecFrame(){
   const period=S.period, path=S.focus;
   const node = path.length?nodeAt(path):null;
-  $('#execCode').textContent = path.length?codeOf(path).toUpperCase():'OVERALL';
-  $('#execTitle').textContent = node?node.title:'All lines of effort';
+  // long-format scope name in the header; clamped to two lines by CSS with
+  // the full text on hover
+  const head=$('#execHead');
+  head.textContent = path.length
+    ? `${codeOf(path).toUpperCase()} — ${node?node.title:''}`
+    : 'OVERALL CAMPAIGN';
+  head.dataset.tipCode = path.length ? codeOf(path) : 'OVERALL CAMPAIGN';
+  head.dataset.tipTitle = path.length ? (node?node.title:'') : 'All lines of effort';
   $('#execScopeTag').textContent = period;
 
   const v=valueOf(path,period), st=STATUS[statusOf(path,period)];
@@ -2895,7 +3922,7 @@ function renderExecFrame(){
     d.appendChild(a);
     d.appendChild(el('div','k',k));
     if(sub) d.appendChild(el('div','s',sub));
-    if(tip) d.title=tip;
+    if(tip) d.dataset.tipTitle=tip;
     box.appendChild(d);
   };
   const tal=statusTally(path,period);
@@ -3139,6 +4166,38 @@ async function generateSummary(){
     S.ai.busy=null;
     renderExecFrame();
   }
+}
+
+/* =============================================================================
+   AI CHART SHORTHAND — same shared /api/llm-json endpoint as the summary.
+   Compresses a full objective title into a ring label of at most SHORT_MAX
+   characters ("Strengthening foreign cooperation with partners and allies"
+   -> "Partner Cooperation"). autoShort() is the deterministic fallback.
+   ========================================================================== */
+const SHORTHAND_INSTRUCTIONS =
+ 'You label slices of an executive dashboard pie chart for a military '
++'headquarters. The user message is JSON {"title": string, "maxChars": '
++'number}. Compress the title into a short, descriptive, title-case chart '
++'label of AT MOST maxChars characters, e.g. "Strengthening foreign '
++'cooperation with partners and allies" -> "Partner Cooperation". Prefer '
++'recognisable staff terms and acronyms; no trailing punctuation. Return '
++'JSON only: {"short": string}';
+
+async function aiShorthand(title){
+  const res = await fetch('/api/llm-json', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      toolId:'pmh-hq-assessment',
+      instructions:SHORTHAND_INSTRUCTIONS,
+      userPrompt:JSON.stringify({title, maxChars:SHORT_MAX}),
+    }),
+  });
+  const body = await res.json();
+  if(!res.ok || !body.ok) throw new Error(body.error||`shorthand failed: ${res.status}`);
+  const s = String((body.json&&body.json.short)||'').trim().replace(/[.,;:]+$/,'');
+  if(!s) throw new Error('empty shorthand');
+  return s.slice(0,SHORT_MAX);
 }
 
 /* =============================================================================
@@ -3453,7 +4512,40 @@ function renderOprView(root){
     cb.appendChild(row);
 
     // ---- OCR coordination, expanded from the card header
-    if(open) cb.appendChild(ocrNoteListAck(ind,period,true));
+    if(open){
+      cb.appendChild(ocrNoteListAck(ind,period,true));
+      // OCR offices that owe a review this period can be nudged by the OPR,
+      // mirroring the managing office's participation reminders
+      const pending=ocrOf(ind).filter(o=>
+        !ocrNotes(ind.id,period).some(n=>n.office===o));
+      if(pending.length && !isOcrLocked(period)){
+        const box=el('div','ocrbox');
+        box.appendChild(el('div','eyebrow',
+          `OCR review outstanding · ${pending.length} office${pending.length===1?'':'s'}`));
+        const row2=el('div','subline');
+        const chips=el('div','chips');
+        pending.forEach(o=>{
+          const c2=el('span','chip ocr',o); c2.title=`OCR · ${OFFICE_NAME[o]||o}`;
+          chips.appendChild(c2);
+        });
+        row2.appendChild(chips);
+        row2.appendChild(el('div','spacer'));
+        const nudge=el('button','btn btn-sm','SEND REMINDER'); nudge.type='button';
+        nudge.addEventListener('click',()=>{
+          pushAlert({to:pending, kind:'ocr_reminder', indId:ind.id, indCode:code,
+            fromOffice:role, fromUser:S.user.name,
+            title:`OCR review requested on ${code}`,
+            body:`${role} (OPR) requests your coordination review of ${code} — `
+                +`"${ind.title}" — for ${period}. No note from your office is `
+                +`on record yet.`});
+          save(); renderTabBadges();
+          nudge.textContent='SENT'; nudge.disabled=true;
+        });
+        row2.appendChild(nudge);
+        box.appendChild(row2);
+        cb.appendChild(box);
+      }
+    }
 
     // ---- comment of record: plain, or Problem/Solution/Get-well-by when the
     // score fell below last quarter or the status is red
@@ -3751,8 +4843,12 @@ function addBtn(label,fn){
   b.addEventListener('click',fn); return b;
 }
 
-/** Code chip + title input + rollup bar + delete, for the admin tree. */
+/**
+ * Code chip + title input + rollup bar + delete, plus the chart-shorthand row
+ * (what the pie prints under the code), for the admin tree.
+ */
 function nodeHeader(path,node,kind,onDel){
+  const frag=document.createDocumentFragment();
   const h=el('div','node-h');
   h.appendChild(el('span',`code ${kind}`,codeOf(path)));
   const ti=el('input','ti'); ti.value=node.title;
@@ -3775,7 +4871,40 @@ function nodeHeader(path,node,kind,onDel){
     if(confirm(`Delete ${codeOf(path)} and everything beneath it?`)) onDel();
   });
   h.appendChild(d);
-  return h;
+  frag.appendChild(h);
+
+  // ---- chart shorthand: hand-typed or AI-generated, capped at SHORT_MAX ----
+  const sr=el('div','short-row');
+  const lb=el('span','short-lb','CHART LABEL');
+  lb.title=`Short name shown on the ring · max ${SHORT_MAX} characters`;
+  sr.appendChild(lb);
+  const si=el('input','ti short-in');
+  si.maxLength=SHORT_MAX;
+  si.placeholder=autoShort(node.title);
+  si.value=node.short||'';
+  const ct=el('span','short-ct',`${(node.short||'').length}/${SHORT_MAX}`);
+  si.addEventListener('input',()=>{
+    node.short=si.value;
+    ct.textContent=`${si.value.length}/${SHORT_MAX}`;
+    queueSave();
+  });
+  si.addEventListener('change',()=>{ save(); renderReports(); });
+  sr.appendChild(si);
+  sr.appendChild(ct);
+  const ai=el('button','btn-ai','✦ AI'); ai.type='button';
+  ai.title='Have AI compress the full title into a chart label';
+  ai.addEventListener('click',async()=>{
+    ai.disabled=true; ai.textContent='…';
+    try{ node.short=await aiShorthand(node.title); }
+    catch(err){ node.short=autoShort(node.title); }   // offline fallback
+    si.value=node.short;
+    ct.textContent=`${si.value.length}/${SHORT_MAX}`;
+    ai.disabled=false; ai.textContent='✦ AI';
+    save(); renderReports();
+  });
+  sr.appendChild(ai);
+  frag.appendChild(sr);
+  return frag;
 }
 let _saveT;
 function queueSave(){ clearTimeout(_saveT); _saveT=setTimeout(save,420); }
@@ -4206,6 +5335,7 @@ function renderAll(){
   for(const t in PANES) $(PANES[t]).classList.toggle('hidden',t!==S.tab);
   document.querySelectorAll('.tab-btn').forEach(x=>
     x.classList.toggle('on',x.dataset.tab===S.tab));
+  $('#layoutCtl').classList.toggle('hidden',S.tab!=='reports');
 
   if(S.tab==='reports') renderReports();
   else if(S.tab==='data') renderData();
@@ -4214,7 +5344,57 @@ function renderAll(){
   renderTabBadges();
 }
 
+/**
+ * Themed tooltip layer. Any element carrying data-tip-title / data-tip-code
+ * (plus optional data-tip-meta and data-tip-color for the status dot) gets
+ * the app-styled popup instead of the browser-native one. The popup follows
+ * the pointer and flips to stay on screen.
+ */
+function initTip(){
+  const tip=el('div'); tip.id='tip';
+  document.body.appendChild(tip);
+  let cur=null;
+  const hide=()=>{ cur=null; tip.classList.remove('on'); };
+  const place=(x,y)=>{
+    if(x==null||y==null) return;
+    const r=tip.getBoundingClientRect();
+    let px=x+16, py=y+18;
+    if(px+r.width>window.innerWidth-8) px=x-r.width-14;
+    if(py+r.height>window.innerHeight-8) py=y-r.height-14;
+    tip.style.left=Math.max(8,px)+'px';
+    tip.style.top=Math.max(8,py)+'px';
+  };
+  document.addEventListener('pointerover',e=>{
+    const t=e.target.closest ? e.target.closest('[data-tip-title],[data-tip-code]') : null;
+    if(!t){ hide(); return; }
+    if(t!==cur){
+      cur=t;
+      tip.innerHTML='';
+      const ds=t.dataset;
+      if(ds.tipCode) tip.appendChild(el('div','tip-code',ds.tipCode));
+      if(ds.tipTitle) tip.appendChild(el('div','tip-title',ds.tipTitle));
+      if(ds.tipMeta){
+        const m=el('div','tip-meta');
+        if(ds.tipColor){
+          const dot=el('span','tip-dot');
+          dot.style.background=ds.tipColor;
+          dot.style.boxShadow=`0 0 8px ${ds.tipColor}`;
+          m.appendChild(dot);
+        }
+        m.appendChild(el('span','',ds.tipMeta));
+        tip.appendChild(m);
+      }
+      tip.classList.add('on');
+    }
+    place(e.clientX,e.clientY);
+  });
+  document.addEventListener('pointermove',e=>{ if(cur) place(e.clientX,e.clientY); });
+  document.addEventListener('pointerout',e=>{ if(!e.relatedTarget) hide(); });
+  document.addEventListener('pointerdown',hide);
+}
+
 function initShell(){
+  initTip();
   document.querySelectorAll('.tab-btn').forEach(b=>{
     b.addEventListener('click',()=>{ S.tab=b.dataset.tab; renderAll(); });
   });
@@ -4227,9 +5407,15 @@ function initShell(){
   });
   initHistSlider();
   initQuad();
+  initLayoutPicker();
   $('#btnGen').addEventListener('click',generateSummary);
   // one-time: leaving the chart clears the hover reveal
   $('#pie').addEventListener('pointerleave',()=>{ if(!S.animating) setHover(null); });
+  $('#wheelSeg').addEventListener('click',e=>{
+    const btn=e.target.closest('button'); if(!btn) return;
+    UI.wheel=btn.dataset.wm; saveUi();
+    renderPie();
+  });
   $('#seasonSeg').addEventListener('click',e=>{
     const b=e.target.closest('button'); if(!b) return;
     S.forecastMode = b.dataset.fm;
