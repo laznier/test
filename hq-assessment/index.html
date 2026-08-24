@@ -10,13 +10,16 @@
 ================================================================================
   C1AA HEADQUARTERS ASSESSMENT TOOL  —  single-file proof of concept
 ================================================================================
-  ZERO external dependencies. No fonts, no CDNs, no network calls. Open the file.
+  ZERO external dependencies. No fonts, no CDNs. The only network calls are to
+  this site's own endpoints (/api/llm-json for AI text, /api/archive for the
+  archive drop) and every one of them fails soft — the file works opened alone.
 
   FILE MAP (search for the banner comments)
     [1]  DESIGN TOKENS / CSS
     [2]  MARKUP
     [3]  CONSTANTS  (offices, statuses, periods)
     [4]  DATA MODEL + PERSISTENCE
+    [4b] STRUCTURE RECOMMENDATIONS + ARCHIVE ENGINE (AI-applied edits)
     [5]  DEMO SEED
     [6]  SELECTORS / ROLLUP MATH        <- pure, port straight to .ts
     [7]  FORECAST MATH                  <- pure, port straight to .ts
@@ -581,6 +584,31 @@ main{padding:22px;max-width:1680px;margin:0 auto}
 .btn-del{width:26px;height:26px;border-radius:7px;border:1px solid var(--edge);background:transparent;
   color:var(--ink-faint);font-size:14px;line-height:1;display:grid;place-items:center;flex:0 0 auto}
 .btn-del:hover{border-color:rgba(255,77,99,.5);color:#ff8b9b;background:rgba(255,77,99,.08)}
+.btn-arc{height:26px;padding:0 10px;border-radius:7px;border:1px solid var(--edge);background:transparent;
+  color:var(--ink-faint);font-family:var(--mono);font-size:9px;letter-spacing:.14em;flex:0 0 auto;transition:.14s}
+.btn-arc:hover{border-color:rgba(46,167,255,.55);color:#9fd6ff;background:rgba(46,167,255,.08)}
+
+/* structure-change recommendations + archive register */
+.recwrap{flex:1 1 100%;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.recrow{display:flex;gap:10px;flex-wrap:wrap}
+.recrow select.ctl{flex:1 1 200px;width:auto;padding:10px 38px 10px 12px;font-size:13px}
+.recwrap textarea.cmt{min-height:52px}
+.rec-pill{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--ink-faint);
+  border:1px solid var(--edge);border-radius:999px;padding:5px 12px}
+.rec-pill.ok{color:#7ff0b6;border-color:rgba(47,224,138,.45)}
+.rec-pill.no{color:#ff8b9b;border-color:rgba(255,77,99,.45)}
+.rec-pill.busy{color:#9fd6ff;border-color:rgba(46,167,255,.45);animation:recpulse 1.1s ease-in-out infinite}
+@keyframes recpulse{0%,100%{opacity:1}50%{opacity:.45}}
+.btn-accept{border-color:rgba(47,224,138,.5);color:#7ff0b6}
+.btn-accept:hover{background:rgba(47,224,138,.1)}
+.btn-reject{border-color:rgba(255,77,99,.5);color:#ff8b9b}
+.btn-reject:hover{background:rgba(255,77,99,.1)}
+.arc-row{border-top:1px solid var(--edge);padding:10px 0 6px;display:flex;flex-direction:column;gap:5px}
+.arc-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.arc-code{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:#9fd6ff}
+.arc-lv{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink-faint);
+  border:1px solid var(--edge);border-radius:5px;padding:2px 7px}
+.arc-ti{font-size:13px;color:var(--ink)}
 .offs{display:flex;flex-wrap:wrap;gap:5px;padding:2px 0 10px}
 .off{padding:4px 9px;border-radius:6px;border:1px solid var(--edge);background:transparent;
   font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-faint);transition:.14s}
@@ -1101,8 +1129,13 @@ const displayShort = node => shortOf(node) || autoShort(node && node.title);
    entries : { [periodId]: { [office]: { ind:{ [indId]:{
                  r:number, s:StatusKey, cmt:string,
                  pss?:{problem,solution,getWell},   // filed when the score fell
-                 by:string, ts:string, override?:string } } } } } // or went red
-                                       // OPR submissions, written only on save
+                 by:string, ts:string, override?:string,   // or went red
+                 baseline?:true } } } } }
+                 OPR submissions, written only on save. `baseline:true` marks
+                 the flat back-fill written to every earlier quarter the first
+                 time an indicator is scored, so a node added mid-stream causes
+                 no artificial jump in the trend — it contributes direction
+                 only from its next real movement.
 
    ocr     : { [periodId]: { [indId]: OcrNote[] } }
                  OcrNote { id, office, user, comment, rec, ts,
@@ -1116,6 +1149,25 @@ const displayShort = node => shortOf(node) || autoShort(node && node.title);
 
    locks   : { [periodId]: { ocrDate, oprDate, ocrLocked, oprLocked,
                              ocrReported, oprReported } }
+
+   recs    : Rec[]   structure-change recommendations from the directorates
+                 Rec { id, ts, office, user, action:'add'|'modify'|'archive',
+                       targetCode, comment, status:'pending'|'applied'|'rejected',
+                       resolvedBy?, resolvedTs?, appliedOps? }
+                 Sending one raises a `structure_rec` alert for the managing
+                 office; accept runs the ops (AI-translated for add/modify),
+                 and either outcome sends a `rec_result` alert back.
+
+   archives: ArchiveMeta[]   register of archived nodes (any level)
+                 ArchiveMeta { id, code, title, level, ts, by, file, reason }
+                 The narrative document itself is written to the archive
+                 folder beside this page (destination of record will be a
+                 folder in the MAVEN environment). Archiving retroactively
+                 deletes the node's entries and OCR notes from every period.
+
+   Status law: gray never counts toward a rollup. Blue (archive-recommended)
+   counts only when every counted child is blue — then the parent turns blue —
+   otherwise blue children are set aside and the rest average red/yellow/green.
 
    Nothing autosaves. Edits live in S.draft (memory only) until the office hits
    save on that indicator, which is the only path into `entries`.
@@ -1143,6 +1195,10 @@ const S = {
   ocr:/** @type {any} */({}),
   alerts:/** @type {any[]} */([]),
   locks:/** @type {any} */({}),
+  /** Structure-change recommendations from the directorates. */
+  recs:/** @type {any[]} */([]),
+  /** Metadata of archived nodes (the documents go to the archive folder). */
+  archives:/** @type {any[]} */([]),
   /** Unsaved edits. Memory only — never persisted, never read by the rollups. */
   draft:/** @type {any} */({}),
   /** AI summary cache keyed by scope|period|revision. Session only. */
@@ -1158,7 +1214,8 @@ function save(){
   S.rev=(S.rev||0)+1;
   try{
     localStorage.setItem(LS_KEY,JSON.stringify({
-      tree:S.tree, entries:S.entries, ocr:S.ocr, alerts:S.alerts, locks:S.locks, v:3}));
+      tree:S.tree, entries:S.entries, ocr:S.ocr, alerts:S.alerts, locks:S.locks,
+      recs:S.recs, archives:S.archives, v:3}));
     flashSync();
   }catch(e){ /* proof of concept: storage is best effort */ }
 }
@@ -1170,6 +1227,7 @@ function load(){
     if(!d || !Array.isArray(d.tree) || !d.tree.length) return false;
     S.tree = d.tree; S.entries = d.entries||{};
     S.ocr = d.ocr||{}; S.alerts = d.alerts||[]; S.locks = d.locks||{};
+    S.recs = d.recs||[]; S.archives = d.archives||[];
     return true;
   }catch(e){ return false; }
 }
@@ -1255,6 +1313,8 @@ const ALERT = {
   a9_override :{label:'A9 RATING OVERRIDE',  c:'#ffc247'},
   no_input    :{label:'NON-PARTICIPATION',   c:'#ff4d63'},
   ocr_reminder:{label:'OCR REVIEW REMINDER', c:'#a082ff'},
+  structure_rec:{label:'CHANGE RECOMMENDATION', c:'#4fe3ff'},
+  rec_result  :{label:'RECOMMENDATION OUTCOME', c:'#2fe08a'},
   locked      :{label:'PERIOD LOCKED',       c:'#7b8a9e'},
 };
 /**
@@ -1712,14 +1772,29 @@ function indicatorValue(indId, ind, period){
   }
   return mean(vals);
 }
+/**
+ * Rolls a set of statuses into one. Gray means "not yet assessed" and never
+ * counts. Blue is a recommendation to archive, so it never pulls an average
+ * either: it carries upward only when EVERY counted child is blue (all
+ * indicators blue turns the task blue, and so on). Otherwise the mean uses
+ * red 1, yellow 2, green 3 and rounds.
+ * @param {StatusKey[]} list
+ * @returns {StatusKey}
+ */
+function rollStatus(list){
+  const counted = list.filter(x=>x!=='gray');
+  if(!counted.length) return 'gray';
+  if(counted.every(x=>x==='blue')) return 'blue';
+  const ords = counted.filter(x=>x!=='blue').map(x=>STATUS[x].ord);
+  return STATUS_ORDER[clamp(Math.round(mean(ords)),1,3)];
+}
 function indicatorStatus(indId, ind, period){
-  const ords=[];
+  const list=[];
   for(const off of oprOf(ind)){
     const e = effectiveInd(indId,off,period);
-    if(e && e.s && e.s!=='gray') ords.push(STATUS[e.s].ord);
+    if(e && e.s) list.push(e.s);
   }
-  const m = mean(ords);
-  return m==null ? 'gray' : STATUS_ORDER[clamp(Math.round(m),1,4)];
+  return rollStatus(list);
 }
 /** True when no OPR office filed a fresh submission for this period. */
 function indicatorUnfilled(ind, period){
@@ -1755,13 +1830,7 @@ function statusOf(path, period){
     return ind ? indicatorStatus(ind.id,ind,period) : 'gray';
   }
   const kids = childrenOf(path);
-  const ords=[];
-  for(let i=0;i<kids.length;i++){
-    const s = statusOf(path.concat(i),period);
-    if(s!=='gray') ords.push(STATUS[s].ord);
-  }
-  const m = mean(ords);
-  return m==null ? 'gray' : STATUS_ORDER[clamp(Math.round(m),1,4)];
+  return rollStatus(kids.map((_,i)=>statusOf(path.concat(i),period)));
 }
 const pctOf = v => v==null ? null : Math.round((v/MAX_RATING)*100);
 
@@ -1888,6 +1957,9 @@ function pssRequired(draft, prevRating){
 function saveIndicator(period, office, ind, code, opts){
   const d = S.draft?.[period]?.[office]?.[ind.id];
   if(!d) return false;
+  // a new indicator stays gray until a colour and an initial score are set;
+  // gray is not a submittable status
+  if(d.s==='gray'){ alert('Select a status colour before saving.'); return false; }
   const existing = S.entries?.[period]?.[office]?.ind?.[ind.id];
   if(existing && !(opts&&opts.skipConfirm)){
     const was = `${r1(existing.r)} / ${MAX_RATING} · ${STATUS[existing.s].label}`;
@@ -1904,9 +1976,30 @@ function saveIndicator(period, office, ind, code, opts){
              getWell:(d.pss.getWell||'').trim()};
   }
   e.ind[ind.id] = rec;
+  baselineBackfill(ind.id, office, period, rec);
   dropDraft(period,office,ind.id);
   save();
   return true;
+}
+
+/**
+ * The first-ever score an office files for an indicator is back-filled to
+ * every earlier quarter at the same value, flagged baseline. A node added
+ * mid-life therefore enters every trend flat at its baseline instead of
+ * printing a phantom jump the quarter it appeared, and starts steering the
+ * trend with its next movement.
+ */
+function baselineBackfill(indId, office, period, rec){
+  const idx = PERIOD_IDX[period];
+  if(idx<=0) return;
+  const hadHistory = PERIODS.slice(0,idx)
+    .some(pp=>S.entries?.[pp.id]?.[office]?.ind?.[indId]);
+  if(hadHistory) return;
+  for(let i=0;i<idx;i++){
+    const e = ent(S.entries,PERIODS[i].id,office);
+    if(!e.ind[indId]) e.ind[indId] = {r:rec.r, s:rec.s, cmt:'',
+      by:'baseline', ts:rec.ts, baseline:true};
+  }
 }
 
 /**
@@ -1927,6 +2020,7 @@ function a9Override(period, ind, code, r, s){
     e.ind[ind.id] = {r, s, cmt:keep.cmt||'',
       by:`${S.user.name} (${ADMIN_ROLE})`, ts:new Date().toISOString(),
       override:`${ADMIN_ROLE} override by ${S.user.name}`};
+    baselineBackfill(ind.id, off, period, e.ind[ind.id]);
   });
   pushAlert({to:opr, kind:'a9_override', indId:ind.id, indCode:code,
     fromOffice:ADMIN_ROLE, fromUser:S.user.name,
@@ -1935,6 +2029,322 @@ function a9Override(period, ind, code, r, s){
         +`for ${period} on your behalf. Previous: ${prior}.`});
   save();
   return true;
+}
+
+/* =============================================================================
+   [4b] STRUCTURE RECOMMENDATIONS + ARCHIVE ENGINE
+   -----------------------------------------------------------------------------
+   Any directorate can recommend adding, archiving or modifying an LOE, IMO,
+   task or indicator. The recommendation lands in the managing office's alerts;
+   accepting it hands the words to the shared model, which returns a strict op
+   list that applyStructureOps() validates and executes. Archiving produces a
+   single narrative document preserving every nested datum and all history,
+   then removes that history so it no longer steers trends or forecasts.
+   ========================================================================== */
+
+/** Every node in the tree as {code,title,path,level}, in document order. */
+function nodeCatalog(){
+  const out=[];
+  S.tree.forEach((l,li)=>{
+    out.push({code:codeOf([li]),title:l.title,path:[li],level:'LOE'});
+    l.imos.forEach((m,mi)=>{
+      out.push({code:codeOf([li,mi]),title:m.title,path:[li,mi],level:'IMO'});
+      m.tasks.forEach((t,ti)=>{
+        out.push({code:codeOf([li,mi,ti]),title:t.title,path:[li,mi,ti],level:'Task'});
+        t.indicators.forEach((ind,ii)=>{
+          out.push({code:codeOf([li,mi,ti,ii]),title:ind.title,
+            path:[li,mi,ti,ii],level:'Indicator'});
+        });
+      });
+    });
+  });
+  return out;
+}
+const pathByCode = code => {
+  const want=String(code||'').trim().toLowerCase();   // tolerate model casing
+  const hit=nodeCatalog().find(x=>x.code.toLowerCase()===want);
+  return hit ? hit.path : null;
+};
+
+/* ---- sending (directorates) --------------------------------------------- */
+function sendRecommendation(action, targetCode, comment){
+  const rec={id:uid('rec'), ts:new Date().toISOString(),
+    office:S.user.role, user:S.user.name,
+    action, targetCode, comment:(comment||'').trim(), status:'pending'};
+  S.recs.push(rec);
+  pushAlert({to:ADMIN_ROLE, kind:'structure_rec', recId:rec.id,
+    fromOffice:rec.office, fromUser:rec.user,
+    title:`${rec.office} recommends: ${action.toUpperCase()} ${targetCode}`,
+    body:rec.comment||'(no comment)'});
+  save();
+  return rec;
+}
+
+/* ---- review (managing office) ------------------------------------------- */
+const describeOp = o =>
+  o.op==='archive' ? `ARCHIVE ${o.target} (narrative document, history removed)` :
+  o.op==='add'     ? `ADD ${String(o.level||'').toUpperCase()} under ${o.parent||'OVERALL'}: "${o.title}"`
+                    +(o.opr&&o.opr.length?` · OPR ${o.opr.join(' ')}`:'')
+                    +(o.ocr&&o.ocr.length?` · OCR ${o.ocr.join(' ')}`:'') :
+  o.op==='modify'  ? `MODIFY ${o.target}`
+                    +(o.title?` · title -> "${o.title}"`:'')
+                    +(o.short?` · short -> "${o.short}"`:'')
+                    +(o.addOpr&&o.addOpr.length?` · +OPR ${o.addOpr.join(' ')}`:'')
+                    +(o.removeOpr&&o.removeOpr.length?` · -OPR ${o.removeOpr.join(' ')}`:'')
+                    +(o.addOcr&&o.addOcr.length?` · +OCR ${o.addOcr.join(' ')}`:'')
+                    +(o.removeOcr&&o.removeOcr.length?` · -OCR ${o.removeOcr.join(' ')}`:'')
+  : JSON.stringify(o);
+
+const STRUCTURE_INSTRUCTIONS =
+ 'You translate a staff recommendation into edits of a military headquarters '
++'objective tree (LOE > IMO > Task > Indicator). The user message is JSON '
++'with the recommendation (action, target code, comment), the current tree '
++'outline, and the valid office ids. Return JSON only, of the form {"ops": '
++'[...]} where each op is one of: {"op":"add","level":"loe"|"imo"|"task"|'
++'"indicator","parent":"<code of the node it goes under, or OVERALL for a '
++'new LOE>","title":"...","short":"<=3 words","opr":["<office ids>"],'
++'"ocr":["<office ids>"]} | {"op":"modify","target":"<code>","title"?,'
++'"short"?,"addOpr"?,"removeOpr"?,"addOcr"?,"removeOcr"?} | {"op":"archive",'
++'"target":"<code>"}. Only offices from the provided list. Do only what the '
++'recommendation asks; prefer one op unless the comment clearly needs more.';
+
+/**
+ * >>> TODO(BUILDER AI / PLNTR MAVEN) <<<
+ * Same swap point as callSummaryModel: when this tool moves to the builder AI
+ * wired to PLNTR MAVEN, replace only this transport. The op contract above is
+ * the interface and must survive unchanged.
+ */
+async function callStructureModel(rec){
+  const outline=nodeCatalog().map(n=>
+    `${n.code} — ${n.title}`).join('\n');
+  const res=await fetch('/api/llm-json',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      toolId:'pmh-hq-assessment-structure',
+      instructions:STRUCTURE_INSTRUCTIONS,
+      userPrompt:JSON.stringify({recommendation:{action:rec.action,
+        target:rec.targetCode,comment:rec.comment,from:rec.office},
+        tree:outline, offices:TASKABLE}),
+    }),
+  });
+  const body=await res.json();
+  if(!res.ok || !body.ok) throw new Error(body.error||`structure edit failed: ${res.status}`);
+  const ops=body.json && body.json.ops;
+  if(!Array.isArray(ops) || !ops.length) throw new Error('Model returned no ops.');
+  return ops;
+}
+
+/** Validates and executes an op list. Returns human-readable result lines. */
+function applyStructureOps(ops){
+  const out=[];
+  ops.forEach(o=>{
+    if(o.op==='archive'){
+      const path=pathByCode(o.target);
+      if(!path){ out.push(`SKIPPED — ${o.target} not found`); return; }
+      const meta=archiveNode(path,`Accepted recommendation, applied by ${S.user.name}`);
+      out.push(`Archived ${meta.code} "${meta.title}" -> ${meta.file}`);
+      return;
+    }
+    if(o.op==='add'){
+      const lvl=String(o.level||'').toLowerCase();
+      const clean=a=>Array.isArray(a)?a.filter(x=>TASKABLE.includes(x)):[];
+      let node;
+      if(lvl==='loe'){
+        node=newLoe(); node.imos=[];
+        S.tree.push(node);
+      }else{
+        const pp=pathByCode(o.parent);
+        if(!pp){ out.push(`SKIPPED — parent ${o.parent} not found`); return; }
+        const parent=nodeAt(pp);
+        if(lvl==='imo' && pp.length===1){ node=newImo(); node.tasks=[]; parent.imos.push(node); }
+        else if(lvl==='task' && pp.length===2){ node=newTask(); node.indicators=[]; parent.tasks.push(node); }
+        else if(lvl==='indicator' && pp.length===3){ node=newIndicator(); parent.indicators.push(node); }
+        else{ out.push(`SKIPPED — cannot add ${lvl} under ${o.parent}`); return; }
+      }
+      if(o.title) node.title=String(o.title).slice(0,180);
+      if(o.short) node.short=String(o.short).slice(0,40);
+      if(lvl==='indicator'){ node.opr=clean(o.opr); node.ocr=clean(o.ocr)
+        .filter(x=>!node.opr.includes(x)); }
+      // a new node starts gray with no history; its first saved score
+      // back-fills the baseline (see baselineBackfill)
+      out.push(`Added ${describeOp(o)}`);
+      return;
+    }
+    if(o.op==='modify'){
+      const path=pathByCode(o.target);
+      if(!path){ out.push(`SKIPPED — ${o.target} not found`); return; }
+      const node=nodeAt(path);
+      if(o.title) node.title=String(o.title).slice(0,180);
+      if(o.short) node.short=String(o.short).slice(0,40);
+      if(path.length===4){
+        const clean=a=>Array.isArray(a)?a.filter(x=>TASKABLE.includes(x)):[];
+        node.opr=oprOf(node).filter(x=>!clean(o.removeOpr).includes(x));
+        clean(o.addOpr).forEach(x=>{ if(!node.opr.includes(x)) node.opr.push(x); });
+        node.ocr=ocrOf(node).filter(x=>!clean(o.removeOcr).includes(x)
+          && !node.opr.includes(x));
+        clean(o.addOcr).forEach(x=>{ if(!node.ocr.includes(x)&&!node.opr.includes(x)) node.ocr.push(x); });
+      }
+      out.push(`Modified ${o.target}`);
+      return;
+    }
+    out.push(`SKIPPED — unknown op ${JSON.stringify(o).slice(0,60)}`);
+  });
+  return out;
+}
+
+async function acceptRecommendation(rec, alertRow){
+  if(S.recBusy) return;
+  S.recBusy=rec.id; renderAlerts();
+  try{
+    // an archive of a named node needs no model; add/modify go through it
+    const ops = rec.action==='archive'
+      ? [{op:'archive',target:rec.targetCode}]
+      : await callStructureModel(rec);
+    const summary=ops.map(describeOp).join('\n');
+    if(!confirm(`Apply this recommendation from ${rec.office}?\n\n${summary}`)){
+      return;
+    }
+    const results=applyStructureOps(ops);
+    rec.status='applied'; rec.resolvedBy=S.user.name;
+    rec.resolvedTs=new Date().toISOString(); rec.appliedOps=ops;
+    if(alertRow) alertRow.read=true;
+    pushAlert({to:rec.office, kind:'rec_result', recId:rec.id,
+      fromOffice:ADMIN_ROLE, fromUser:S.user.name,
+      title:`Recommendation applied: ${rec.action.toUpperCase()} ${rec.targetCode}`,
+      body:results.join('\n')});
+    save(); renderAll();
+  }catch(err){
+    alert('The model could not process the recommendation — '
+      +String(err.message||err).slice(0,120)
+      +'\nIt stays pending; act on it manually in the structure view.');
+  }finally{
+    S.recBusy=null; renderAlerts(); renderTabBadges();
+  }
+}
+
+function rejectRecommendation(rec, alertRow){
+  rec.status='rejected'; rec.resolvedBy=S.user.name;
+  rec.resolvedTs=new Date().toISOString();
+  if(alertRow) alertRow.read=true;
+  pushAlert({to:rec.office, kind:'rec_result', recId:rec.id,
+    fromOffice:ADMIN_ROLE, fromUser:S.user.name,
+    title:`Recommendation rejected: ${rec.action.toUpperCase()} ${rec.targetCode}`,
+    body:'The managing office reviewed the recommendation and did not adopt it.'});
+  save(); renderAlerts(); renderTabBadges();
+}
+
+/* ---- archive ------------------------------------------------------------- */
+/**
+ * Archives a node at any level: builds the narrative document, hands it to
+ * the backend stub and the operator, then RETROACTIVELY removes every trace
+ * of the node from history so it no longer influences rollups, trends or
+ * forecasts. Returns the archive metadata record.
+ */
+function archiveNode(path, reason){
+  const node=nodeAt(path);
+  const code=codeOf(path);
+  const level=LEVELS[path.length-1];
+  const doc=buildArchiveDocument(path,node,reason);
+  const file=`${code.replace(/[^A-Za-z0-9.]+/g,'-')}_archived-${S.period}.html`;
+  persistArchive(file,doc);
+  const meta={id:uid('arc'), code, title:node.title, level,
+    ts:new Date().toISOString(), by:`${S.user.name} (${S.user.role})`,
+    file, reason:reason||''};
+  S.archives.push(meta);
+
+  // retroactive removal: history must not steer future direction
+  const inds=[];
+  (function collect(p){
+    if(p.length===4){ const n2=nodeAt(p); if(n2) inds.push(n2.id); return; }
+    childrenOf(p).forEach((_,i)=>collect(p.concat(i)));
+  })(path);
+  for(const pd in S.entries) for(const off in S.entries[pd]){
+    const e=S.entries[pd][off];
+    inds.forEach(id=>{ if(e.ind) delete e.ind[id]; });
+  }
+  for(const pd in S.ocr) inds.forEach(id=>{ delete S.ocr[pd][id]; });
+
+  const parent = path.length===1 ? null : nodeAt(path.slice(0,-1));
+  const idx=path[path.length-1];
+  if(!parent) S.tree.splice(idx,1);
+  else (path.length===2?parent.imos:path.length===3?parent.tasks:parent.indicators)
+    .splice(idx,1);
+  pruneEntries();
+  return meta;
+}
+
+/** One self-contained document preserving the node and all nested history. */
+function buildArchiveDocument(path,node,reason){
+  const code=codeOf(path);
+  const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const rows=[];
+  const indLine=(p)=>{
+    const ind=nodeAt(p);
+    rows.push(`<h3>${esc(codeOf(p))} — ${esc(ind.title)}</h3>`);
+    rows.push(`<p class="m">OPR ${oprOf(ind).join(' ')||'—'} · OCR ${ocrOf(ind).join(' ')||'—'}</p>`);
+    rows.push('<table><tr><th>Period</th><th>Office</th><th>Rating</th><th>Status</th><th>Comment of record</th></tr>');
+    PERIODS.forEach(pp=>{
+      oprOf(ind).forEach(off=>{
+        const e=S.entries?.[pp.id]?.[off]?.ind?.[ind.id];
+        if(!e) return;
+        rows.push(`<tr><td>${pp.label}</td><td>${off}</td><td>${r1(e.r)}</td>`
+          +`<td>${esc(e.s)}${e.baseline?' (baseline)':''}${e.override?' (override)':''}</td>`
+          +`<td>${esc(pssText(e))}</td></tr>`);
+      });
+      ocrNotes(ind.id,pp.id).forEach(n2=>{
+        rows.push(`<tr><td>${pp.label}</td><td>${n2.office} (OCR)</td><td>—</td><td>note</td>`
+          +`<td>${esc(n2.comment)}${n2.rec?' · REC: '+esc(n2.rec):''}</td></tr>`);
+      });
+    });
+    rows.push('</table>');
+  };
+  (function walk(p){
+    if(p.length===4){ indLine(p); return; }
+    if(p.length>path.length){
+      const n2=nodeAt(p);
+      rows.push(`<h2>${esc(codeOf(p))} — ${esc(n2.title)}</h2>`);
+    }
+    childrenOf(p).forEach((_,i)=>walk(p.concat(i)));
+  })(path);
+  const series=PERIODS.map(pp=>({p:pp.label,v:valueOf(path,pp.id)}))
+    .filter(x=>x.v!=null)
+    .map(x=>`<tr><td>${x.p}</td><td>${r1(x.v)} / ${MAX_RATING}</td></tr>`).join('');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>ARCHIVE ${esc(code)} — ${esc(node.title)}</title>
+<style>body{font-family:Georgia,serif;max-width:900px;margin:40px auto;color:#111;line-height:1.5}
+h1{border-bottom:2px solid #111}table{border-collapse:collapse;width:100%;margin:8px 0 18px}
+td,th{border:1px solid #999;padding:4px 8px;font-size:13px;text-align:left}
+.m{color:#555;font-size:13px}</style></head><body>
+<h1>ARCHIVED ${esc(LEVELS[path.length-1]).toUpperCase()}: ${esc(code)} — ${esc(node.title)}</h1>
+<p class="m">Archived ${new Date().toISOString().slice(0,10)} by ${esc(S.user.name)} (${esc(S.user.role)})
+ · Reporting period at archive: ${S.period}<br>Reason: ${esc(reason||'—')}</p>
+<h2>Roll-up by quarter</h2><table><tr><th>Period</th><th>Maturity</th></tr>${series}</table>
+${rows.join('\n')}
+<p class="m">Generated by the C1AA HQ Assessment Tool. This document preserves the complete
+nested record of the archived item, including all historical inputs, which were removed
+from the live data set at archive time.</p></body></html>`;
+}
+
+/**
+ * Delivery stub for the archive document.
+ * >>> TODO(BUILDER AI / PLNTR MAVEN) <<<
+ * The destination of record will be a folder in the MAVEN environment. Until
+ * then: POST to /api/archive (a backend stub that writes hq-assessment/archive/
+ * when its filesystem allows) and always hand the operator the file directly.
+ */
+function persistArchive(file,doc){
+  S._archiveDocs=S._archiveDocs||{}; S._archiveDocs[file]=doc;
+  try{
+    fetch('/api/archive',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:file,doc})}).catch(()=>{});
+  }catch(e){}
+  try{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([doc],{type:'text/html'}));
+    a.download=file; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  }catch(e){}
 }
 
 /**
@@ -3936,9 +4346,11 @@ function renderExecFrame(){
        +`task = mean of its indicators, IMO = mean of its tasks, LOE = mean of `
        +`its IMOs, overall = mean of the LOEs. ${f2(v)} of ${MAX_RATING} = ${pctOf(v)}%.`);
   m('STATUS', st.label.split(' ')[0], st.c, talTxt||'NOT ASSESSED',
-    'The colour each OPR set by hand, rolled up by taking the mean of the '
-   +'ordinals (red 1, yellow 2, green 3, blue 4) and rounding. Tally is of the '
-   +'indicators beneath this node.');
+    'The colour each OPR set by hand. Gray (not yet assessed) never counts. '
+   +'Blue is an archive recommendation, so it never pulls the average: a '
+   +'parent turns blue only when everything counted beneath it is blue. '
+   +'Otherwise the mean uses red 1, yellow 2, green 3 and rounds. Tally is '
+   +'of the indicators beneath this node.');
   m('Δ / QTR', fc.ok?`${fc.slope>0?'+':''}${f2(fc.slope)}`:'—',
     fc.ok?(fc.slope>=0?'#2fe08a':'#ff4d63'):null,
     fc.ok?(win.all?`OVER ${fc.n} QTR`:`${PERIODS[win.a].short}–${PERIODS[win.b].short}`):'NEEDS 2 QTR',
@@ -4203,6 +4615,64 @@ async function aiShorthand(title){
 /* =============================================================================
    [13] DATA TAB — shared indicator controls
    ========================================================================== */
+/**
+ * Recommendation composer for the directorates: an action, a target node,
+ * a comment, and send. The managing office receives it as an alert and acts
+ * on it there.
+ */
+function recPanel(){
+  const wrap=el('div','panel recwrap');
+  wrap.appendChild(el('div','eyebrow',
+    `Recommend a structure change to ${ADMIN_ROLE}`));
+  const row=el('div','recrow');
+
+  const act=document.createElement('select'); act.className='ctl';
+  [['add','ADD'],['modify','MODIFY'],['archive','ARCHIVE']].forEach(([v,t])=>{
+    const o=el('option','',t); o.value=v; act.appendChild(o);
+  });
+
+  const tgt=document.createElement('select'); tgt.className='ctl';
+  const fillTargets=()=>{
+    tgt.innerHTML='';
+    if(act.value==='add'){
+      const o0=el('option','','OVERALL — new LOE'); o0.value='OVERALL'; tgt.appendChild(o0);
+      nodeCatalog().filter(n=>n.level!=='Indicator').forEach(n=>{
+        const o=el('option','',`under ${n.code} — ${displayShort(nodeAt(n.path))||n.title}`);
+        o.value=n.code; tgt.appendChild(o);
+      });
+    }else{
+      nodeCatalog().forEach(n=>{
+        const o=el('option','',`${n.code} — ${displayShort(nodeAt(n.path))||n.title}`);
+        o.value=n.code; tgt.appendChild(o);
+      });
+    }
+  };
+  act.addEventListener('change',fillTargets);
+  fillTargets();
+  row.append(act,tgt);
+  wrap.appendChild(row);
+
+  const ta=el('textarea','cmt');
+  ta.placeholder='What should change, and why';
+  wrap.appendChild(ta);
+
+  const sr=el('div','saverow');
+  sr.appendChild(el('div','spacer'));
+  const send=el('button','btn btn-sm btn-save','SEND TO '+ADMIN_ROLE); send.type='button';
+  send.addEventListener('click',()=>{
+    if(act.value!=='archive' && !ta.value.trim()){
+      alert('Describe the change you are recommending.'); return;
+    }
+    sendRecommendation(act.value, tgt.value, ta.value);
+    ta.value='';
+    send.textContent='SENT'; send.disabled=true;
+    setTimeout(()=>{ send.textContent='SEND TO '+ADMIN_ROLE; send.disabled=false; },1400);
+  });
+  sr.appendChild(send);
+  wrap.appendChild(sr);
+  return wrap;
+}
+
 function renderDataBar(){
   const bar=$('#dataBar'); bar.innerHTML='';
   const isAdmin = S.user.admin;
@@ -4242,6 +4712,9 @@ function renderDataBar(){
   });
   bar.appendChild(lk);
 
+  if(!isAdmin){
+    bar.appendChild(recPanel());
+  }
   if(isAdmin){
     const rs=el('button','btn','RESET DEMO DATA'); rs.type='button';
     rs.addEventListener('click',()=>{
@@ -4307,9 +4780,10 @@ function ratingSlider(value, prev, onInput, disabled){
 }
 
 /** The 5 status swatches. */
-function statusPicker(current, onPick, disabled){
+function statusPicker(current, onPick, disabled, noGray){
   const pick=el('div','stat-pick');
   STATUS_ORDER.forEach(sk=>{
+    if(noGray && sk==='gray') return;
     const b=el('button','sp'); b.type='button'; b.dataset.s=sk;
     b.title=STATUS[sk].label;
     b.style.background=`linear-gradient(150deg,${STATUS[sk].c},${STATUS[sk].c2})`;
@@ -4508,7 +4982,7 @@ function renderOprView(root){
     row.appendChild(val);
     row.appendChild(statusPicker(d.s,(sk)=>{
       d.s=sk; renderData();
-    },locked));
+    },locked,true));
     cb.appendChild(row);
 
     // ---- OCR coordination, expanded from the card header
@@ -4590,7 +5064,8 @@ function renderOprView(root){
     rv.addEventListener('click',()=>{ dropDraft(period,role,ind.id); renderData(); });
     sr.appendChild(rv);
     const sv=el('button','btn btn-sm btn-save','SAVE INDICATOR'); sv.type='button';
-    sv.disabled=locked;
+    sv.disabled = locked || d.s==='gray';
+    if(d.s==='gray') sv.title='Select a status colour first';
     sv.addEventListener('click',()=>{
       if(saveIndicator(period,role,ind,code)){ renderData(); renderReports(); }
     });
@@ -4866,6 +5341,15 @@ function nodeHeader(path,node,kind,onDel){
   mini.appendChild(f); h.appendChild(mini);
   h.appendChild(el('div','pct', v==null?'—':pctOf(v)+'%'));
 
+  const ar=el('button','btn-arc','ARCHIVE'); ar.type='button';
+  ar.title='Archive: write the narrative record, then remove the node and all its history';
+  ar.addEventListener('click',()=>{
+    if(!confirm(`Archive ${codeOf(path)} "${node.title}"?\n\nA narrative document preserving every rating, comment and OCR note is written to the archive folder, then the ${LEVELS[path.length-1]} and ALL of its history are removed so they no longer influence rollups, trends or forecasts.`)) return;
+    archiveNode(path,`Archived by ${S.user.name} (${S.user.role})`);
+    save(); renderAll();
+  });
+  h.appendChild(ar);
+
   const d=el('button','btn-del','×'); d.type='button'; d.title='Delete';
   d.addEventListener('click',()=>{
     if(confirm(`Delete ${codeOf(path)} and everything beneath it?`)) onDel();
@@ -4911,7 +5395,8 @@ function queueSave(){ clearTimeout(_saveT); _saveT=setTimeout(save,420); }
 
 function exportJson(){
   const blob=new Blob([JSON.stringify({tree:S.tree,entries:S.entries,ocr:S.ocr,
-    alerts:S.alerts,locks:S.locks,v:3},null,2)],{type:'application/json'});
+    alerts:S.alerts,locks:S.locks,recs:S.recs,archives:S.archives,v:3},null,2)],
+    {type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=`c1aa-assessment-${S.period}.json`;
@@ -5126,6 +5611,27 @@ function renderAlerts(){
     if(a.body){ const b=el('div','alert-b'); b.textContent=a.body; w.appendChild(b); }
     const ft=el('div','saverow');
     ft.appendChild(el('div','spacer'));
+    if(a.kind==='structure_rec'){
+      const rec=(S.recs||[]).find(r=>r.id===a.recId);
+      if(!rec){
+        ft.appendChild(el('span','rec-pill','RECORD MISSING'));
+      }else if(rec.status!=='pending'){
+        const pill=el('span','rec-pill '+(rec.status==='applied'?'ok':'no'),
+          `${rec.status.toUpperCase()} · ${rec.resolvedBy||''} ${String(rec.resolvedTs||'').slice(0,10)}`);
+        ft.appendChild(pill);
+      }else if(S.recBusy===rec.id){
+        ft.appendChild(el('span','rec-pill busy','APPLYING…'));
+      }else if(S.user.admin){
+        const ok=el('button','btn btn-sm btn-accept','ACCEPT & APPLY (AI)'); ok.type='button';
+        ok.addEventListener('click',()=>acceptRecommendation(rec,a));
+        const no=el('button','btn btn-sm btn-reject','REJECT'); no.type='button';
+        no.addEventListener('click',()=>{
+          if(confirm(`Reject the ${rec.action.toUpperCase()} ${rec.targetCode} recommendation from ${rec.office}?`))
+            rejectRecommendation(rec,a);
+        });
+        ft.appendChild(ok); ft.appendChild(no);
+      }
+    }
     if(a.indId){
       const go=el('button','btn btn-sm','VIEW IN REPORTS'); go.type='button';
       go.addEventListener('click',()=>{
@@ -5288,6 +5794,47 @@ function renderManagement(){
   });
   if(unf.length>40) inh.appendChild(el('div','cov',`… and ${unf.length-40} more`));
   rb.appendChild(inh);
+
+  /* ---- archive register ---------------------------------------------------
+     Metadata for every archived node. The narrative documents themselves live
+     in the archive folder beside this page (until the MAVEN folder takes
+     over); documents written this session can be re-downloaded from memory. */
+  const arc=el('div','ocrbox');
+  arc.appendChild(el('div','eyebrow',
+    `Archive register — ${(S.archives||[]).length} item${(S.archives||[]).length===1?'':'s'}`));
+  if(!(S.archives||[]).length){
+    arc.appendChild(el('div','cov','Nothing archived yet. Use the ARCHIVE button on any LOE, IMO, task or indicator in the structure view.'));
+  }else{
+    arc.appendChild(el('div','cov',
+      'Each entry is a self-contained narrative document preserving the full nested record, including all history. Archiving removed that history from the working data.'));
+    S.archives.slice().reverse().forEach(m=>{
+      const row=el('div','arc-row');
+      const head=el('div','arc-head');
+      head.appendChild(el('span','arc-code',m.code));
+      head.appendChild(el('span','arc-lv',String(m.level||'').toUpperCase()));
+      head.appendChild(el('span','arc-ti',m.title||''));
+      row.appendChild(head);
+      row.appendChild(el('div','cov',
+        `${String(m.ts).slice(0,10)} · by ${m.by} · ${m.file}${m.reason?' · '+m.reason:''}`));
+      const act=el('div','saverow'); act.appendChild(el('div','spacer'));
+      const doc=(S._archiveDocs||{})[m.file];
+      if(doc){
+        const dl=el('button','btn btn-sm','DOWNLOAD DOCUMENT'); dl.type='button';
+        dl.addEventListener('click',()=>{
+          const a=document.createElement('a');
+          a.href=URL.createObjectURL(new Blob([doc],{type:'text/html'}));
+          a.download=m.file; a.click();
+          setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+        });
+        act.appendChild(dl);
+      }else{
+        act.appendChild(el('span','cov','Document written at archive time (this session no longer holds a copy).'));
+      }
+      row.appendChild(act);
+      arc.appendChild(row);
+    });
+  }
+  rb.appendChild(arc);
 }
 
 /* =============================================================================
